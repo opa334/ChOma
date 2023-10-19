@@ -57,6 +57,12 @@ void fetchSlices(MachO *macho)
                     slicesM[i] = slice;
                 } else {
                     printf("Error: invalid magic 0x%x for mach header at offset 0x%llx\n", machHeader.magic, arch64.offset);
+                    return;
+                }
+
+                if (machHeader.sizeofcmds % 8 != 0) {
+                    printf("Error: sizeofcmds is not a multiple of 8\n");
+                    return;
                 }
             }
             else
@@ -90,6 +96,7 @@ void fetchSlices(MachO *macho)
                     slicesM[i] = slice;
                 } else {
                     printf("Error: invalid magic 0x%x for mach header at offset 0x%llx\n", machHeader.magic, arch64.offset);
+                    return;
                 }
                 // printf("machHeader.magic: 0x%x\n", machHeader.magic);
                 // printf("machHeader.cputype: %d\n", machHeader.cputype);
@@ -100,19 +107,19 @@ void fetchSlices(MachO *macho)
                 // printf("machHeader.flags: 0x%x\n", machHeader.flags);
                 // printf("machHeader.reserved: %d\n", machHeader.reserved);
 
-                
+                if (machHeader.sizeofcmds % 8 != 0) {
+                    printf("Error: sizeofcmds is not a multiple of 8\n");
+                    return;
+                }
             }
         }
         macho->_sliceCount = fatHeader.nfat_arch;
         printf("%zu slices\n", macho->_sliceCount);
         macho->_slices = slicesM;
     } else {
-        printf("64\n");
         struct mach_header_64 machHeader;
         readMachOAtOffset(macho, 0, sizeof(machHeader), &machHeader);
         MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, APPLY_BIG_TO_HOST);
-        printf("Applied magic: 0x%x\n", machHeader.magic);
-        printf("ncmds: %d\n", machHeader.ncmds);
         if (machHeader.magic == MH_MAGIC || machHeader.magic == MH_MAGIC_64) {
             struct fat_arch_64 fakeArch = {0};
             fakeArch.cpusubtype = machHeader.cpusubtype;
@@ -120,7 +127,6 @@ void fetchSlices(MachO *macho)
             fakeArch.offset = 0;
             fakeArch.size = macho->_fileSize;
             fakeArch.align = 0x4000;
-            printf("1 slice\n");
             macho->_slices = malloc(sizeof(MachOSlice));
             macho->_slices[0]._archDescriptor = fakeArch;
             macho->_slices[0]._machHeader = machHeader;
