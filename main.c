@@ -4,7 +4,11 @@
 
 int main(int argc, char *argv[]) {
     int ret;
-    MachO macho = initMachOWithPath("test", &ret);
+    if (argc != 2) {
+        printf("Usage: %s <path to MachO file>\n", argv[0]);
+        return 1;
+    }
+    MachO macho = initMachOWithPath(argv[1], &ret);
     if (ret != 0) {
         printf("Error: %d\n", ret);
         return 1;
