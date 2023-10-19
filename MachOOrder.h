@@ -1,7 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// 8-bit integers needed for CodeDirectory
 #define BIG_TO_HOST(n) _Generic((n), \
+    int8_t: n, \
+    uint8_t: n, \
     int16_t: OSSwapBigToHostInt16(n), \
     uint16_t: OSSwapBigToHostInt16(n), \
     int32_t: OSSwapBigToHostInt32(n), \

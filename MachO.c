@@ -1,7 +1,8 @@
-#include "MachO.h"
-#include "MachOOrder.h"
 #include <stdbool.h>
 #include <assert.h>
+
+#include "MachO.h"
+#include "MachOOrder.h"
 
 int readMachOAtOffset(MachO *macho, uint64_t offset, size_t size, void *outputBuffer)
 {
@@ -16,14 +17,15 @@ void fetchSlices(MachO *macho)
     readMachOAtOffset(macho, 0, sizeof(fatHeader), &fatHeader);
     FAT_HEADER_APPLY_BYTE_ORDER(&fatHeader, APPLY_BIG_TO_HOST);
     printf("FAT header magic: 0x%x\n", fatHeader.magic);
-    printf("FAT header number of archs: %d\n", fatHeader.nfat_arch);
     if (fatHeader.magic == FAT_MAGIC || fatHeader.magic == FAT_MAGIC_64)
     {
         bool is64 = fatHeader.magic == FAT_MAGIC_64;
         MachOSlice *slicesM;
+        printf("Number of slices: %d\n", fatHeader.nfat_arch);
         slicesM = malloc(sizeof(MachOSlice) * fatHeader.nfat_arch);
         for (uint32_t i = 0; i < fatHeader.nfat_arch; i++)
         {
+            printf("Parsing slice %d\n", i + 1);
             struct fat_arch_64 arch64 = {0};
             if (is64)
             {
@@ -38,7 +40,7 @@ void fetchSlices(MachO *macho)
 
                 struct mach_header_64 machHeader;
                 readMachOAtOffset(macho, arch64.offset, sizeof(machHeader), &machHeader);
-                MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, APPLY_LITTLE_TO_HOST);
+                MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, APPLY_BIG_TO_HOST);
                 // printf("machHeader.magic: 0x%x\n", machHeader.magic);
                 // printf("machHeader.cputype: %d\n", machHeader.cputype);
                 // printf("machHeader.cpusubtype: %d\n", machHeader.cpusubtype);
@@ -47,7 +49,6 @@ void fetchSlices(MachO *macho)
                 // printf("machHeader.sizeofcmds: %d\n", machHeader.sizeofcmds);
                 // printf("machHeader.flags: 0x%x\n", machHeader.flags);
                 // printf("machHeader.reserved: %d\n", machHeader.reserved);
-
                 if (machHeader.magic == MH_MAGIC_64 || machHeader.magic == MH_MAGIC)
                 {
                     MachOSlice slice;
@@ -55,7 +56,7 @@ void fetchSlices(MachO *macho)
                     slice._machHeader = machHeader;
                     slicesM[i] = slice;
                 } else {
-                    printf("Error: invalid magic for mach header at offset 0x%llx\n", arch64.offset);
+                    printf("Error: invalid magic 0x%x for mach header at offset 0x%llx\n", machHeader.magic, arch64.offset);
                 }
             }
             else
@@ -88,7 +89,7 @@ void fetchSlices(MachO *macho)
                     slice._machHeader = machHeader;
                     slicesM[i] = slice;
                 } else {
-                    printf("Error: invalid magic for mach header at offset 0x%llx\n", arch64.offset);
+                    printf("Error: invalid magic 0x%x for mach header at offset 0x%llx\n", machHeader.magic, arch64.offset);
                 }
                 // printf("machHeader.magic: 0x%x\n", machHeader.magic);
                 // printf("machHeader.cputype: %d\n", machHeader.cputype);
@@ -106,9 +107,12 @@ void fetchSlices(MachO *macho)
         printf("%zu slices\n", macho->_sliceCount);
         macho->_slices = slicesM;
     } else {
+        printf("64\n");
         struct mach_header_64 machHeader;
         readMachOAtOffset(macho, 0, sizeof(machHeader), &machHeader);
-        MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, APPLY_LITTLE_TO_HOST);
+        MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, APPLY_BIG_TO_HOST);
+        printf("Applied magic: 0x%x\n", machHeader.magic);
+        printf("ncmds: %d\n", machHeader.ncmds);
         if (machHeader.magic == MH_MAGIC || machHeader.magic == MH_MAGIC_64) {
             struct fat_arch_64 fakeArch = {0};
             fakeArch.cpusubtype = machHeader.cpusubtype;

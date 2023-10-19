@@ -5,14 +5,9 @@
 #include <mach-o/fat.h>
 #include <sys/stat.h>
 
-// #include "MachOLoadCommand.h"
+#include "MachOSlice.h"
 
-typedef struct MachOSlice {
-    struct mach_header_64 _machHeader;
-    struct fat_arch_64 _archDescriptor;
-    struct load_command *_loadCommands;
-} MachOSlice;
-
+// Main MachO structurre
 typedef struct MachO
 {
     FILE *_file;
@@ -22,6 +17,11 @@ typedef struct MachO
     int _fileDescriptor;
 } MachO;
 
+// Initialise a MachO structure using the path to the file
 MachO initMachOWithPath(const char *filePath, int *ret);
+
+// Read data from the MachO file at a given offset
 int readMachOAtOffset(MachO *macho, uint64_t offset, size_t size, void *outputBuffer);
+
+// Free all elements of the MachO structure
 void freeMachO(MachO *macho);

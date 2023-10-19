@@ -1,11 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "MachO.h"
+#include "MachOOrder.h"
+#include "MachOLoadCommand.h"
+
+// Blob index
 typedef struct __BlobIndex {
 	uint32_t type;
 	uint32_t offset;
 } CS_BlobIndex;
 
+// CMS superblob
 typedef struct __SuperBlob {
 	uint32_t magic;
 	uint32_t length;
@@ -13,7 +19,8 @@ typedef struct __SuperBlob {
 	CS_BlobIndex *index;
 } CS_SuperBlob;
 
-struct {
+// Code directory blob header
+typedef struct __CodeDirectory {
 	uint32_t magic;
 	uint32_t length;
 	uint32_t version;
@@ -30,6 +37,7 @@ struct {
 	uint32_t spare2;
 } CS_CodeDirectory;
 
+// CMS blob magic types
 enum {
     CSBLOB_REQUIREMENT = 0xfade0c00,
     CSBLOB_REQUIREMENTS = 0xfade0c01,
@@ -40,3 +48,12 @@ enum {
     CSBLOB_DER_ENTITLEMENTS = 0xfade7172,
     CSBLOB_SIGNATURE_BLOB = 0xfade0b01
 } CS_BlobType;
+
+// Forward declaration
+struct lc_code_signature;
+
+// Convert blob magic to readable blob type string
+char *csBlobMagicToReadableString(int magic);
+
+// Retrieve CMS superblob from slice
+void parseSuperBlob(MachO *macho, int sliceIndex, CS_SuperBlob *superblob);
