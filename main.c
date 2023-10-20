@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
     printf("File descriptor: %d.\n", macho._fileDescriptor);
     printf("Slice count: %zu.\n", macho._sliceCount);
     CS_SuperBlob *superblob = malloc(sizeof(CS_SuperBlob));
-    parseSuperBlob(&macho, 0, superblob);
+    if (parseSuperBlob(&macho, 0, superblob) != 0) { return -1; }
     freeMachO(&macho);
     return 0;
 }

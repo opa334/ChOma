@@ -25,7 +25,7 @@ char *csBlobMagicToReadableString(int magic) {
 }
 
 
-void parseSuperBlob(MachO *macho, int sliceIndex, CS_SuperBlob *superblob) {
+int parseSuperBlob(MachO *macho, int sliceIndex, CS_SuperBlob *superblob) {
 	printf("Slice mach header magic: 0x%x.\n", macho->_slices[sliceIndex]._machHeader.magic);
 	uint32_t offset = macho->_slices[sliceIndex]._archDescriptor.offset + sizeof(struct mach_header_64);
 	for (int j = 0; j < macho->_slices[sliceIndex]._machHeader.ncmds; j++) {
@@ -44,7 +44,7 @@ void parseSuperBlob(MachO *macho, int sliceIndex, CS_SuperBlob *superblob) {
 			SUPERBLOB_APPLY_BYTE_ORDER(&superblobLocal, APPLY_BIG_TO_HOST);
 			if (superblobLocal.magic != CSBLOB_EMBEDDED_SIGNATURE) {
 				printf("Error: incorrect superblob magic 0x%x.\n", superblobLocal.magic);
-				return;
+				return -1;
 			}
 			printf("Superblob magic: 0x%x.\n", superblobLocal.magic);
 			for (int blobCount = 0; blobCount < superblobLocal.count; blobCount++) {
@@ -73,4 +73,5 @@ void parseSuperBlob(MachO *macho, int sliceIndex, CS_SuperBlob *superblob) {
 		}
 		offset += loadCommand.cmdsize;
 	}
+	return 0;
 }
