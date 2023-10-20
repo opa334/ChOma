@@ -17,7 +17,7 @@ int fetchSlices(MachO *macho)
     struct fat_header fatHeader;
     readMachOAtOffset(macho, 0, sizeof(fatHeader), &fatHeader);
     FAT_HEADER_APPLY_BYTE_ORDER(&fatHeader, APPLY_BIG_TO_HOST);
-    printf("FAT header magic: 0x%x.\n", fatHeader.magic);
+    printf("FAT header found! Magic: 0x%x.\n", fatHeader.magic);
 
     // Check if the file is a FAT file
     if (fatHeader.magic == FAT_MAGIC || fatHeader.magic == FAT_MAGIC_64)
@@ -74,6 +74,11 @@ int fetchSlices(MachO *macho)
                 readMachOAtOffset(macho, sizeof(struct fat_header) + i * sizeof(arch), sizeof(arch), &arch);
                 FAT_ARCH_APPLY_BYTE_ORDER(&arch, APPLY_BIG_TO_HOST);
 
+                if (arch.cpusubtype == 0x9) {
+                    printf("Error: binaries with ARMv7 slices not supported!\n");
+                    return -1;
+                }
+
                 // Create the arch descriptor structure
                 arch64 = (struct fat_arch_64){
                     .cputype = arch.cputype,
@@ -107,11 +112,13 @@ int fetchSlices(MachO *macho)
                     printf("Error: sizeofcmds is not a multiple of 8.\n");
                     return -1;
                 }
+                
             }
         }
 
         // Add the new slices to the MachO structure
         macho->_sliceCount = fatHeader.nfat_arch;
+        printf("Found %zu valid slices.\n", macho->_sliceCount);
         macho->_slices = slicesM;
 
     } else {
@@ -123,8 +130,15 @@ int fetchSlices(MachO *macho)
 
         // Check the magic against the expected values
         if (machHeader.magic == MH_MAGIC || machHeader.magic == MH_MAGIC_64) {
+            
             // Create a FAT arch structure and populate it
             struct fat_arch_64 fakeArch = {0};
+
+            if (machHeader.cpusubtype == 0x9) {
+                printf("Error: binaries compiled for ARMv7 not supported!\n");
+                return -1;
+            }
+
             fakeArch.cpusubtype = machHeader.cpusubtype;
             fakeArch.cputype = machHeader.cputype;
             fakeArch.offset = 0;

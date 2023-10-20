@@ -21,7 +21,7 @@ char *loadCommandToName(int loadCommand) {
             return "LC_IDENT";
         case LC_FVMFILE:
             return "LC_FVMFILE";
-        case LC_PREPAGE:      
+        case LC_PREPAGE:
             return "LC_PREPAGE";
         case LC_DYSYMTAB:
             return "LC_DYSYMTAB";
