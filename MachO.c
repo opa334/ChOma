@@ -146,26 +146,25 @@ void freeMachO(MachO *macho)
     }
 }
 
-MachO initMachOWithPath(const char *filePath, int *ret)
+int initMachOWithPath(const char *filePath, MachO *machoOut)
 {
     MachO macho;
     struct stat s;
     if (stat(filePath, &s) != 0)
     {
-        *ret = -1;
         printf("Error: could not stat %s.\n", filePath);
-        return macho;
+        return -1;
     }
     macho._fileSize = s.st_size;
     macho._file = fopen(filePath, "rb");
     if (!macho._file)
     {
-        *ret = -1;
-        return macho;
+        printf("Error: could not open %s.\n", filePath);
+        return -1;
     }
     macho._fileDescriptor = fileno(macho._file);
-    if (fetchSlices(&macho) != 0) { *ret = -1; return macho; }
-    if (populateMachOLoadCommands(&macho) != 0) { *ret = -1; return macho; }
-    *ret = 0;
-    return macho;
+    if (fetchSlices(&macho) != 0) { return -1; }
+    if (populateMachOLoadCommands(&macho) != 0) { return -1; }
+    *machoOut = macho;
+    return 0;
 }

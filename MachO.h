@@ -18,7 +18,7 @@ typedef struct MachO
 } MachO;
 
 // Initialise a MachO structure using the path to the file
-MachO initMachOWithPath(const char *filePath, int *ret);
+int initMachOWithPath(const char *filePath, MachO *machoOut);
 
 // Read data from the MachO file at a given offset
 int readMachOAtOffset(MachO *macho, uint64_t offset, size_t size, void *outputBuffer);
