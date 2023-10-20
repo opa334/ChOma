@@ -25,11 +25,9 @@ int fetchSlices(MachO *macho)
             printf("Error: invalid number of slices (%d), this likely means you are not using an iOS MachO.\n", fatHeader.nfat_arch);
             return -1;
         }
-        printf("Number of slices: %d.\n", fatHeader.nfat_arch);
         slicesM = malloc(sizeof(MachOSlice) * fatHeader.nfat_arch);
         for (uint32_t i = 0; i < fatHeader.nfat_arch; i++)
         {
-            printf("Parsing slice %d.\n", i + 1);
             struct fat_arch_64 arch64 = {0};
             if (is64)
             {
@@ -89,7 +87,6 @@ int fetchSlices(MachO *macho)
             }
         }
         macho->_sliceCount = fatHeader.nfat_arch;
-        printf("%zu slices\n", macho->_sliceCount);
         macho->_slices = slicesM;
     } else {
         struct mach_header_64 machHeader;
@@ -165,6 +162,7 @@ int initMachOWithPath(const char *filePath, MachO *machoOut)
     macho._fileDescriptor = fileno(macho._file);
     if (fetchSlices(&macho) != 0) { return -1; }
     if (populateMachOLoadCommands(&macho) != 0) { return -1; }
+    printf("File size 0x%zx bytes, slice count %zu.\n", macho._fileSize, macho._sliceCount);
     *machoOut = macho;
     return 0;
 }

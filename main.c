@@ -9,9 +9,6 @@ int main(int argc, char *argv[]) {
     }
     MachO macho;
     if (initMachOWithPath(argv[1], &macho) != 0) { return -1; }
-    printf("File size: 0x%zx bytes.\n", macho._fileSize);
-    printf("File descriptor: %d.\n", macho._fileDescriptor);
-    printf("Slice count: %zu.\n", macho._sliceCount);
     CS_SuperBlob *superblob = malloc(sizeof(CS_SuperBlob));
     if (parseSuperBlob(&macho, 0, superblob) != 0) { return -1; }
     freeMachO(&macho);

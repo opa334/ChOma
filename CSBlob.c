@@ -26,7 +26,6 @@ char *csBlobMagicToReadableString(int magic) {
 
 
 int parseSuperBlob(MachO *macho, int sliceIndex, CS_SuperBlob *superblob) {
-	printf("Slice mach header magic: 0x%x.\n", macho->_slices[sliceIndex]._machHeader.magic);
 	uint32_t offset = macho->_slices[sliceIndex]._archDescriptor.offset + sizeof(struct mach_header_64);
 	for (int j = 0; j < macho->_slices[sliceIndex]._machHeader.ncmds; j++) {
 		struct load_command loadCommand = macho->_slices[sliceIndex]._loadCommands[j];
@@ -34,7 +33,6 @@ int parseSuperBlob(MachO *macho, int sliceIndex, CS_SuperBlob *superblob) {
 			printf("Unknown load command at load command %d, 0x%x.\n", j + 1, loadCommand.cmd);
 		}
 		if (strcmp(loadCommandToName(loadCommand.cmd), "LC_CODE_SIGNATURE") == 0) {
-			printf("Found code signature load command!\n");
 			struct lc_code_signature *codeSignature = malloc(sizeof(struct lc_code_signature));
 			readMachOAtOffset(macho, offset, sizeof(struct lc_code_signature), codeSignature);
 			uint32_t csBlobOffset = macho->_slices[sliceIndex]._archDescriptor.offset + codeSignature->dataoff;
@@ -46,7 +44,6 @@ int parseSuperBlob(MachO *macho, int sliceIndex, CS_SuperBlob *superblob) {
 				printf("Error: incorrect superblob magic 0x%x.\n", superblobLocal.magic);
 				return -1;
 			}
-			printf("Superblob magic: 0x%x.\n", superblobLocal.magic);
 			for (int blobCount = 0; blobCount < superblobLocal.count; blobCount++) {
 				CS_BlobIndex *blobIndex = malloc(sizeof(CS_BlobIndex));
 				//                    Superblob      Start of index array                    Current blob
@@ -56,20 +53,18 @@ int parseSuperBlob(MachO *macho, int sliceIndex, CS_SuperBlob *superblob) {
 				uint32_t blobMagic = 0;
 				readMachOAtOffset(macho, csBlobOffset + blobIndex->offset, sizeof(uint32_t), &blobMagic);
 				blobMagic = BIG_TO_HOST(blobMagic);
-				printf("Blob %d: %s at 0x%x.\n", blobCount + 1, csBlobMagicToReadableString(blobMagic), blobIndex->offset);
 				if (blobMagic == CSBLOB_CODEDIRECTORY) {
 					CS_CodeDirectory *codeDirectory = malloc(sizeof(CS_CodeDirectory));
 					readMachOAtOffset(macho, csBlobOffset + blobIndex->offset, sizeof(CS_CodeDirectory), codeDirectory);
 					CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, APPLY_BIG_TO_HOST);
-					printf("Code directory magic: 0x%x.\n", codeDirectory->magic);
-					printf("Hash offset: 0x%x.\n", codeDirectory->hashOffset);
+					printf("Blob %d: %s at 0x%x (magic 0x%x, hash offset 0x%x).\n", blobCount + 1, csBlobMagicToReadableString(blobMagic), blobIndex->offset, codeDirectory->magic, codeDirectory->hashOffset);
 					free(codeDirectory);
+				} else {
+					printf("Blob %d: %s at 0x%x (magic 0x%x).\n", blobCount + 1, csBlobMagicToReadableString(blobMagic), blobIndex->offset, blobMagic);
 				}
-				printf("Blob magic: 0x%x.\n", blobMagic);
 				free(blobIndex);
 			}
             superblob = &superblobLocal;
-
 		}
 		offset += loadCommand.cmdsize;
 	}
