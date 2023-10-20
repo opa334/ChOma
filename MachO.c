@@ -11,44 +11,34 @@ int readMachOAtOffset(MachO *macho, uint64_t offset, size_t size, void *outputBu
     return 0;
 }
 
-void fetchSlices(MachO *macho)
+int fetchSlices(MachO *macho)
 {
     struct fat_header fatHeader;
     readMachOAtOffset(macho, 0, sizeof(fatHeader), &fatHeader);
     FAT_HEADER_APPLY_BYTE_ORDER(&fatHeader, APPLY_BIG_TO_HOST);
-    printf("FAT header magic: 0x%x\n", fatHeader.magic);
+    printf("FAT header magic: 0x%x.\n", fatHeader.magic);
     if (fatHeader.magic == FAT_MAGIC || fatHeader.magic == FAT_MAGIC_64)
     {
         bool is64 = fatHeader.magic == FAT_MAGIC_64;
         MachOSlice *slicesM;
-        printf("Number of slices: %d\n", fatHeader.nfat_arch);
+        if (fatHeader.nfat_arch > 5 || fatHeader.nfat_arch < 1) {
+            printf("Error: invalid number of slices (%d), this likely means you are not using an iOS MachO.\n", fatHeader.nfat_arch);
+            return -1;
+        }
+        printf("Number of slices: %d.\n", fatHeader.nfat_arch);
         slicesM = malloc(sizeof(MachOSlice) * fatHeader.nfat_arch);
         for (uint32_t i = 0; i < fatHeader.nfat_arch; i++)
         {
-            printf("Parsing slice %d\n", i + 1);
+            printf("Parsing slice %d.\n", i + 1);
             struct fat_arch_64 arch64 = {0};
             if (is64)
             {
                 readMachOAtOffset(macho, sizeof(struct fat_header) + i * sizeof(arch64), sizeof(arch64), &arch64);
                 FAT_ARCH_64_APPLY_BYTE_ORDER(&arch64, APPLY_BIG_TO_HOST);
-                // printf("arch64.cputype: %d\n", arch64.cputype);
-                // printf("arch64.cpusubtype: %d\n", arch64.cpusubtype);
-                // printf("arch64.offset: 0x%llx\n", arch64.offset);
-                // printf("arch64.size: %llu\n", arch64.size);
-                // printf("arch64.align: %d\n", arch64.align);
-                // printf("arch64.reserved: %d\n", arch64.reserved);
 
                 struct mach_header_64 machHeader;
                 readMachOAtOffset(macho, arch64.offset, sizeof(machHeader), &machHeader);
                 MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, APPLY_BIG_TO_HOST);
-                // printf("machHeader.magic: 0x%x\n", machHeader.magic);
-                // printf("machHeader.cputype: %d\n", machHeader.cputype);
-                // printf("machHeader.cpusubtype: %d\n", machHeader.cpusubtype);
-                // printf("machHeader.filetype: %d\n", machHeader.filetype);
-                // printf("machHeader.ncmds: %d\n", machHeader.ncmds);
-                // printf("machHeader.sizeofcmds: %d\n", machHeader.sizeofcmds);
-                // printf("machHeader.flags: 0x%x\n", machHeader.flags);
-                // printf("machHeader.reserved: %d\n", machHeader.reserved);
                 if (machHeader.magic == MH_MAGIC_64 || machHeader.magic == MH_MAGIC)
                 {
                     MachOSlice slice;
@@ -56,13 +46,13 @@ void fetchSlices(MachO *macho)
                     slice._machHeader = machHeader;
                     slicesM[i] = slice;
                 } else {
-                    printf("Error: invalid magic 0x%x for mach header at offset 0x%llx\n", machHeader.magic, arch64.offset);
-                    return;
+                    printf("Error: invalid magic 0x%x for mach header at offset 0x%llx.\n", machHeader.magic, arch64.offset);
+                    return -1;
                 }
 
                 if (machHeader.sizeofcmds % 8 != 0) {
-                    printf("Error: sizeofcmds is not a multiple of 8\n");
-                    return;
+                    printf("Error: sizeofcmds is not a multiple of 8.\n");
+                    return -1;
                 }
             }
             else
@@ -78,13 +68,6 @@ void fetchSlices(MachO *macho)
                     .align = arch.align,
                     .reserved = 0,
                 };
-                // printf("arch64.cputype: %d\n", arch64.cputype);
-                // printf("arch64.cpusubtype: %d\n", arch64.cpusubtype);
-                // printf("arch64.offset: 0x%llx\n", arch64.offset);
-                // printf("arch64.size: %llu\n", arch64.size);
-                // printf("arch64.align: %d\n", arch64.align);
-                // printf("arch64.reserved: %d\n", arch64.reserved);
-
                 struct mach_header_64 machHeader;
                 readMachOAtOffset(macho, arch64.offset, sizeof(machHeader), &machHeader);
                 MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, APPLY_LITTLE_TO_HOST);
@@ -95,21 +78,13 @@ void fetchSlices(MachO *macho)
                     slice._machHeader = machHeader;
                     slicesM[i] = slice;
                 } else {
-                    printf("Error: invalid magic 0x%x for mach header at offset 0x%llx\n", machHeader.magic, arch64.offset);
-                    return;
+                    printf("Error: invalid magic 0x%x for mach header at offset 0x%llx.\n", machHeader.magic, arch64.offset);
+                    return -1;
                 }
-                // printf("machHeader.magic: 0x%x\n", machHeader.magic);
-                // printf("machHeader.cputype: %d\n", machHeader.cputype);
-                // printf("machHeader.cpusubtype: %d\n", machHeader.cpusubtype);
-                // printf("machHeader.filetype: %d\n", machHeader.filetype);
-                // printf("machHeader.ncmds: %d\n", machHeader.ncmds);
-                // printf("machHeader.sizeofcmds: %d\n", machHeader.sizeofcmds);
-                // printf("machHeader.flags: 0x%x\n", machHeader.flags);
-                // printf("machHeader.reserved: %d\n", machHeader.reserved);
 
                 if (machHeader.sizeofcmds % 8 != 0) {
-                    printf("Error: sizeofcmds is not a multiple of 8\n");
-                    return;
+                    printf("Error: sizeofcmds is not a multiple of 8.\n");
+                    return -1;
                 }
             }
         }
@@ -133,23 +108,28 @@ void fetchSlices(MachO *macho)
             macho->_sliceCount = 1;
         }
     }
+    return 0;
 }
 
-void populateMachOLoadCommands(MachO *macho) {
+int populateMachOLoadCommands(MachO *macho) {
     for (int i = 0; i < macho->_sliceCount; i++) {
         MachOSlice *slice = &macho->_slices[i];
-        printf("Parsing %d load commands for slice %d\n", slice->_machHeader.ncmds, i + 1);
+        if (slice->_machHeader.ncmds < 1 || slice->_machHeader.ncmds > 1000) {
+            printf("Error: invalid number of load commands (%d).\n", slice->_machHeader.ncmds);
+            return -1;
+        }
+        printf("Parsing %d load commands for slice %d.\n", slice->_machHeader.ncmds, i + 1);
         slice->_loadCommands = malloc(slice->_machHeader.sizeofcmds);
         uint64_t offset = macho->_slices[i]._archDescriptor.offset + sizeof(struct mach_header_64);
         for (int j = 0; j < slice->_machHeader.ncmds; j++) {
             struct load_command loadCommand;
             readMachOAtOffset(macho, offset, sizeof(loadCommand), &loadCommand);
-            // printf("cmd: 0x%x, cmdsize: 0x%x\n", loadCommand.cmd, loadCommand.cmdsize);
             LOAD_COMMAND_APPLY_BYTE_ORDER(&loadCommand, APPLY_LITTLE_TO_HOST);
             slice->_loadCommands[j] = loadCommand;
             offset += loadCommand.cmdsize;
         }
     }
+    return 0;
 }
 
 void freeMachO(MachO *macho)
@@ -173,7 +153,7 @@ MachO initMachOWithPath(const char *filePath, int *ret)
     if (stat(filePath, &s) != 0)
     {
         *ret = -1;
-        printf("Error: could not stat %s\n", filePath);
+        printf("Error: could not stat %s.\n", filePath);
         return macho;
     }
     macho._fileSize = s.st_size;
@@ -184,8 +164,8 @@ MachO initMachOWithPath(const char *filePath, int *ret)
         return macho;
     }
     macho._fileDescriptor = fileno(macho._file);
-    fetchSlices(&macho);
-    populateMachOLoadCommands(&macho);
+    if (fetchSlices(&macho) != 0) { *ret = -1; return macho; }
+    if (populateMachOLoadCommands(&macho) != 0) { *ret = -1; return macho; }
     *ret = 0;
     return macho;
 }
