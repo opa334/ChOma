@@ -14,11 +14,12 @@ int main(int argc, char *argv[]) {
     if (initMachOWithPath(argv[1], &macho) != 0) { return -1; }
 
     // Parse the code signature blob
-    CS_SuperBlob *superblob = malloc(sizeof(CS_SuperBlob));
-    if (parseSuperBlob(&macho, 0, superblob) != 0) { return -1; }
+    for (int sliceIndex = 0; sliceIndex < macho._sliceCount; sliceIndex++) {
+        if (parseSuperBlob(&macho, 0, NULL) != 0) { return -1; }
+    }
 
     // Free the MachO structure
     freeMachO(&macho);
-    
+
     return 0;
 }

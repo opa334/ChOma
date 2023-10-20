@@ -35,6 +35,7 @@ int parseSuperBlob(MachO *macho, int sliceIndex, CS_SuperBlob *superblob) {
 
 		struct load_command loadCommand = macho->_slices[sliceIndex]._loadCommands[j];
 
+		// Check if the load command is unknown
 		if (strcmp(loadCommandToName(loadCommand.cmd), "LC_UNKNOWN") == 0) {
 			printf("Unknown load command at load command %d, 0x%x.\n", j + 1, loadCommand.cmd);
 		}
@@ -79,7 +80,7 @@ int parseSuperBlob(MachO *macho, int sliceIndex, CS_SuperBlob *superblob) {
 					CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, APPLY_BIG_TO_HOST);
 					printf("Blob %d: %s at 0x%x (magic 0x%x, hash offset 0x%x).\n", blobCount + 1, csBlobMagicToReadableString(blobMagic), blobIndex->offset, codeDirectory->magic, codeDirectory->hashOffset);
 					free(codeDirectory);
-					
+
 				} else {
 					printf("Blob %d: %s at 0x%x (magic 0x%x).\n", blobCount + 1, csBlobMagicToReadableString(blobMagic), blobIndex->offset, blobMagic);
 				}
