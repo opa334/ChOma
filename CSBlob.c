@@ -25,7 +25,7 @@ char *csBlobMagicToReadableString(int magic) {
 }
 
 
-int parseSuperBlob(MachO *macho, int sliceIndex, CS_SuperBlob *superblob) {
+int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
 
 	// Get the offset of the first load command
 	uint32_t offset = macho->_slices[sliceIndex]._archDescriptor.offset + sizeof(struct mach_header_64);
@@ -86,11 +86,47 @@ int parseSuperBlob(MachO *macho, int sliceIndex, CS_SuperBlob *superblob) {
 				}
 				free(blobIndex);
 			}
-            superblob = &superblobLocal;
+			if (superblob != NULL) {
+				memcpy(superblob, &superblobLocal, sizeof(CS_SuperBlob));
+			}
 
 		}
 		offset += loadCommand.cmdsize;
 
 	}
+	return 0;
+}
+
+int extractCMSToFile(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
+
+	// Get length of CMS from superblob and allocate memory
+	size_t cmsLength = superblob->length;
+	void *cmsData = malloc(cmsLength);
+	uint32_t csBlobOffset = 0;
+
+	// Get the offset of the first load command
+	uint32_t offset = macho->_slices[sliceIndex]._archDescriptor.offset + sizeof(struct mach_header_64);
+
+	// Find the LC_CODE_SIGNATURE load command
+	for (int loadCommand = 0; loadCommand < macho->_slices[sliceIndex]._machHeader.ncmds; loadCommand++) {
+		struct load_command currentLoadCommand = macho->_slices[sliceIndex]._loadCommands[loadCommand];
+		if (currentLoadCommand.cmd == LC_CODE_SIGNATURE) {
+			// Create and populate the code signature load command structure
+			struct lc_code_signature *codeSignatureLoadCommand = malloc(sizeof(struct lc_code_signature));
+			readMachOAtOffset(macho, offset, sizeof(struct lc_code_signature), codeSignatureLoadCommand);
+			csBlobOffset = macho->_slices[sliceIndex]._archDescriptor.offset + codeSignatureLoadCommand->dataoff;
+			free(codeSignatureLoadCommand);
+		}
+		offset += currentLoadCommand.cmdsize;
+	}
+
+	// Extract the CMS data from the MachO and write to the file
+	readMachOAtOffset(macho, csBlobOffset, cmsLength, cmsData);
+	FILE *cmsDataFile = fopen("CMS-Data", "wb+");
+	fwrite(cmsData, cmsLength, 1, cmsDataFile);
+	fclose(cmsDataFile);
+	free(cmsData);
+
+	printf("Extracted CMS data to file\n");
 	return 0;
 }

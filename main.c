@@ -3,6 +3,7 @@
 #include "CSBlob.h"
 
 int main(int argc, char *argv[]) {
+    
     // Sanity check passed arguments
     if (argc != 2) {
         printf("Usage: %s <path to MachO file>\n", argv[0]);
@@ -15,8 +16,12 @@ int main(int argc, char *argv[]) {
 
     // Parse the code signature blob
     for (int sliceIndex = 0; sliceIndex < macho._sliceCount; sliceIndex++) {
-        if (parseSuperBlob(&macho, 0, NULL) != 0) { return -1; }
+        if (parseSuperBlob(&macho, NULL, 0) != 0) { return -1; }
     }
+
+    CS_SuperBlob superblob;
+    parseSuperBlob(&macho, &superblob, 0);
+    extractCMSToFile(&macho, &superblob, 0);
 
     // Free the MachO structure
     freeMachO(&macho);

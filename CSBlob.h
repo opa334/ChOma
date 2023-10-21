@@ -56,4 +56,7 @@ struct lc_code_signature;
 char *csBlobMagicToReadableString(int magic);
 
 // Retrieve CMS superblob from slice
-int parseSuperBlob(MachO *macho, int sliceIndex, CS_SuperBlob *superblob);
+int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex);
+
+// Extract CMS signature to file
+int extractCMSToFile(MachO *macho, CS_SuperBlob *superblob, int sliceIndex);
