@@ -6,6 +6,10 @@ The library works primarily on iOS binaries, I have seen issues (segmentation fa
 
 This library relies on zero external libraries or dependences, so you can simply build `main.c` with `gcc *.c -o parser`.
 
+## Usage
+
+To use the library, you can either compile with `main.c` as shown above, to have an executable that demonstrates the abilities of this library, or you can simply drop the header files and their relevant `.c` files into your project folder and just include the ones you need.
+
 ## Relevant MachO File Structures
 
 Inside each single-architecture MachO (or alternatively each slice of a MachO), the first structure is either `mach_header` or `mach_header_64`, which contains information about the executable:
