@@ -126,7 +126,6 @@ int extractCMSToFile(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
 	fwrite(cmsData, cmsLength, 1, cmsDataFile);
 	fclose(cmsDataFile);
 	free(cmsData);
-
-	printf("Extracted CMS data to file\n");
+	
 	return 0;
 }
