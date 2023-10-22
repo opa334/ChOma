@@ -26,5 +26,5 @@ typedef struct {
 
 typedef struct {
     DERItem oid;
-    DERItem content; // This will be of type CMSSignedData
+    DERItem content;
 } CMSContentInfoDER;

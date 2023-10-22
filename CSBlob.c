@@ -95,32 +95,47 @@ int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
 							printf("%02x", specialSlots[(i * codeDirectory->hashSize) + j]);
 						}
 
-						// Print the special slot name (if applicable)
-						if (slotNumber == -1) {
-							printf(" (Info.plist hash)");
-						} else if (slotNumber == -2) {
-							printf(" (Requirements blob hash)");
-						} else if (slotNumber == -3) {
-							printf(" (CodeResources hash)");
-						} else if (slotNumber == -4) {
-							printf(" (App-specific hash)");
-						} else if (slotNumber == -5) {
-							printf(" (Entitlements hash)");
-						} else if (slotNumber == -6) {
-							printf(" (Used for disk rep)");
-						} else if (slotNumber == -7) {
-							printf(" (DER entitlements hash)");
-						} else if (slotNumber == -8) {
-							printf(" (Process launch constraints hash)");
-						} else if (slotNumber == -9) {
-							printf(" (Parent process launch constraints hash)");
-						} else if (slotNumber == -10) {
-							printf(" (Responsible process launch constraints hash)");
-						} else if (slotNumber == -11) {
-							printf(" (Loaded library launch constraints hash)");
+						// Check if hash is just zeroes
+						bool isZero = true;
+						for (int j = 0; j < codeDirectory->hashSize; j++) {
+							if (specialSlots[(i * codeDirectory->hashSize) + j] != 0) {
+								isZero = false;
+								break;
+							}
 						}
+
+						// Don't print the special slot name if the hash is just zeroes
+						if (!isZero) {
+							// Print the special slot name (if applicable)
+							if (slotNumber == -1) {
+								printf(" (Info.plist hash)");
+							} else if (slotNumber == -2) {
+								printf(" (Requirements blob hash)");
+							} else if (slotNumber == -3) {
+								printf(" (CodeResources hash)");
+							} else if (slotNumber == -4) {
+								printf(" (App-specific hash)");
+							} else if (slotNumber == -5) {
+								printf(" (Entitlements hash)");
+							} else if (slotNumber == -6) {
+								printf(" (Used for disk rep)");
+							} else if (slotNumber == -7) {
+								printf(" (DER entitlements hash)");
+							} else if (slotNumber == -8) {
+								printf(" (Process launch constraints hash)");
+							} else if (slotNumber == -9) {
+								printf(" (Parent process launch constraints hash)");
+							} else if (slotNumber == -10) {
+								printf(" (Responsible process launch constraints hash)");
+							} else if (slotNumber == -11) {
+								printf(" (Loaded library launch constraints hash)");
+							}
+						}
+
 						printf("\n");
 					}
+
+					// Clean up
 					free(specialSlots);
 
 					// Create an array of hashes and print them
@@ -142,19 +157,28 @@ int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
 						printf("\n");
 
 					}
+
+					// Clean up
 					free(hashes);
 					free(codeDirectory);
 
 				} else {
 					printf("%s at 0x%x (magic 0x%x).\n", csBlobMagicToReadableString(blobMagic), blobIndex->offset, blobMagic);
 				}
+
+				// Clean up
 				free(blobIndex);
 			}
+
 			if (superblob != NULL) {
 				memcpy(superblob, &superblobLocal, sizeof(CS_SuperBlob));
 			}
 
+			// Don't continue the loop, we found the code signature load command
+			break;
 		}
+
+		// Adjust offset to next load command
 		offset += loadCommand.cmdsize;
 
 	}
