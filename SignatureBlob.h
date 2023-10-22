@@ -12,6 +12,14 @@ typedef struct {
     DERItem signerInfos;
 } CMSSignedDataDER;
 
+// typedef struct {
+//     int version;
+//     DERItem digestAlgorithms;
+//     DERItem contentInfo;
+//     DERItem certificates;
+//     DERItem signerInfos;
+// } CMSSignedData;
+
 typedef struct {
     DERItem signedData;
 } CMSContentDER;

@@ -79,6 +79,43 @@ int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
 					readMachOAtOffset(macho, csBlobOffset + blobIndex->offset, sizeof(CS_CodeDirectory), codeDirectory);
 					CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, APPLY_BIG_TO_HOST);
 					printf("Blob %d: %s at 0x%x (magic 0x%x, hash offset 0x%x).\n", blobCount + 1, csBlobMagicToReadableString(blobMagic), blobIndex->offset, codeDirectory->magic, codeDirectory->hashOffset);
+					size_t slotZeroOffset = csBlobOffset + blobIndex->offset + codeDirectory->hashOffset;
+					printf("Slot 0 offset: 0x%x.\n", slotZeroOffset);
+					printf("Number of code slots: %d.\n", codeDirectory->nCodeSlots);
+					// Read the special slots and print them from lowest to highest
+					uint8_t *specialSlots = malloc(codeDirectory->nSpecialSlots * codeDirectory->hashSize);
+					size_t lastSpecialSlotOffset = slotZeroOffset - (codeDirectory->nSpecialSlots * codeDirectory->hashSize);
+					readMachOAtOffset(macho, lastSpecialSlotOffset, codeDirectory->nSpecialSlots * codeDirectory->hashSize, specialSlots);
+					for (int i = 0; i < codeDirectory->nSpecialSlots; i++) {
+						int slotNumber = 0 - (codeDirectory->nSpecialSlots - i);
+						printf("%d: ", slotNumber);
+						for (int j = 0; j < codeDirectory->hashSize; j++) {
+							printf("%02x", specialSlots[(i * codeDirectory->hashSize) + j]);
+						}
+						if (slotNumber == -1) {
+							printf(" (Info.plist hash)");
+						} else if (slotNumber == -2) {
+							printf(" (Requirements blob hash)");
+						} else if (slotNumber == -3) {
+							printf(" (CodeResources hash)");
+						} else if (slotNumber == -4) {
+							printf(" (App-specific hash)");
+						} else if (slotNumber == -5) {
+							printf(" (Entitlements hash)");
+						}
+						printf("\n");
+					}
+
+					// Create an array of hashes and print them
+					uint8_t *hashes = malloc(codeDirectory->nCodeSlots * codeDirectory->hashSize);
+					readMachOAtOffset(macho, slotZeroOffset, codeDirectory->nCodeSlots * codeDirectory->hashSize, hashes);
+					for (int i = 0; i < codeDirectory->nCodeSlots; i++) {
+						printf("%d: ", i);
+						for (int j = 0; j < codeDirectory->hashSize; j++) {
+							printf("%02x", hashes[(i * codeDirectory->hashSize) + j]);
+						}
+						printf("\n");
+					}
 					free(codeDirectory);
 
 				} else {
