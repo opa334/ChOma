@@ -18,3 +18,6 @@ build/
 
 # Ignore .vscode/
 .vscode/
+
+# Ignore nocommit-* files and dirs
+nocommit-*

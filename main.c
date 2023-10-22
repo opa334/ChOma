@@ -26,6 +26,7 @@ int main(int argc, char *argv[]) {
     parseSuperBlob(&macho, &superblob, 0);
     extractCMSToFile(&macho, &superblob, 0);
 
+    // TODO: Extract this from the CMS data
     FILE *cmsDERFile = fopen("CMS-DER", "rb");
     fseek(cmsDERFile, 0, SEEK_END);
     size_t cmsDERLength = ftell(cmsDERFile);
