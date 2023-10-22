@@ -2,7 +2,7 @@
 CC=gcc
 SOURCES=*.c lib/include/libDER/*.c
 OUTPUT=build/MachO_main
-CFLAGS=-Ilib/include -DDER_TAG_SIZE=8
+CFLAGS=-Ilib/include
 
 all: parser
 

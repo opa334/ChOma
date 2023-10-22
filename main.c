@@ -50,6 +50,9 @@ int main(int argc, char *argv[]) {
     DERReturn ret = DERDecodeItem(&cmsDERItem, &decodedCMSData);
     printf("DERDecodeItem returned %d.\n", ret);
     printf("DERDecodeItem decoded %d bytes.\n", decodedCMSData.content.length);
+    if (cmsDERItem.data[0] != ASN1_CONSTR_SEQUENCE) {
+        printf("Error: CMS content info is not a constructed sequence, first byte 0x%x\n", cmsDERItem.data[0]);
+    }
 
     free(cmsDERData);
     // Free the MachO structure
