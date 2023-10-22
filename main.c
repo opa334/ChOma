@@ -1,10 +1,7 @@
 #include <stdio.h>
 
 #include "CSBlob.h"
-#include <libDER/asn1Types.h> // This include MUST come after libDER_config.h
-#include <libDER/libDER.h>
-#include <libDER/DER_Decode.h>
-#include <libDER/DER_Encode.h>
+#include "CMSDER.h"
 
 int main(int argc, char *argv[]) {
 
@@ -41,18 +38,67 @@ int main(int argc, char *argv[]) {
 
     DERByte *cmsDERDataByte = cmsDERData;
     DERSize cmsDERDataLength = cmsDERLength;
+    CMSContentInfoDER contentInfo;
     DERItem cmsDERItem = {
         .data = cmsDERDataByte,
         .length = cmsDERDataLength
     };
 
     DERDecodedInfo decodedCMSData;
-    DERReturn ret = DERDecodeItem(&cmsDERItem, &decodedCMSData);
-    printf("DERDecodeItem returned %d.\n", ret);
-    printf("DERDecodeItem decoded %d bytes.\n", decodedCMSData.content.length);
-    if (cmsDERItem.data[0] != ASN1_CONSTR_SEQUENCE) {
-        printf("Error: CMS content info is not a constructed sequence, first byte 0x%x\n", cmsDERItem.data[0]);
+    DERReturn ret;
+    ret = DERDecodeItem(&cmsDERItem, &decodedCMSData);
+    if (ret != DR_Success) {
+        printf("Error: DERDecodeItem returned %d.\n", ret);
+        return -1;
     }
+    if (decodedCMSData.tag != ASN1_CONSTR_SEQUENCE) {
+        printf("Error: CMS content info tag is not a constructed sequence, first byte 0x%x.\n", decodedCMSData.tag);
+        return -1;
+    }
+    if (cmsDERItem.data + cmsDERItem.length != decodedCMSData.content.data + decodedCMSData.content.length) {
+        printf("Error: buffer overflow when decoding CMS content info.\n");
+        return -1;
+    }
+    ret = DERParseSequenceContent(&decodedCMSData.content, sizeof(CMSContentInfoItemSpecs)/sizeof(CMSContentInfoItemSpecs[0]), CMSContentInfoItemSpecs, &contentInfo, 0);
+    if (ret != DR_Success) {
+        printf("Error: DERParseSequenceContent returned %d parsing ContentInfo.\n", ret);
+        return -1;
+    }
+
+
+    // Decode content
+    CMSContentDER content;
+    DERItem contentDERItem = {
+        .data = contentInfo.content.data,
+        .length = contentInfo.content.length
+    };
+
+    DERDecodedInfo decodedContent;
+    ret = DERDecodeItem(&contentDERItem, &decodedContent);
+    if (ret != DR_Success) {
+        printf("Error: DERDecodeItem returned %d decoding CMS content.\n", ret);
+        return -1;
+    }
+
+    if (contentDERItem.data + contentDERItem.length != decodedContent.content.data + decodedContent.content.length) {
+        printf("Error: buffer overflow when decoding CMS content.\n");
+        return -1;
+    }
+
+    // Decode this into SignedData
+    CMSSignedDataDER signedData;
+    ret = DERParseSequenceContent(&decodedContent.content, sizeof(CMSSignedDataItemSpecs)/sizeof(CMSSignedDataItemSpecs[0]), CMSSignedDataItemSpecs, &signedData, 0);
+    if (ret != DR_Success) {
+        printf("Error: DERParseSequenceContent returned %d parsing SignedData.\n", ret);
+        return -1;
+    }
+
+    if ((uint8_t)signedData.version.data[0] != 1) {
+        printf("Error: CMS version is not 1, %d.\n", (uint8_t)signedData.version.data[0]);
+        return -1;
+    }
+
+    printf("Successfully decoded SignedData!\n");
 
     free(cmsDERData);
     // Free the MachO structure
