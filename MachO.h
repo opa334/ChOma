@@ -1,3 +1,6 @@
+#ifndef MACHO_H
+#define MACHO_H
+
 #include <stdio.h>
 #include <libkern/OSByteOrder.h>
 #include <mach/mach.h>
@@ -25,3 +28,5 @@ int readMachOAtOffset(MachO *macho, uint64_t offset, size_t size, void *outputBu
 
 // Free all elements of the MachO structure
 void freeMachO(MachO *macho);
+
+#endif // MACHO_H

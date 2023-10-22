@@ -1,3 +1,6 @@
+#ifndef MACHO_LOAD_COMMAND_H
+#define MACHO_LOAD_COMMAND_H
+
 #include <mach-o/loader.h>
 
 // This is relevant for TrollStore
@@ -11,3 +14,5 @@ struct lc_code_signature {
 
 // Convert load command to load command name
 char *loadCommandToName(int loadCommand);
+
+#endif // MACHO_LOAD_COMMAND_H

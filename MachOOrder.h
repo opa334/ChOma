@@ -1,3 +1,6 @@
+#ifndef MACHO_ORDER_H
+#define MACHO_ORDER_H
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -127,3 +130,4 @@
     applier(sc64, maxprot); \
     applier(sc64, nsects);
 
+#endif // MACHO_ORDER_H

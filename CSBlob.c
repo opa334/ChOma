@@ -137,29 +137,34 @@ int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
 
 					// Clean up
 					free(specialSlots);
+					
+					// Don't pollute the output with hashes if there are a lot of them
+					if (codeDirectory->nCodeSlots <= 50) {
+						// Create an array of hashes and print them
+						uint8_t *hashes = malloc(codeDirectory->nCodeSlots * codeDirectory->hashSize);
+						readMachOAtOffset(macho, slotZeroOffset, codeDirectory->nCodeSlots * codeDirectory->hashSize, hashes);
+						for (int i = 0; i < codeDirectory->nCodeSlots; i++) {
 
-					// Create an array of hashes and print them
-					uint8_t *hashes = malloc(codeDirectory->nCodeSlots * codeDirectory->hashSize);
-					readMachOAtOffset(macho, slotZeroOffset, codeDirectory->nCodeSlots * codeDirectory->hashSize, hashes);
-					for (int i = 0; i < codeDirectory->nCodeSlots; i++) {
+							// Align the slot number for cleaner output
+							if (i > 9) {
+								printf("%d: ", i);
+							} else {
+								printf(" %d: ", i);
+							}
 
-						// Align the slot number for cleaner output
-						if (i > 9) {
-							printf("%d: ", i);
-						} else {
-							printf(" %d: ", i);
+							// Print each byte of the hash
+							for (int j = 0; j < codeDirectory->hashSize; j++) {
+								printf("%02x", hashes[(i * codeDirectory->hashSize) + j]);
+							}
+							printf("\n");
+
 						}
 
-						// Print each byte of the hash
-						for (int j = 0; j < codeDirectory->hashSize; j++) {
-							printf("%02x", hashes[(i * codeDirectory->hashSize) + j]);
-						}
-						printf("\n");
-
+						// Clean up
+						free(hashes);
 					}
 
 					// Clean up
-					free(hashes);
 					free(codeDirectory);
 
 				} else {

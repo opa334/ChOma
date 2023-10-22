@@ -1,3 +1,6 @@
+#ifndef CS_BLOB_H
+#define CS_BLOB_H
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -62,3 +65,5 @@ int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex);
 
 // Extract CMS signature to file
 int extractCMSToFile(MachO *macho, CS_SuperBlob *superblob, int sliceIndex);
+
+#endif // CS_BLOB_H

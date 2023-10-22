@@ -1,3 +1,7 @@
+#ifndef SIGNATURE_BLOB_H
+#define SIGNATURE_BLOB_H
+
+#include <stdio.h>
 #include <stdint.h>
 #include <libDER/asn1Types.h> // This include MUST come after libDER_config.h
 #include <libDER/libDER.h>
@@ -12,14 +16,6 @@ typedef struct {
     DERItem signerInfos;
 } CMSSignedDataDER;
 
-// typedef struct {
-//     int version;
-//     DERItem digestAlgorithms;
-//     DERItem contentInfo;
-//     DERItem certificates;
-//     DERItem signerInfos;
-// } CMSSignedData;
-
 typedef struct {
     DERItem signedData;
 } CMSContentDER;
@@ -28,3 +24,5 @@ typedef struct {
     DERItem oid;
     DERItem content;
 } CMSContentInfoDER;
+
+#endif // SIGNATURE_BLOB_H
