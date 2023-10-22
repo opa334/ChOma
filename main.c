@@ -1,6 +1,10 @@
 #include <stdio.h>
 
 #include "CSBlob.h"
+#include <libDER/asn1Types.h> // This include MUST come after libDER_config.h
+#include <libDER/libDER.h>
+#include <libDER/DER_Decode.h>
+#include <libDER/DER_Encode.h>
 
 int main(int argc, char *argv[]) {
 
@@ -27,6 +31,27 @@ int main(int argc, char *argv[]) {
     parseSuperBlob(&macho, &superblob, 0);
     extractCMSToFile(&macho, &superblob, 0);
 
+    FILE *cmsDERFile = fopen("CMS-DER", "rb");
+    fseek(cmsDERFile, 0, SEEK_END);
+    size_t cmsDERLength = ftell(cmsDERFile);
+    fseek(cmsDERFile, 0, SEEK_SET);
+    uint8_t *cmsDERData = malloc(cmsDERLength);
+    fread(cmsDERData, cmsDERLength, 1, cmsDERFile);
+    fclose(cmsDERFile);
+
+    DERByte *cmsDERDataByte = cmsDERData;
+    DERSize cmsDERDataLength = cmsDERLength;
+    DERItem cmsDERItem = {
+        .data = cmsDERDataByte,
+        .length = cmsDERDataLength
+    };
+
+    DERDecodedInfo decodedCMSData;
+    DERReturn ret = DERDecodeItem(&cmsDERItem, &decodedCMSData);
+    printf("DERDecodeItem returned %d.\n", ret);
+    printf("DERDecodeItem decoded %d bytes.\n", decodedCMSData.content.length);
+
+    free(cmsDERData);
     // Free the MachO structure
     freeMachO(&macho);
 
