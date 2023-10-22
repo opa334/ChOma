@@ -78,20 +78,24 @@ int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
 					CS_CodeDirectory *codeDirectory = malloc(sizeof(CS_CodeDirectory));
 					readMachOAtOffset(macho, csBlobOffset + blobIndex->offset, sizeof(CS_CodeDirectory), codeDirectory);
 					CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, APPLY_BIG_TO_HOST);
-					printf("Blob %d: %s at 0x%x (magic 0x%x, hash offset 0x%x).\n", blobCount + 1, csBlobMagicToReadableString(blobMagic), blobIndex->offset, codeDirectory->magic, codeDirectory->hashOffset);
+					printf("%s at 0x%x (magic 0x%x).\n", csBlobMagicToReadableString(blobMagic), blobIndex->offset, codeDirectory->magic);
 					size_t slotZeroOffset = csBlobOffset + blobIndex->offset + codeDirectory->hashOffset;
-					printf("Slot 0 offset: 0x%x.\n", slotZeroOffset);
-					printf("Number of code slots: %d.\n", codeDirectory->nCodeSlots);
 					// Read the special slots and print them from lowest to highest
 					uint8_t *specialSlots = malloc(codeDirectory->nSpecialSlots * codeDirectory->hashSize);
 					size_t lastSpecialSlotOffset = slotZeroOffset - (codeDirectory->nSpecialSlots * codeDirectory->hashSize);
 					readMachOAtOffset(macho, lastSpecialSlotOffset, codeDirectory->nSpecialSlots * codeDirectory->hashSize, specialSlots);
 					for (int i = 0; i < codeDirectory->nSpecialSlots; i++) {
+
+						// Print the slot number
 						int slotNumber = 0 - (codeDirectory->nSpecialSlots - i);
 						printf("%d: ", slotNumber);
+
+						// Print each byte of the hash
 						for (int j = 0; j < codeDirectory->hashSize; j++) {
 							printf("%02x", specialSlots[(i * codeDirectory->hashSize) + j]);
 						}
+
+						// Print the special slot name (if applicable)
 						if (slotNumber == -1) {
 							printf(" (Info.plist hash)");
 						} else if (slotNumber == -2) {
@@ -102,24 +106,47 @@ int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
 							printf(" (App-specific hash)");
 						} else if (slotNumber == -5) {
 							printf(" (Entitlements hash)");
+						} else if (slotNumber == -6) {
+							printf(" (Used for disk rep)");
+						} else if (slotNumber == -7) {
+							printf(" (DER entitlements hash)");
+						} else if (slotNumber == -8) {
+							printf(" (Process launch constraints hash)");
+						} else if (slotNumber == -9) {
+							printf(" (Parent process launch constraints hash)");
+						} else if (slotNumber == -10) {
+							printf(" (Responsible process launch constraints hash)");
+						} else if (slotNumber == -11) {
+							printf(" (Loaded library launch constraints hash)");
 						}
 						printf("\n");
 					}
+					free(specialSlots);
 
 					// Create an array of hashes and print them
 					uint8_t *hashes = malloc(codeDirectory->nCodeSlots * codeDirectory->hashSize);
 					readMachOAtOffset(macho, slotZeroOffset, codeDirectory->nCodeSlots * codeDirectory->hashSize, hashes);
 					for (int i = 0; i < codeDirectory->nCodeSlots; i++) {
-						printf("%d: ", i);
+
+						// Align the slot number for cleaner output
+						if (i > 9) {
+							printf("%d: ", i);
+						} else {
+							printf(" %d: ", i);
+						}
+
+						// Print each byte of the hash
 						for (int j = 0; j < codeDirectory->hashSize; j++) {
 							printf("%02x", hashes[(i * codeDirectory->hashSize) + j]);
 						}
 						printf("\n");
+
 					}
+					free(hashes);
 					free(codeDirectory);
 
 				} else {
-					printf("Blob %d: %s at 0x%x (magic 0x%x).\n", blobCount + 1, csBlobMagicToReadableString(blobMagic), blobIndex->offset, blobMagic);
+					printf("%s at 0x%x (magic 0x%x).\n", csBlobMagicToReadableString(blobMagic), blobIndex->offset, blobMagic);
 				}
 				free(blobIndex);
 			}

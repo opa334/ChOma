@@ -2,7 +2,7 @@
 CC=gcc
 SOURCES=*.c lib/include/libDER/*.c
 OUTPUT=build/MachO_main
-CFLAGS=-Ilib/include -DDER_TAG_SIZE=1
+CFLAGS=-Ilib/include -DDER_TAG_SIZE=1 -Wno-pointer-to-int-cast
 # DER_TAG_SIZE must be 1 for CMS decoding
 
 all: parser
