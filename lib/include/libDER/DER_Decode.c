@@ -39,7 +39,7 @@
 
 #if		DER_DECODE_ENABLE
 
-#define DER_DECODE_DEBUG	0
+#define DER_DECODE_DEBUG	1
 #if		DER_DECODE_DEBUG
 #include <stdio.h>
 #define derDecDbg(a)			printf(a)
@@ -121,6 +121,9 @@ DERReturn DERDecodeItemPartialBuffer(
     /* Tag decoding above ensured we have at least one more input byte left. */
 	len1 = *derPtr++;
 	derLen--;
+	printf("len1: 0x%x\n", len1);
+	printf("len1 & 0x80 = 0x%x\n", len1 & 0x80);
+	printf("len1 & 0x7f = 0x%x\n", len1 & 0x7f);
 	if(len1 & 0x80) {
 		/* long length form - first byte is length of length */
 		DERSize longLen = 0;	/* long form length */
@@ -129,6 +132,19 @@ DERReturn DERDecodeItemPartialBuffer(
 		len1 &= 0x7f;
 		if((len1 > sizeof(DERSize)) || (len1 > derLen) || len1 == 0 || *derPtr == 0) {
 			/* no can do */
+			printf("No can do - line 132\n");
+			if (len1 > sizeof(DERSize)) {
+				printf("len1 > sizeof(DERSize)\n");
+			}
+			if (len1 > derLen) {
+				printf("len1 > derLen\n");
+			}
+			if (len1 == 0) {
+				printf("len1 == 0\n");
+			}
+			if (*derPtr == 0) {
+				printf("*derPtr == 0\n");
+			}
 			return DR_DecodeError;
 		}
 		for(dex=0; dex<len1; dex++) {

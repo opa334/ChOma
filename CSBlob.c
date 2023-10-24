@@ -104,6 +104,7 @@ int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
 							}
 						}
 
+						// TrollStore TODO: Validate that hashes are correct
 						// Don't print the special slot name if the hash is just zeroes
 						if (!isZero) {
 							// Print the special slot name (if applicable)

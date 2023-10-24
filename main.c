@@ -41,7 +41,6 @@ int main(int argc, char *argv[]) {
     free(cmsDERData);
     freeMachO(&macho);
 
-    printf("Done!\n");
     return 0;
     
 }
