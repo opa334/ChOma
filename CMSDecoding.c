@@ -107,6 +107,11 @@ int decodeCMSData(uint8_t *cmsDERData, size_t cmsDERLength) {
 
     printf("Successfully decoded SignerInfo!\n");
 
+    if (signedData.certificates.length < 1) {
+        printf("Error: SignedData contains no certificates!\n");
+        return -1;
+    }
+
     printf("Done decoding DER CMS data!\n");
     return 0;
 }
