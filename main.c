@@ -23,22 +23,25 @@ int main(int argc, char *argv[]) {
     // Extract CMS data to file
     printf("Extracting CMS data from first slice to file.\n");
     CS_SuperBlob superblob;
-    parseSuperBlob(&macho, &superblob, 0);
-    extractCMSToFile(&macho, &superblob, 0);
+    if (parseSuperBlob(&macho, &superblob, 0) == 0) {
+        extractCMSToFile(&macho, &superblob, 0);
 
-    // TODO: Extract this from the CMS data
-    FILE *cmsDERFile = fopen("CMS-DER", "rb");
-    fseek(cmsDERFile, 0, SEEK_END);
-    size_t cmsDERLength = ftell(cmsDERFile);
-    fseek(cmsDERFile, 0, SEEK_SET);
-    uint8_t *cmsDERData = malloc(cmsDERLength);
-    fread(cmsDERData, cmsDERLength, 1, cmsDERFile);
-    fclose(cmsDERFile);
+        // TODO: Extract this from the CMS data
+        FILE *cmsDERFile = fopen("CMS-DER", "rb");
+        fseek(cmsDERFile, 0, SEEK_END);
+        size_t cmsDERLength = ftell(cmsDERFile);
+        fseek(cmsDERFile, 0, SEEK_SET);
+        uint8_t *cmsDERData = malloc(cmsDERLength);
+        fread(cmsDERData, cmsDERLength, 1, cmsDERFile);
+        fclose(cmsDERFile);
 
-    decodeCMSData(cmsDERData, cmsDERLength);
+        decodeCMSData(cmsDERData, cmsDERLength);
 
-    // Clean up
-    free(cmsDERData);
+        // Clean up
+        free(cmsDERData);
+    } else {
+        printf("Binary does not contain a code signature.\n");
+    }
     freeMachO(&macho);
 
     return 0;

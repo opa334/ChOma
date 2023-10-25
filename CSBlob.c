@@ -181,14 +181,14 @@ int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
 			}
 
 			// Don't continue the loop, we found the code signature load command
-			break;
+			return 0;
 		}
 
 		// Adjust offset to next load command
 		offset += loadCommand.cmdsize;
 
 	}
-	return 0;
+	return -1;
 }
 
 int extractCMSToFile(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
