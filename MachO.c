@@ -77,7 +77,7 @@ int fetchSlices(MachO *macho)
                 readMachOAtOffset(macho, sizeof(struct fat_header) + i * sizeof(arch), sizeof(arch), &arch);
                 FAT_ARCH_APPLY_BYTE_ORDER(&arch, APPLY_BIG_TO_HOST);
 
-                bool foundInvalidSlice;
+                bool foundInvalidSlice = false;
 
                 if (arch.cpusubtype == 0x9) {
                     printf("Ignoring ARMv7 slice, not supported!\n");
@@ -124,7 +124,7 @@ int fetchSlices(MachO *macho)
 
         // Add the new slices to the MachO structure
         macho->_sliceCount = fatHeader.nfat_arch;
-        printf("Found %zu valid slices.\n", macho->_sliceCount);
+        printf("Found %zu slices.\n", macho->_sliceCount);
         macho->_slices = slicesM;
 
     } else {
@@ -165,6 +165,9 @@ int fetchSlices(MachO *macho)
 int populateMachOLoadCommands(MachO *macho) {
     // Iterate over all slices
     for (int i = 0; i < macho->_sliceCount; i++) {
+        if (!macho->_slices[i]._isValid) {
+            continue;
+        }
 
         // Sanity check the number of load commands
         MachOSlice *slice = &macho->_slices[i];

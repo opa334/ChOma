@@ -19,7 +19,9 @@ int main(int argc, char *argv[]) {
     for (int sliceIndex = 0; sliceIndex < macho._sliceCount; sliceIndex++) {
         if (parseSuperBlob(&macho, NULL, sliceIndex) != 0) {
             if (macho._sliceCount > 1) {
-                printf("Slice %d does not contain a code signature.\n", sliceIndex + 1);
+                if (macho._slices[sliceIndex]._isValid) {
+                    printf("Slice %d does not contain a code signature.\n", sliceIndex + 1);
+                }
             } else {
                 printf("Binary does not contain a code signature.\n");
                 return -1; 
@@ -47,7 +49,16 @@ int main(int argc, char *argv[]) {
         // Clean up
         free(cmsDERData);
     } else {
-        printf("Binary does not contain a code signature.\n");
+        if (macho._sliceCount > 1) {
+            if (macho._slices[0]._isValid) {
+                printf("First slice does not contain a code signature.\n");
+            } else {
+                printf("Could not parse CMS data for ARMv7 slice.\n");
+            }
+        } else {
+            printf("Binary does not contain a code signature.\n");
+            return -1; 
+        }
     }
     freeMachO(&macho);
 

@@ -4,6 +4,8 @@ A relatively simple library for parsing and manipulating MachO files and their C
 
 The library works primarily on iOS binaries, and should work on macOS binaries too, but this is not guaranteed. It's written entirely in C, so it's both fast and portable to iOS (for TrollStore or similar apps) as well as most other devices - however, due to the fact that it is in C, a malformed MachO could cause a memory fault, so I cannot guarantee that this parser will work correctly for such binaries.
 
+Thin MachO binaries that are built for ARMv7, or FAT binaries with ARMv7 slices, are currently unsupported for parsing. More handling of such files is planned, but full ARMv7 support is not planned at the moment.
+
 ## Usage
 
 To use the library, you can either compile with `make all`, to have an executable that demonstrates the abilities of this library, or you can simply drop the header files and their relevant `.c` files into your project folder and just include the ones you need.
