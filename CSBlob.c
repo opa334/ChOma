@@ -225,6 +225,11 @@ int extractCMSToFile(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
 		offset += currentLoadCommand.cmdsize;
 	}
 
+	if (csBlobOffset == 0) {
+		printf("Error: could not find LC_CODE_SIGNATURE load command.\n");
+		return -1;
+	}
+
 	// Extract the CMS data from the MachO and write to the file
 	readMachOAtOffset(macho, csBlobOffset, cmsLength, cmsData);
 	FILE *cmsDataFile = fopen("CMS-Data", "wb+");
