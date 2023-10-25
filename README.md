@@ -74,3 +74,7 @@ struct load_command {
 To see some examples of load commands, try parsing an iOS MachO with this library and printing the `cmd` field of each load command, using `loadCommandToName(int loadCommand)` to see which command it is.
 
 Following the load commands, there are 'segments' of code that are loaded into memory. Each segment has a number of sections, which contain the actual code and data. The contents of sections and segments is not too relevant to the CoreTrust bug, so I didn't spend much time researching them. However, more information can be found online with a quick search.
+
+## Additional credits
+
+Thank you to the checkra1n team for libDER, taken from [PongoOS](https://github.com/checkra1n/PongoOS/tree/iOS15) and licensed under the [MIT license](https://github.com/checkra1n/PongoOS/tree/iOS15/LICENSE.md). Related files are in [lib/include/libDER](lib/include/libDER).
