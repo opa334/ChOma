@@ -1,6 +1,8 @@
 #include "CMSDecoding.h"
 
 int decodeCMSData(uint8_t *cmsDERData, size_t cmsDERLength) {
+
+    // Decode ContentInfo
     DERByte *cmsDERDataByte = cmsDERData;
     DERSize cmsDERDataLength = cmsDERLength;
     CMSContentInfoDER contentInfo;
@@ -26,6 +28,7 @@ int decodeCMSData(uint8_t *cmsDERData, size_t cmsDERLength) {
         return -1;
     }
     printf("Successfully decoded ContentInfo!\n");
+
 
     // Decode SignedData
     CMSSignedDataDER signedData;
@@ -58,6 +61,7 @@ int decodeCMSData(uint8_t *cmsDERData, size_t cmsDERLength) {
         .length = signedData.signerInfos.length
     };
 
+    // SignerInfos is a set of SignerInfo, so we need to decode the set first
     DERTag tag;
     DERSequence seq;
     ret = DERDecodeSeqInit(&signerInfosDERItem, &tag, &seq);
@@ -76,13 +80,14 @@ int decodeCMSData(uint8_t *cmsDERData, size_t cmsDERLength) {
         printf("Error: DERParseSequenceContent returned %d parsing SignerInfo.\n", ret);
         return -1;
     }
+
+    printf("Successfully decoded SignerInfo!\n");
+
+    // Basic sanity checks
     if (seq.nextItem == seq.end) {
         printf("Error: there is more than one SignerInfo - this should not happen...\n");
         return -1;
     }
-
-    printf("Successfully decoded SignerInfo!\n");
-
     if (signedData.certificates.length < 1) {
         printf("Error: SignedData contains no certificates!\n");
         return -1;
