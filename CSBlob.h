@@ -58,12 +58,12 @@ enum {
 struct lc_code_signature;
 
 // Convert blob magic to readable blob type string
-char *csBlobMagicToReadableString(int magic);
+char *cs_blob_magic_to_string(int magic);
 
 // Retrieve CMS superblob from slice
-int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex);
+int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex);
 
 // Extract CMS signature to file
-int extractCMSToFile(MachO *macho, CS_SuperBlob *superblob, int sliceIndex);
+int macho_extract_cms_to_file(MachO *macho, CS_SuperBlob *superblob, int sliceIndex);
 
 #endif // CS_BLOB_H

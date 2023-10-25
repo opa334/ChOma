@@ -12,12 +12,12 @@ int main(int argc, char *argv[]) {
     // Initialise the MachO structure
     printf("Initialising MachO structure from %s.\n", argv[1]);
     MachO macho;
-    if (initMachOWithPath(argv[1], &macho) != 0) { return -1; }
+    if (macho_init_with_path(argv[1], &macho) != 0) { return -1; }
 
     // Parse the code signature blob
     printf("Parsing CMS superblobs from MachO.\n");
     for (int sliceIndex = 0; sliceIndex < macho._sliceCount; sliceIndex++) {
-        if (parseSuperBlob(&macho, NULL, sliceIndex) != 0) {
+        if (macho_parse_superblob(&macho, NULL, sliceIndex) != 0) {
             if (macho._sliceCount > 1) {
                 if (macho._slices[sliceIndex]._isValid) {
                     printf("Slice %d does not contain a code signature.\n", sliceIndex + 1);
@@ -32,8 +32,8 @@ int main(int argc, char *argv[]) {
     // Extract CMS data to file
     printf("Extracting CMS data from first slice to file.\n");
     CS_SuperBlob superblob;
-    if (parseSuperBlob(&macho, &superblob, 0) == 0) {
-        extractCMSToFile(&macho, &superblob, 0);
+    if (macho_parse_superblob(&macho, &superblob, 0) == 0) {
+        macho_extract_cms_to_file(&macho, &superblob, 0);
 
         // TODO: Extract this from the CMS data
         FILE *cmsDERFile = fopen("CMS-DER", "rb");
@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
         fread(cmsDERData, cmsDERLength, 1, cmsDERFile);
         fclose(cmsDERFile);
 
-        decodeCMSData(cmsDERData, cmsDERLength);
+        cms_data_decode(cmsDERData, cmsDERLength);
 
         // Clean up
         free(cmsDERData);
@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
             return -1; 
         }
     }
-    freeMachO(&macho);
+    macho_free(&macho);
 
     return 0;
     

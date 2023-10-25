@@ -13,6 +13,6 @@ struct lc_code_signature {
 };
 
 // Convert load command to load command name
-char *loadCommandToName(int loadCommand);
+char *load_command_to_string(int loadCommand);
 
 #endif // MACHO_LOAD_COMMAND_H

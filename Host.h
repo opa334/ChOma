@@ -9,6 +9,6 @@
 #include "MachO.h"
 
 // Retrieve the index of the slice preferred by the host
-int getPreferredSliceIndex(MachO *macho);
+int macho_get_preferred_slice_index(MachO *macho);
 
 #endif // HOST_H

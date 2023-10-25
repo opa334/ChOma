@@ -1,6 +1,6 @@
 #include "CMSDecoding.h"
 
-int decodeCMSData(uint8_t *cmsDERData, size_t cmsDERLength) {
+int cms_data_decode(uint8_t *cmsDERData, size_t cmsDERLength) {
 
     // Decode ContentInfo
     DERByte *cmsDERDataByte = cmsDERData;

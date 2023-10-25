@@ -1,6 +1,6 @@
 #include "MachOLoadCommand.h"
 
-char *loadCommandToName(int loadCommand) {
+char *load_command_to_string(int loadCommand) {
     switch (loadCommand)
     {
         case LC_SEGMENT:

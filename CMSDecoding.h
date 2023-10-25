@@ -27,6 +27,6 @@ static const DERItemSpec CMSSignerInfoItemSpecs[] = {
     { DER_OFFSET(CMSSignerInfoDER, unsignedAttrs), ASN1_CONSTRUCTED | ASN1_CONTEXT_SPECIFIC, DER_DEC_OPTIONAL }
 };
 
-int decodeCMSData(uint8_t *cmsDERData, size_t cmsDERLength);
+int cms_data_decode(uint8_t *cmsDERData, size_t cmsDERLength);
 
 #endif // CMS_DECODING_H

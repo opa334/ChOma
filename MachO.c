@@ -4,18 +4,18 @@
 #include "MachO.h"
 #include "MachOOrder.h"
 
-int readMachOAtOffset(MachO *macho, uint64_t offset, size_t size, void *outputBuffer)
+int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outputBuffer)
 {
     fseek(macho->_file, offset, SEEK_SET);
     fread(outputBuffer, size, 1, macho->_file);
     return 0;
 }
 
-int fetchSlices(MachO *macho)
+int macho_fetch_slices(MachO *macho)
 {
     // Read the FAT header
     struct fat_header fatHeader;
-    readMachOAtOffset(macho, 0, sizeof(fatHeader), &fatHeader);
+    macho_read_at_offset(macho, 0, sizeof(fatHeader), &fatHeader);
     FAT_HEADER_APPLY_BYTE_ORDER(&fatHeader, APPLY_BIG_TO_HOST);
 
     // Check if the file is a FAT file
@@ -42,12 +42,12 @@ int fetchSlices(MachO *macho)
             if (is64)
             {
                 // Read the arch descriptor
-                readMachOAtOffset(macho, sizeof(struct fat_header) + i * sizeof(arch64), sizeof(arch64), &arch64);
+                macho_read_at_offset(macho, sizeof(struct fat_header) + i * sizeof(arch64), sizeof(arch64), &arch64);
                 FAT_ARCH_64_APPLY_BYTE_ORDER(&arch64, APPLY_BIG_TO_HOST);
 
                 // Read the mach header
                 struct mach_header_64 machHeader;
-                readMachOAtOffset(macho, arch64.offset, sizeof(machHeader), &machHeader);
+                macho_read_at_offset(macho, arch64.offset, sizeof(machHeader), &machHeader);
                 MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, APPLY_LITTLE_TO_HOST);
                 
                 // Check the magic against the expected values
@@ -74,7 +74,7 @@ int fetchSlices(MachO *macho)
             {
                 // Read the FAT arch structure
                 struct fat_arch arch = {0};
-                readMachOAtOffset(macho, sizeof(struct fat_header) + i * sizeof(arch), sizeof(arch), &arch);
+                macho_read_at_offset(macho, sizeof(struct fat_header) + i * sizeof(arch), sizeof(arch), &arch);
                 FAT_ARCH_APPLY_BYTE_ORDER(&arch, APPLY_BIG_TO_HOST);
 
                 bool foundInvalidSlice = false;
@@ -96,7 +96,7 @@ int fetchSlices(MachO *macho)
 
                 // Read the mach header
                 struct mach_header_64 machHeader;
-                readMachOAtOffset(macho, arch64.offset, sizeof(machHeader), &machHeader);
+                macho_read_at_offset(macho, arch64.offset, sizeof(machHeader), &machHeader);
                 MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, APPLY_LITTLE_TO_HOST);
 
                 // Check the magic against the expected values
@@ -131,7 +131,7 @@ int fetchSlices(MachO *macho)
         
         // Read the mach header
         struct mach_header_64 machHeader;
-        readMachOAtOffset(macho, 0, sizeof(machHeader), &machHeader);
+        macho_read_at_offset(macho, 0, sizeof(machHeader), &machHeader);
         MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, APPLY_LITTLE_TO_HOST);
 
         // Check the magic against the expected values
@@ -162,7 +162,7 @@ int fetchSlices(MachO *macho)
     return 0;
 }
 
-int populateMachOLoadCommands(MachO *macho) {
+int macho_parse_load_commands(MachO *macho) {
     // Iterate over all slices
     for (int i = 0; i < macho->_sliceCount; i++) {
         if (!macho->_slices[i]._isValid) {
@@ -186,7 +186,7 @@ int populateMachOLoadCommands(MachO *macho) {
         for (int j = 0; j < slice->_machHeader.ncmds; j++) {
             // Read the load command
             struct load_command loadCommand;
-            readMachOAtOffset(macho, offset, sizeof(loadCommand), &loadCommand);
+            macho_read_at_offset(macho, offset, sizeof(loadCommand), &loadCommand);
             LOAD_COMMAND_APPLY_BYTE_ORDER(&loadCommand, APPLY_LITTLE_TO_HOST);
 
             // Add the load command to the slice
@@ -197,7 +197,7 @@ int populateMachOLoadCommands(MachO *macho) {
     return 0;
 }
 
-void freeMachO(MachO *macho)
+void macho_free(MachO *macho)
 {
     // Close the file
     fclose(macho->_file);
@@ -216,7 +216,7 @@ void freeMachO(MachO *macho)
     }
 }
 
-int initMachOWithPath(const char *filePath, MachO *machoOut)
+int macho_init_with_path(const char *filePath, MachO *machoOut)
 {
     MachO macho;
     struct stat s;
@@ -241,10 +241,10 @@ int initMachOWithPath(const char *filePath, MachO *machoOut)
     macho._fileDescriptor = fileno(macho._file);
 
     // Fetch the slices
-    if (fetchSlices(&macho) != 0) { return -1; }
+    if (macho_fetch_slices(&macho) != 0) { return -1; }
 
     // Populate the load commands
-    if (populateMachOLoadCommands(&macho) != 0) { return -1; }
+    if (macho_parse_load_commands(&macho) != 0) { return -1; }
     printf("File size 0x%zx bytes, slice count %zu.\n", macho._fileSize, macho._sliceCount);
 
     // Update the output MachO structure

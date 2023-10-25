@@ -1,6 +1,6 @@
 #include "Host.h"
 
-int getInformation(cpu_type_t *cputype, cpu_subtype_t *cpusubtype) {
+int host_get_cpu_information(cpu_type_t *cputype, cpu_subtype_t *cpusubtype) {
     size_t len;
     
     // Query for cputype
@@ -15,10 +15,10 @@ int getInformation(cpu_type_t *cputype, cpu_subtype_t *cpusubtype) {
     return 0;
 }
 
-int getPreferredSliceIndex(MachO *macho) {
+int macho_get_preferred_slice_index(MachO *macho) {
     cpu_type_t cputype;
     cpu_subtype_t cpusubtype;
-    if (getInformation(&cputype, &cpusubtype) != 0) { return -1; }
+    if (host_get_cpu_information(&cputype, &cpusubtype) != 0) { return -1; }
     for (int i = 0; i < macho->_sliceCount; i++) {
         if (macho->_slices[i]._archDescriptor.cputype == cputype
         && macho->_slices[i]._archDescriptor.cpusubtype == cpusubtype
