@@ -2,7 +2,7 @@
 
 A relatively simple library for parsing and manipulating MachO files and their CMS blobs. Written for exploitation of [CVE-2023-41991](https://support.apple.com/en-gb/HT213926), a vulnerability in the CoreTrust kernel extension.
 
-The library works primarily on iOS binaries, I have seen issues (segmentation faults) when trying to parse macOS binaries, so your mileage may vary with such executables. It's written entirely in C, so it's both fast and portable to iOS (for TrollStore or similar apps) as well as most other devices - however, due to the fact that it is in C, a malformed MachO could likely cause a memory fault quite easily, so I cannot guarantee that this parser will work correctly.
+The library works primarily on iOS binaries, and should work on macOS binaries two, but this is not guaranteed. It's written entirely in C, so it's both fast and portable to iOS (for TrollStore or similar apps) as well as most other devices - however, due to the fact that it is in C, a malformed MachO could likely cause a memory fault quite easily, so I cannot guarantee that this parser will work correctly.
 
 ## Usage
 
