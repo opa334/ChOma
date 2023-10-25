@@ -10,6 +10,8 @@ Thin MachO binaries that are built for ARMv7, or FAT binaries with ARMv7 slices,
 
 To use the library, you can either compile with `make all`, to have an executable that demonstrates the abilities of this library, or you can simply drop the header files and their relevant `.c` files into your project folder and just include the ones you need.
 
+Use `getPreferredSliceIndex(MachO *macho)` to get the index of the preferred architecture slice in a FAT MachO. This is the slice that will be executed by the host device if you were to run the binary. If you're using a thin MachO, this function will just return index 0, or -1 if the architechture does not match.
+
 ## Relevant MachO File Structures
 
 Inside each single-architecture MachO (or alternatively each slice of a MachO), the first structure is either `mach_header` or `mach_header_64`, which contains information about the executable:
