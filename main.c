@@ -17,7 +17,14 @@ int main(int argc, char *argv[]) {
     // Parse the code signature blob
     printf("Parsing CMS superblobs from MachO.\n");
     for (int sliceIndex = 0; sliceIndex < macho._sliceCount; sliceIndex++) {
-        if (parseSuperBlob(&macho, NULL, sliceIndex) != 0) { return -1; }
+        if (parseSuperBlob(&macho, NULL, sliceIndex) != 0) {
+            if (macho._sliceCount > 1) {
+                printf("Slice %d does not contain a code signature.\n", sliceIndex + 1);
+            } else {
+                printf("Binary does not contain a code signature.\n");
+                return -1; 
+            }
+        }
     }
 
     // Extract CMS data to file
