@@ -30,6 +30,10 @@ int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
 	// Get the offset of the first load command
 	uint32_t offset = macho->_slices[sliceIndex]._archDescriptor.offset + sizeof(struct mach_header_64);
 
+	if (!macho->_slices[sliceIndex]._isValid) {
+		return -1;
+	}
+
 	// Iterate over all load commands
 	for (int j = 0; j < macho->_slices[sliceIndex]._machHeader.ncmds; j++) {
 
@@ -78,7 +82,7 @@ int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
 					CS_CodeDirectory *codeDirectory = malloc(sizeof(CS_CodeDirectory));
 					readMachOAtOffset(macho, csBlobOffset + blobIndex->offset, sizeof(CS_CodeDirectory), codeDirectory);
 					CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, APPLY_BIG_TO_HOST);
-					// Don't print the information again if it's actually being extracted
+					// Don't print the information again if it's being extracted this time
 					if (superblob != NULL) { 
 						printf("%s at 0x%x (magic 0x%x).\n", csBlobMagicToReadableString(blobMagic), blobIndex->offset, codeDirectory->magic); 
 					}
@@ -172,6 +176,7 @@ int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
 					free(codeDirectory);
 
 				} else {
+					// Don't print the information again if it's being extracted this time
 					if (superblob != NULL) {
 						printf("%s at 0x%x (magic 0x%x).\n", csBlobMagicToReadableString(blobMagic), blobIndex->offset, blobMagic);
 					}
@@ -181,6 +186,7 @@ int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
 				free(blobIndex);
 			}
 
+			// NULL pointer is passed when we wants to just print blob information (see main.c)
 			if (superblob != NULL) {
 				memcpy(superblob, &superblobLocal, sizeof(CS_SuperBlob));
 			}

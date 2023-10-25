@@ -62,6 +62,7 @@ int decodeCMSData(uint8_t *cmsDERData, size_t cmsDERLength) {
     };
 
     // SignerInfos is a set of SignerInfo, so we need to decode the set first
+    // TODO: Can this just be done with DERParseSequenceContent?
     DERTag tag;
     DERSequence seq;
     ret = DERDecodeSeqInit(&signerInfosDERItem, &tag, &seq);

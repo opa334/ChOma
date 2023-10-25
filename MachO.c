@@ -33,6 +33,8 @@ int fetchSlices(MachO *macho)
 
         slicesM = malloc(sizeof(MachOSlice) * fatHeader.nfat_arch);
 
+        struct fat_header newFatHeader;
+
         // Iterate over all slices
         for (uint32_t i = 0; i < fatHeader.nfat_arch; i++)
         {
@@ -46,7 +48,7 @@ int fetchSlices(MachO *macho)
                 // Read the mach header
                 struct mach_header_64 machHeader;
                 readMachOAtOffset(macho, arch64.offset, sizeof(machHeader), &machHeader);
-                MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, APPLY_BIG_TO_HOST);
+                MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, APPLY_LITTLE_TO_HOST);
                 
                 // Check the magic against the expected values
                 if (machHeader.magic == MH_MAGIC_64 || machHeader.magic == MH_MAGIC)
@@ -55,6 +57,7 @@ int fetchSlices(MachO *macho)
                     MachOSlice slice;
                     slice._archDescriptor = arch64;
                     slice._machHeader = machHeader;
+                    slice._isValid = true;
                     slicesM[i] = slice;
 
                 } else {
@@ -74,9 +77,11 @@ int fetchSlices(MachO *macho)
                 readMachOAtOffset(macho, sizeof(struct fat_header) + i * sizeof(arch), sizeof(arch), &arch);
                 FAT_ARCH_APPLY_BYTE_ORDER(&arch, APPLY_BIG_TO_HOST);
 
+                bool foundInvalidSlice;
+
                 if (arch.cpusubtype == 0x9) {
-                    printf("Error: binaries with ARMv7 slices not supported!\n");
-                    return -1;
+                    printf("Ignoring ARMv7 slice, not supported!\n");
+                    foundInvalidSlice = true;
                 }
 
                 // Create the arch descriptor structure
@@ -101,6 +106,7 @@ int fetchSlices(MachO *macho)
                     MachOSlice slice;
                     slice._archDescriptor = arch64;
                     slice._machHeader = machHeader;
+                    slice._isValid = !foundInvalidSlice;
                     slicesM[i] = slice;
                 } else {
                     printf("Error: invalid magic 0x%x for mach header at offset 0x%llx.\n", machHeader.magic, arch64.offset);
@@ -108,7 +114,7 @@ int fetchSlices(MachO *macho)
                 }
                 
                 // Ensure that the sizeofcmds is a multiple of 8 (it would need padding otherwise)
-                if (machHeader.sizeofcmds % 8 != 0) {
+                if (machHeader.sizeofcmds % 8 != 0 && slicesM[i]._isValid) {
                     printf("Error: sizeofcmds is not a multiple of 8.\n");
                     return -1;
                 }
