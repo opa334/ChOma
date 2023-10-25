@@ -7,7 +7,7 @@
 #include <stdbool.h>
 
 #include "MachO.h"
-#include "MachOOrder.h"
+#include "MachOByteOrder.h"
 #include "MachOLoadCommand.h"
 
 // Blob index

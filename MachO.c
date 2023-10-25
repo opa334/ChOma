@@ -2,7 +2,7 @@
 #include <assert.h>
 
 #include "MachO.h"
-#include "MachOOrder.h"
+#include "MachOByteOrder.h"
 
 int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outputBuffer)
 {
