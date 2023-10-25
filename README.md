@@ -4,11 +4,9 @@ A relatively simple library for parsing and manipulating MachO files and their C
 
 The library works primarily on iOS binaries, I have seen issues (segmentation faults) when trying to parse macOS binaries, so your mileage may vary with such executables. It's written entirely in C, so it's both fast and portable to iOS (for TrollStore or similar apps) as well as most other devices - however, due to the fact that it is in C, a malformed MachO could likely cause a memory fault quite easily, so I cannot guarantee that this parser will work correctly.
 
-This library relies on zero external libraries or dependences, so you can simply build `main.c` with `gcc *.c -o parser`.
-
 ## Usage
 
-To use the library, you can either compile with `main.c` as shown above, to have an executable that demonstrates the abilities of this library, or you can simply drop the header files and their relevant `.c` files into your project folder and just include the ones you need.
+To use the library, you can either compile with `make all`, to have an executable that demonstrates the abilities of this library, or you can simply drop the header files and their relevant `.c` files into your project folder and just include the ones you need.
 
 ## Relevant MachO File Structures
 
