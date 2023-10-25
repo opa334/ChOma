@@ -78,7 +78,10 @@ int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
 					CS_CodeDirectory *codeDirectory = malloc(sizeof(CS_CodeDirectory));
 					readMachOAtOffset(macho, csBlobOffset + blobIndex->offset, sizeof(CS_CodeDirectory), codeDirectory);
 					CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, APPLY_BIG_TO_HOST);
-					printf("%s at 0x%x (magic 0x%x).\n", csBlobMagicToReadableString(blobMagic), blobIndex->offset, codeDirectory->magic);
+					// Don't print the information again if it's actually being extracted
+					if (superblob != NULL) { 
+						printf("%s at 0x%x (magic 0x%x).\n", csBlobMagicToReadableString(blobMagic), blobIndex->offset, codeDirectory->magic); 
+					}
 					size_t slotZeroOffset = csBlobOffset + blobIndex->offset + codeDirectory->hashOffset;
 					// Read the special slots and print them from lowest to highest
 					uint8_t *specialSlots = malloc(codeDirectory->nSpecialSlots * codeDirectory->hashSize);
@@ -169,7 +172,9 @@ int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
 					free(codeDirectory);
 
 				} else {
-					printf("%s at 0x%x (magic 0x%x).\n", csBlobMagicToReadableString(blobMagic), blobIndex->offset, blobMagic);
+					if (superblob != NULL) {
+						printf("%s at 0x%x (magic 0x%x).\n", csBlobMagicToReadableString(blobMagic), blobIndex->offset, blobMagic);
+					}
 				}
 
 				// Clean up
