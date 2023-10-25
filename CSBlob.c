@@ -84,86 +84,86 @@ int parseSuperBlob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex) {
 					uint8_t *specialSlots = malloc(codeDirectory->nSpecialSlots * codeDirectory->hashSize);
 					size_t lastSpecialSlotOffset = slotZeroOffset - (codeDirectory->nSpecialSlots * codeDirectory->hashSize);
 					readMachOAtOffset(macho, lastSpecialSlotOffset, codeDirectory->nSpecialSlots * codeDirectory->hashSize, specialSlots);
-					for (int i = 0; i < codeDirectory->nSpecialSlots; i++) {
+					// for (int i = 0; i < codeDirectory->nSpecialSlots; i++) {
 
-						// Print the slot number
-						int slotNumber = 0 - (codeDirectory->nSpecialSlots - i);
-						printf("%d: ", slotNumber);
+					// 	// Print the slot number
+					// 	int slotNumber = 0 - (codeDirectory->nSpecialSlots - i);
+					// 	printf("%d: ", slotNumber);
 
-						// Print each byte of the hash
-						for (int j = 0; j < codeDirectory->hashSize; j++) {
-							printf("%02x", specialSlots[(i * codeDirectory->hashSize) + j]);
-						}
+					// 	// Print each byte of the hash
+					// 	for (int j = 0; j < codeDirectory->hashSize; j++) {
+					// 		printf("%02x", specialSlots[(i * codeDirectory->hashSize) + j]);
+					// 	}
 
-						// Check if hash is just zeroes
-						bool isZero = true;
-						for (int j = 0; j < codeDirectory->hashSize; j++) {
-							if (specialSlots[(i * codeDirectory->hashSize) + j] != 0) {
-								isZero = false;
-								break;
-							}
-						}
+					// 	// Check if hash is just zeroes
+					// 	bool isZero = true;
+					// 	for (int j = 0; j < codeDirectory->hashSize; j++) {
+					// 		if (specialSlots[(i * codeDirectory->hashSize) + j] != 0) {
+					// 			isZero = false;
+					// 			break;
+					// 		}
+					// 	}
 
-						// TrollStore TODO: Validate that hashes are correct
-						// Don't print the special slot name if the hash is just zeroes
-						if (!isZero) {
-							// Print the special slot name (if applicable)
-							if (slotNumber == -1) {
-								printf(" (Info.plist hash)");
-							} else if (slotNumber == -2) {
-								printf(" (Requirements blob hash)");
-							} else if (slotNumber == -3) {
-								printf(" (CodeResources hash)");
-							} else if (slotNumber == -4) {
-								printf(" (App-specific hash)");
-							} else if (slotNumber == -5) {
-								printf(" (Entitlements hash)");
-							} else if (slotNumber == -6) {
-								printf(" (Used for disk rep)");
-							} else if (slotNumber == -7) {
-								printf(" (DER entitlements hash)");
-							} else if (slotNumber == -8) {
-								printf(" (Process launch constraints hash)");
-							} else if (slotNumber == -9) {
-								printf(" (Parent process launch constraints hash)");
-							} else if (slotNumber == -10) {
-								printf(" (Responsible process launch constraints hash)");
-							} else if (slotNumber == -11) {
-								printf(" (Loaded library launch constraints hash)");
-							}
-						}
+					// 	// TrollStore TODO: Validate that hashes are correct
+					// 	// Don't print the special slot name if the hash is just zeroes
+					// 	if (!isZero) {
+					// 		// Print the special slot name (if applicable)
+					// 		if (slotNumber == -1) {
+					// 			printf(" (Info.plist hash)");
+					// 		} else if (slotNumber == -2) {
+					// 			printf(" (Requirements blob hash)");
+					// 		} else if (slotNumber == -3) {
+					// 			printf(" (CodeResources hash)");
+					// 		} else if (slotNumber == -4) {
+					// 			printf(" (App-specific hash)");
+					// 		} else if (slotNumber == -5) {
+					// 			printf(" (Entitlements hash)");
+					// 		} else if (slotNumber == -6) {
+					// 			printf(" (Used for disk rep)");
+					// 		} else if (slotNumber == -7) {
+					// 			printf(" (DER entitlements hash)");
+					// 		} else if (slotNumber == -8) {
+					// 			printf(" (Process launch constraints hash)");
+					// 		} else if (slotNumber == -9) {
+					// 			printf(" (Parent process launch constraints hash)");
+					// 		} else if (slotNumber == -10) {
+					// 			printf(" (Responsible process launch constraints hash)");
+					// 		} else if (slotNumber == -11) {
+					// 			printf(" (Loaded library launch constraints hash)");
+					// 		}
+					// 	}
 
-						printf("\n");
-					}
+					// 	printf("\n");
+					// }
 
-					// Clean up
-					free(specialSlots);
+					// // Clean up
+					// free(specialSlots);
 					
-					// Don't pollute the output with hashes if there are a lot of them
-					if (codeDirectory->nCodeSlots <= 50) {
-						// Create an array of hashes and print them
-						uint8_t *hashes = malloc(codeDirectory->nCodeSlots * codeDirectory->hashSize);
-						readMachOAtOffset(macho, slotZeroOffset, codeDirectory->nCodeSlots * codeDirectory->hashSize, hashes);
-						for (int i = 0; i < codeDirectory->nCodeSlots; i++) {
+					// // Don't pollute the output with hashes if there are a lot of them
+					// if (codeDirectory->nCodeSlots <= 50) {
+					// 	// Create an array of hashes and print them
+					// 	uint8_t *hashes = malloc(codeDirectory->nCodeSlots * codeDirectory->hashSize);
+					// 	readMachOAtOffset(macho, slotZeroOffset, codeDirectory->nCodeSlots * codeDirectory->hashSize, hashes);
+					// 	for (int i = 0; i < codeDirectory->nCodeSlots; i++) {
 
-							// Align the slot number for cleaner output
-							if (i > 9) {
-								printf("%d: ", i);
-							} else {
-								printf(" %d: ", i);
-							}
+					// 		// Align the slot number for cleaner output
+					// 		if (i > 9) {
+					// 			printf("%d: ", i);
+					// 		} else {
+					// 			printf(" %d: ", i);
+					// 		}
 
-							// Print each byte of the hash
-							for (int j = 0; j < codeDirectory->hashSize; j++) {
-								printf("%02x", hashes[(i * codeDirectory->hashSize) + j]);
-							}
-							printf("\n");
+					// 		// Print each byte of the hash
+					// 		for (int j = 0; j < codeDirectory->hashSize; j++) {
+					// 			printf("%02x", hashes[(i * codeDirectory->hashSize) + j]);
+					// 		}
+					// 		printf("\n");
 
-						}
+					// 	}
 
-						// Clean up
-						free(hashes);
-					}
+					// 	// Clean up
+					// 	free(hashes);
+					// }
 
 					// Clean up
 					free(codeDirectory);
