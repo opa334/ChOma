@@ -156,6 +156,7 @@ int macho_fetch_slices(MachO *macho)
             macho->_slices = malloc(sizeof(MachOSlice));
             macho->_slices[0]._archDescriptor = fakeArch;
             macho->_slices[0]._machHeader = machHeader;
+            macho->_slices[0]._isValid = true;
             macho->_sliceCount = 1;
         }
     }
