@@ -17,11 +17,11 @@ int fetchSlices(MachO *macho)
     struct fat_header fatHeader;
     readMachOAtOffset(macho, 0, sizeof(fatHeader), &fatHeader);
     FAT_HEADER_APPLY_BYTE_ORDER(&fatHeader, APPLY_BIG_TO_HOST);
-    printf("FAT header found! Magic: 0x%x.\n", fatHeader.magic);
 
     // Check if the file is a FAT file
     if (fatHeader.magic == FAT_MAGIC || fatHeader.magic == FAT_MAGIC_64)
     {
+        printf("FAT header found! Magic: 0x%x.\n", fatHeader.magic);
         bool is64 = fatHeader.magic == FAT_MAGIC_64;
         MachOSlice *slicesM;
 
@@ -126,10 +126,11 @@ int fetchSlices(MachO *macho)
         // Read the mach header
         struct mach_header_64 machHeader;
         readMachOAtOffset(macho, 0, sizeof(machHeader), &machHeader);
-        MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, APPLY_BIG_TO_HOST);
+        MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, APPLY_LITTLE_TO_HOST);
 
         // Check the magic against the expected values
         if (machHeader.magic == MH_MAGIC || machHeader.magic == MH_MAGIC_64) {
+            printf("Mach header found! Magic: 0x%x.\n", machHeader.magic);
             
             // Create a FAT arch structure and populate it
             struct fat_arch_64 fakeArch = {0};
