@@ -17,6 +17,8 @@
 )
 
 #define HOST_TO_BIG(n) _Generic((n), \
+    int8_t: n, \
+    uint8_t: n, \
     uint16_t: OSSwapHostToBigInt16(n), \
     int16_t: OSSwapHostToBigInt16(n), \
     int32_t: OSSwapHostToBigInt32(n), \
@@ -26,6 +28,8 @@
 )
 
 #define LITTLE_TO_HOST(n) _Generic((n), \
+    int8_t: n, \
+    uint8_t: n, \
     int16_t: OSSwapLittleToHostInt16(n), \
     uint16_t: OSSwapLittleToHostInt16(n), \
     int32_t: OSSwapLittleToHostInt32(n), \
@@ -35,6 +39,8 @@
 )
 
 #define HOST_TO_LITTLE(n) _Generic((n), \
+    int8_t: n, \
+    uint8_t: n, \
     int16_t: OSSwapHostToLittleInt16(n), \
     uint16_t: OSSwapHostToLittleInt16(n), \
     int32_t: OSSwapHostToLittleInt32(n), \
@@ -43,16 +49,16 @@
     uint64_t: OSSwapHostToLittleInt64(n) \
 )
 
-#define APPLY_HOST_TO_LITTLE(instance, member) \
+#define HOST_TO_LITTLE_APPLIER(instance, member) \
     (instance)->member = HOST_TO_LITTLE((instance)->member)
 
-#define APPLY_HOST_TO_BIG(instance, member) \
+#define HOST_TO_BIG_APPLIER(instance, member) \
     (instance)->member = HOST_TO_BIG((instance)->member)
 
-#define APPLY_LITTLE_TO_HOST(instance, member) \
+#define LITTLE_TO_HOST_APPLIER(instance, member) \
     (instance)->member = LITTLE_TO_HOST((instance)->member)
 
-#define APPLY_BIG_TO_HOST(instance, member) \
+#define BIG_TO_HOST_APPLIER(instance, member) \
     (instance)->member = BIG_TO_HOST((instance)->member)
 
 #define FAT_HEADER_APPLY_BYTE_ORDER(fh, applier) \

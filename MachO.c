@@ -16,7 +16,7 @@ int macho_fetch_slices(MachO *macho)
     // Read the FAT header
     struct fat_header fatHeader;
     macho_read_at_offset(macho, 0, sizeof(fatHeader), &fatHeader);
-    FAT_HEADER_APPLY_BYTE_ORDER(&fatHeader, APPLY_BIG_TO_HOST);
+    FAT_HEADER_APPLY_BYTE_ORDER(&fatHeader, BIG_TO_HOST_APPLIER);
 
     // Check if the file is a FAT file
     if (fatHeader.magic == FAT_MAGIC || fatHeader.magic == FAT_MAGIC_64)
@@ -43,12 +43,12 @@ int macho_fetch_slices(MachO *macho)
             {
                 // Read the arch descriptor
                 macho_read_at_offset(macho, sizeof(struct fat_header) + i * sizeof(arch64), sizeof(arch64), &arch64);
-                FAT_ARCH_64_APPLY_BYTE_ORDER(&arch64, APPLY_BIG_TO_HOST);
+                FAT_ARCH_64_APPLY_BYTE_ORDER(&arch64, BIG_TO_HOST_APPLIER);
 
                 // Read the mach header
                 struct mach_header_64 machHeader;
                 macho_read_at_offset(macho, arch64.offset, sizeof(machHeader), &machHeader);
-                MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, APPLY_LITTLE_TO_HOST);
+                MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, LITTLE_TO_HOST_APPLIER);
                 
                 // Check the magic against the expected values
                 if (machHeader.magic == MH_MAGIC_64 || machHeader.magic == MH_MAGIC)
@@ -75,7 +75,7 @@ int macho_fetch_slices(MachO *macho)
                 // Read the FAT arch structure
                 struct fat_arch arch = {0};
                 macho_read_at_offset(macho, sizeof(struct fat_header) + i * sizeof(arch), sizeof(arch), &arch);
-                FAT_ARCH_APPLY_BYTE_ORDER(&arch, APPLY_BIG_TO_HOST);
+                FAT_ARCH_APPLY_BYTE_ORDER(&arch, BIG_TO_HOST_APPLIER);
 
                 bool foundInvalidSlice = false;
 
@@ -97,7 +97,7 @@ int macho_fetch_slices(MachO *macho)
                 // Read the mach header
                 struct mach_header_64 machHeader;
                 macho_read_at_offset(macho, arch64.offset, sizeof(machHeader), &machHeader);
-                MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, APPLY_LITTLE_TO_HOST);
+                MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, LITTLE_TO_HOST_APPLIER);
 
                 // Check the magic against the expected values
                 if (machHeader.magic == MH_MAGIC_64 || machHeader.magic == MH_MAGIC)
@@ -128,11 +128,10 @@ int macho_fetch_slices(MachO *macho)
         macho->_slices = slicesM;
 
     } else {
-        
         // Read the mach header
         struct mach_header_64 machHeader;
         macho_read_at_offset(macho, 0, sizeof(machHeader), &machHeader);
-        MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, APPLY_LITTLE_TO_HOST);
+        MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, LITTLE_TO_HOST_APPLIER);
 
         // Check the magic against the expected values
         if (machHeader.magic == MH_MAGIC || machHeader.magic == MH_MAGIC_64) {
@@ -188,7 +187,7 @@ int macho_parse_load_commands(MachO *macho) {
             // Read the load command
             struct load_command loadCommand;
             macho_read_at_offset(macho, offset, sizeof(loadCommand), &loadCommand);
-            LOAD_COMMAND_APPLY_BYTE_ORDER(&loadCommand, APPLY_LITTLE_TO_HOST);
+            LOAD_COMMAND_APPLY_BYTE_ORDER(&loadCommand, LITTLE_TO_HOST_APPLIER);
 
             // Add the load command to the slice
             slice->_loadCommands[j] = loadCommand;

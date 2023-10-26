@@ -55,7 +55,7 @@ int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex)
 			// Create and populate the CMS superblob structure
 			CS_SuperBlob superblobLocal;
 			macho_read_at_offset(macho, csBlobOffset, sizeof(CS_SuperBlob), &superblobLocal);
-			SUPERBLOB_APPLY_BYTE_ORDER(&superblobLocal, APPLY_BIG_TO_HOST);
+			SUPERBLOB_APPLY_BYTE_ORDER(&superblobLocal, BIG_TO_HOST_APPLIER);
 			if (superblobLocal.magic != CSBLOB_EMBEDDED_SIGNATURE) {
 				printf("Error: incorrect superblob magic 0x%x.\n", superblobLocal.magic);
 				return -1;
@@ -69,7 +69,7 @@ int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex)
 				//                    Superblob      Start of index array                    Current blob
 				uint32_t blobOffset = csBlobOffset + (__offsetof(CS_SuperBlob, index) - 4) + (blobCount * sizeof(CS_BlobIndex));
 				macho_read_at_offset(macho, blobOffset, sizeof(CS_BlobIndex), blobIndex);
-				BLOB_INDEX_APPLY_BYTE_ORDER(blobIndex, APPLY_BIG_TO_HOST);
+				BLOB_INDEX_APPLY_BYTE_ORDER(blobIndex, BIG_TO_HOST_APPLIER);
 
 				// Read the blob magic
 				uint32_t blobMagic = 0;
@@ -81,7 +81,7 @@ int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex)
 					// Create and populate the code directory structure
 					CS_CodeDirectory *codeDirectory = malloc(sizeof(CS_CodeDirectory));
 					macho_read_at_offset(macho, csBlobOffset + blobIndex->offset, sizeof(CS_CodeDirectory), codeDirectory);
-					CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, APPLY_BIG_TO_HOST);
+					CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, BIG_TO_HOST_APPLIER);
 					// Don't print the information again if it's being extracted this time
 					if (superblob != NULL) { 
 						printf("%s at 0x%x (magic 0x%x).\n", cs_blob_magic_to_string(blobMagic), blobIndex->offset, codeDirectory->magic); 
