@@ -1,6 +1,6 @@
-# MachO
+# ChOma
 
-A relatively simple library for parsing and manipulating MachO files and their CMS blobs. Written for exploitation of [CVE-2023-41991](https://support.apple.com/en-gb/HT213926), a vulnerability in the CoreTrust kernel extension.
+ChOma is a simple library for parsing and manipulating MachO files and their CMS blobs. Written for exploitation of [CVE-2023-41991](https://support.apple.com/en-gb/HT213926), a vulnerability in the CoreTrust kernel extension.
 
 The library works primarily on iOS binaries, and should work on macOS binaries too, but this is not guaranteed. It's written entirely in C, so it's both fast and portable to iOS (for TrollStore or similar apps) as well as most other devices - however, due to the fact that it is in C, a malformed MachO could cause a memory fault, so I cannot guarantee that this parser will work correctly for such binaries.
 
@@ -10,7 +10,7 @@ Thin MachO binaries that are built for ARMv7, or FAT binaries with ARMv7 slices,
 
 To use the library, you can either compile with `make all`, to have an executable that demonstrates the abilities of this library, or you can simply drop the header files and their relevant `.c` files into your project folder and just include the ones you need.
 
-Use `getPreferredSliceIndex(MachO *macho)` to get the index of the preferred architecture slice in a FAT MachO. This is the slice that will be executed by the host device if you were to run the binary. If you're using a thin MachO, this function will just return index 0, or -1 if the architechture does not match.
+Use `getPreferredSliceIndex(MachO *macho)` to get the index of the preferred architecture slice in a FAT MachO. This is the slice that will be executed by the host device if you were to run the binary. If you're using a thin MachO, this function will just return index 0, or -1 if the architecture does not match.
 
 ## Relevant MachO File Structures
 
