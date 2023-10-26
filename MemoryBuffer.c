@@ -1,16 +1,10 @@
 #include "MemoryBuffer.h"
 
-int memory_buffer_init_from_file_path(char *path, MemoryBuffer *bufferOut) {
+int memory_buffer_init_from_file_path(char *path, size_t fileOffset, MemoryBuffer *bufferOut) {
     struct stat s;
     int ret = stat(path, &s);
     if (ret != 0) {
         printf("Error: stat returned %d with %s.\n", ret, path);
-        return -1;
-    }
-    bufferOut->size = s.st_size;
-    bufferOut->buffer = malloc(bufferOut->size);
-    if (bufferOut->buffer == NULL) {
-        printf("Error: malloc returned NULL while allocating buffer.\n");
         return -1;
     }
     FILE *file = fopen(path, "rb");
@@ -18,18 +12,23 @@ int memory_buffer_init_from_file_path(char *path, MemoryBuffer *bufferOut) {
         printf("Error: fopen returned NULL while opening %s.\n", path);
         return -1;
     }
-    size_t read = fread(bufferOut->buffer, 1, bufferOut->size, file);
-    if (read != bufferOut->size) {
-        printf("Error: fread returned %zu while reading file.\n", read);
+    int fileDescriptor = fileno(file);
+    if (fileDescriptor == -1) {
+        printf("Error: fileno returned -1 while opening %s.\n", path);
         return -1;
     }
-    fclose(file);
+    bufferOut->fd = fileDescriptor;
+    bufferOut->buffer = NULL;
+    bufferOut->startOffset = fileOffset;
+    bufferOut->size = s.st_size;
     return 0;
 }
 
 int memory_buffer_init_from_pointer(void *pointer, size_t size, MemoryBuffer *bufferOut) {
-    bufferOut->size = size;
     bufferOut->buffer = pointer;
+    bufferOut->fd = -1;
+    bufferOut->startOffset = 0;
+    bufferOut->size = size;
     return 0;
 }
 
@@ -39,42 +38,57 @@ int memory_buffer_read(MemoryBuffer *buffer, uint32_t offset, size_t size, void 
         return -1;
     }
 
-    memcpy(output, buffer->buffer + offset, size);
+    if (buffer->fd != -1) {
+        lseek(buffer->fd, buffer->startOffset + offset, SEEK_SET);
+        read(buffer->fd, output, size);
+    } else {
+        memcpy(output, buffer->buffer + offset, size);
+    }
 
     return 0;
 }
 
 int memory_buffer_write(MemoryBuffer *buffer, uint32_t offset, size_t size, void *data) {
+
     if (offset + size > buffer->size) {
         printf("Error: cannot write %zx bytes, maximum is %zx.\n", size, buffer->size - offset);
         return -1;
     }
 
-    memcpy(buffer->buffer + offset, data, size);
+    if (buffer->fd != -1) {
+        // Check if we need a new file
+        if (buffer->startOffset + offset + size > buffer->size) {
+            // TODO!
+        } else {
+            lseek(buffer->fd, buffer->startOffset + offset, SEEK_SET);
+            write(buffer->fd, data, size);
+        }
+    } else {
+        memcpy(buffer->buffer + offset, data, size);
+    }
 
     return 0;
 }
 
 int memory_buffer_grow(MemoryBuffer *buffer, size_t newSize) {
     if (newSize <= buffer->size) {
-        printf("Error: cannot grow buffer to %zu bytes, current size if %zx.\n", newSize, buffer->size);
+        printf("Error: cannot grow buffer to %zu bytes, current size is %zx.\n", newSize, buffer->size);
         return -1;
     }
-    void *tmpBuffer = malloc(buffer->size);
-    if (tmpBuffer == NULL) {
-        printf("Error: malloc returned NULL while creating temporary buffer.\n");
-        return -1;
+    if (buffer->fd != -1) {
+        // TODO!
+
+    } else {
+        void *originalBuffer = buffer->buffer;
+        void *newBuffer = realloc(buffer->buffer, newSize);
+        if (newBuffer == NULL) {
+            printf("Error: realloc returned NULL while growing buffer.\n");
+            return -1;
+        }
+        buffer->buffer = newBuffer;
+        buffer->size = newSize;
+        free(originalBuffer);
     }
-    memcpy(tmpBuffer, buffer->buffer, buffer->size);
-    free(buffer->buffer);
-    buffer->buffer = malloc(newSize);
-    if (buffer->buffer == NULL) {
-        printf("Error: malloc returned NULL while creating new buffer.\n");
-        return -1;
-    }
-    memcpy(buffer->buffer, tmpBuffer, buffer->size);
-    free(tmpBuffer);
-    buffer->size = newSize;
     return 0;
 }
 
@@ -83,24 +97,27 @@ int memory_buffer_shrink(MemoryBuffer *buffer, size_t newSize) {
         printf("Error: cannot shrink buffer to %zx bytes, current size is %zx.\n", newSize, buffer->size);
         return -1;
     }
-    void *tmpBuffer = malloc(buffer->size);
-    if (tmpBuffer == NULL) {
-        printf("Error: malloc returned NULL while creating temporary buffer.\n");
-        return -1;
+    
+    if (buffer->fd != -1) {
+        // TODO!
+    } else {
+        void *originalBuffer = buffer->buffer;
+        void *newBuffer = realloc(buffer->buffer, newSize);
+        if (newBuffer == NULL) {
+            printf("Error: realloc returned NULL while shrinking buffer.\n");
+            return -1;
+        }
+        buffer->buffer = newBuffer;
+        buffer->size = newSize;
+        free(originalBuffer);
     }
-    memcpy(tmpBuffer, buffer->buffer, buffer->size);
-    free(buffer->buffer);
-    buffer->buffer = malloc(newSize);
-    if (buffer->buffer == NULL) {
-        printf("Error: malloc returned NULL while creating new buffer.\n");
-        return -1;
-    }
-    memcpy(buffer->buffer, tmpBuffer, newSize);
-    free(tmpBuffer);
-    buffer->size = newSize;
     return 0;
 }
 
 void memory_buffer_free(MemoryBuffer *buffer) {
-    free(buffer->buffer);
+    if (buffer->fd != -1) {
+        close(buffer->fd);
+    } else {
+        free(buffer->buffer);
+    }
 }
