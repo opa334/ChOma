@@ -1,6 +1,8 @@
 #ifndef CMS_DECODING_H
 #define CMS_DECODING_H
 
+#include <stdlib.h>
+
 #include "SignatureBlob.h"
 
 static const DERItemSpec CMSContentInfoItemSpecs[] = {
@@ -25,6 +27,12 @@ static const DERItemSpec CMSSignerInfoItemSpecs[] = {
     { DER_OFFSET(CMSSignerInfoDER, signatureAlgorithm), ASN1_CONSTR_SEQUENCE, 0 },
     { DER_OFFSET(CMSSignerInfoDER, signature), ASN1_BIT_STRING, 0 },
     { DER_OFFSET(CMSSignerInfoDER, unsignedAttrs), ASN1_CONSTRUCTED | ASN1_CONTEXT_SPECIFIC, DER_DEC_OPTIONAL }
+};
+
+static const DERItemSpec CMSCertificateItemSpecs[] = {
+    { DER_OFFSET(CMSCertificateDER, tbsCertificate), ASN1_CONSTR_SEQUENCE, 0 },
+    { DER_OFFSET(CMSCertificateDER, signatureAlgorithm), ASN1_CONSTR_SEQUENCE, 0 },
+    { DER_OFFSET(CMSCertificateDER, signature), ASN1_BIT_STRING, 0 }
 };
 
 int cms_data_decode(uint8_t *cmsDERData, size_t cmsDERLength);

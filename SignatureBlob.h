@@ -554,4 +554,37 @@ typedef struct {
 
 // END -- of CryptographicMessageSyntax2004
 
+
+// https://datatracker.ietf.org/doc/html/rfc5280#appendix-A.1
+
+/*
+Certificate  ::=  SEQUENCE  {
+    tbsCertificate       TBSCertificate,
+    signatureAlgorithm   AlgorithmIdentifier,
+    signature            BIT STRING  }
+*/
+typedef struct {
+    DERItem tbsCertificate; // TBSCertificate
+    DERItem signatureAlgorithm; // AlgorithmIdentifier
+    DERItem signature; // BIT STRING
+} CMSCertificateDER;
+
+/*
+TBSCertificate  ::=  SEQUENCE  {
+    version         [0]  Version DEFAULT v1,
+    serialNumber         CertificateSerialNumber,
+    signature            AlgorithmIdentifier,
+    issuer               Name,
+    validity             Validity,
+    subject              Name,
+    subjectPublicKeyInfo SubjectPublicKeyInfo,
+    issuerUniqueID  [1]  IMPLICIT UniqueIdentifier OPTIONAL,
+                         -- If present, version MUST be v2 or v3
+    subjectUniqueID [2]  IMPLICIT UniqueIdentifier OPTIONAL,
+                         -- If present, version MUST be v2 or v3
+    extensions      [3]  Extensions OPTIONAL
+                         -- If present, version MUST be v3 --  }
+*/
+
+
 #endif // SIGNATURE_BLOB_H
