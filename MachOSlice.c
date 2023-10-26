@@ -51,15 +51,17 @@ int macho_slice_init_from_fat_arch(MachO *machO, struct fat_arch_64 archDescript
         return -1;
     }
 
-    // Ensure that the sizeofcmds is a multiple of 8 (it would need padding otherwise)
-    if (slice.machHeader.sizeofcmds % 8 != 0) {
-        printf("Error: sizeofcmds is not a multiple of 8.\n");
-        return -1;
-    }
-
     // Determine if this arch is supported by ChOma
     slice.isSupported = (archDescriptor.cpusubtype != 0x9);
+
     if (slice.isSupported) {
+
+        // Ensure that the sizeofcmds is a multiple of 8 (it would need padding otherwise)
+        if (slice.machHeader.sizeofcmds % 8 != 0) {
+            printf("Error: sizeofcmds is not a multiple of 8.\n");
+            return -1;
+        }
+        
         // If so, parse it's contents
         macho_slice_parse_load_commands(&slice);
     }
