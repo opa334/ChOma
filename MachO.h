@@ -13,15 +13,15 @@
 // Main MachO structurre
 typedef struct MachO
 {
-    FILE *_file;
-    size_t _fileSize;
-    MachOSlice *_slices;
-    size_t _sliceCount;
-    int _fileDescriptor;
+    FILE *file;
+    size_t fileSize;
+    MachOSlice *slices;
+    size_t sliceCount;
+    int fileDescriptor;
 } MachO;
 
 // Initialise a MachO structure using the path to the file
-int macho_init_with_path(const char *filePath, MachO *machoOut);
+int macho_init_from_path(const char *filePath, MachO *machoOut);
 
 // Read data from the MachO file at a given offset
 int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outputBuffer);

@@ -2,12 +2,17 @@
 #define MACHO_SLICE_H
 
 #include <stdbool.h>
+typedef struct MachO MachO;
 
 typedef struct MachOSlice {
-    struct mach_header_64 _machHeader;
-    struct fat_arch_64 _archDescriptor;
-    struct load_command *_loadCommands;
-    bool _isValid;
+    MachO *containingMacho;
+    struct mach_header_64 machHeader;
+    struct fat_arch_64 archDescriptor;
+    struct load_command *loadCommands;
+    bool isSupported;
 } MachOSlice;
+
+int macho_slice_init_from_fat_arch(MachO *machO, struct fat_arch_64 archDescriptor, MachOSlice *sliceOut);
+int macho_slice_from_macho(MachO *machO, MachOSlice *sliceOut);
 
 #endif // MACHO_SLICE_H

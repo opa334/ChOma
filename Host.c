@@ -19,10 +19,10 @@ int macho_get_preferred_slice_index(MachO *macho) {
     cpu_type_t cputype;
     cpu_subtype_t cpusubtype;
     if (host_get_cpu_information(&cputype, &cpusubtype) != 0) { return -1; }
-    for (int i = 0; i < macho->_sliceCount; i++) {
-        if (macho->_slices[i]._archDescriptor.cputype == cputype
-        && macho->_slices[i]._archDescriptor.cpusubtype == cpusubtype
-        && macho->_slices[i]._isValid) {
+    for (int i = 0; i < macho->sliceCount; i++) {
+        if (macho->slices[i].archDescriptor.cputype == cputype
+        && macho->slices[i].archDescriptor.cpusubtype == cpusubtype
+        && macho->slices[i].isSupported) {
             return i;
         }
     }

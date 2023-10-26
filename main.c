@@ -12,14 +12,14 @@ int main(int argc, char *argv[]) {
     // Initialise the MachO structure
     printf("Initialising MachO structure from %s.\n", argv[1]);
     MachO macho;
-    if (macho_init_with_path(argv[1], &macho) != 0) { return -1; }
+    if (macho_init_from_path(argv[1], &macho) != 0) { return -1; }
 
     // Parse the code signature blob
     printf("Parsing CMS superblobs from MachO.\n");
-    for (int sliceIndex = 0; sliceIndex < macho._sliceCount; sliceIndex++) {
+    for (int sliceIndex = 0; sliceIndex < macho.sliceCount; sliceIndex++) {
         if (macho_parse_superblob(&macho, NULL, sliceIndex) != 0) {
-            if (macho._sliceCount > 1) {
-                if (macho._slices[sliceIndex]._isValid) {
+            if (macho.sliceCount > 1) {
+                if (macho.slices[sliceIndex].isSupported) {
                     printf("Slice %d does not contain a code signature.\n", sliceIndex + 1);
                 }
             } else {
@@ -49,8 +49,8 @@ int main(int argc, char *argv[]) {
         // Clean up
         free(cmsDERData);
     } else {
-        if (macho._sliceCount > 1) {
-            if (macho._slices[0]._isValid) {
+        if (macho.sliceCount > 1) {
+            if (macho.slices[0].isSupported) {
                 printf("First slice does not contain a code signature.\n");
             } else {
                 printf("Could not parse CMS data for ARMv7 slice.\n");
