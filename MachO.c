@@ -67,7 +67,7 @@ int macho_parse_slices(MachO *macho)
     } else {
         // Not FAT? Try parsing it as a single slice macho
         MachOSlice slice;
-        int sliceInitRet = macho_slice_from_macho(macho, &slice);
+        int sliceInitRet = macho_slice_init_from_macho(macho, &slice);
         if (sliceInitRet != 0) return sliceInitRet;
 
         macho->slices = malloc(sizeof(MachOSlice));
@@ -85,15 +85,10 @@ void macho_free(MachO *macho)
 
     // Free the slices
     if (macho->slices != NULL) {
-        free(macho->slices);
-    }
-
-    // Free the load commands
-    for (int i = 0; i < macho->sliceCount; i++)
-    {
-        if (macho->slices[i].loadCommands != NULL) {
-            free(macho->slices[i].loadCommands);
+        for (int i = 0; i < macho->sliceCount; i++) {
+            macho_slice_free(&macho->slices[i]);
         }
+        free(macho->slices);
     }
 }
 
@@ -101,14 +96,14 @@ int macho_init_from_path(const char *filePath, MachO *machoOut)
 {
     memset(machoOut, 0, sizeof(*machoOut));
 
-    if (memory_buffer_init_from_path(filePath, 0, MEMBUF_SIZE_AUTO, &machoOut->buffer) != 0) {
+    if (memory_buffer_init_from_path(filePath, 0, MEMORY_BUFFER_SIZE_AUTO, &machoOut->buffer) != 0) {
         memory_buffer_free(&machoOut->buffer);
     }
 
     // Parse the slices
     if (macho_parse_slices(machoOut) != 0) { return -1; }
 
-    printf("File size 0x%zx bytes, slice count %zu.\n", machoOut->buffer.size, machoOut->sliceCount);
+    printf("File size 0x%zx bytes, slice count %zu.\n", machoOut->buffer.bufferSize, machoOut->sliceCount);
 
     return 0;
 }

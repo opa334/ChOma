@@ -6,7 +6,7 @@
 
 int macho_slice_read_at_offset(MachOSlice *slice, uint64_t offset, size_t size, void *outputBuffer)
 {
-    return memory_buffer_read(&slice->containingMacho->buffer, slice->archDescriptor.offset + offset, size, outputBuffer);
+    return memory_buffer_read(&slice->buffer, offset, size, outputBuffer);
 }
 
 int macho_slice_parse_load_commands(MachOSlice *slice)
@@ -41,38 +41,39 @@ int macho_slice_parse_load_commands(MachOSlice *slice)
 // For one arch of a fat binary
 int macho_slice_init_from_fat_arch(MachO *machO, struct fat_arch_64 archDescriptor, MachOSlice *sliceOut)
 {
-    MachOSlice slice;
-    slice.containingMacho = machO;
-    slice.archDescriptor = archDescriptor;
-    macho_slice_read_at_offset(&slice, 0, sizeof(slice.machHeader), &slice.machHeader);
+    memset(sliceOut, 0, sizeof(*sliceOut));
+    int r = memory_buffer_init_trimmed(&machO->buffer, archDescriptor.offset, archDescriptor.size, &sliceOut->buffer);
+    if (r != 0) return r;
+
+    sliceOut->archDescriptor = archDescriptor;
+    macho_slice_read_at_offset(sliceOut, 0, sizeof(sliceOut->machHeader), &sliceOut->machHeader);
 
     // Check the magic against the expected values
-    if (slice.machHeader.magic != MH_MAGIC_64 && slice.machHeader.magic != MH_MAGIC) {
-        printf("Error: invalid magic 0x%x for mach header at offset 0x%llx.\n", slice.machHeader.magic, archDescriptor.offset);
+    if (sliceOut->machHeader.magic != MH_MAGIC_64 && sliceOut->machHeader.magic != MH_MAGIC) {
+        printf("Error: invalid magic 0x%x for mach header at offset 0x%llx.\n", sliceOut->machHeader.magic, archDescriptor.offset);
         return -1;
     }
 
     // Determine if this arch is supported by ChOma
-    slice.isSupported = (archDescriptor.cpusubtype != 0x9);
+    sliceOut->isSupported = (archDescriptor.cpusubtype != 0x9);
 
-    if (slice.isSupported) {
+    if (sliceOut->isSupported) {
 
         // Ensure that the sizeofcmds is a multiple of 8 (it would need padding otherwise)
-        if (slice.machHeader.sizeofcmds % 8 != 0) {
+        if (sliceOut->machHeader.sizeofcmds % 8 != 0) {
             printf("Error: sizeofcmds is not a multiple of 8.\n");
             return -1;
         }
         
         // If so, parse it's contents
-        macho_slice_parse_load_commands(&slice);
+        macho_slice_parse_load_commands(sliceOut);
     }
 
-    *sliceOut = slice;
     return 0;
 }
 
 // For single arch MachOs
-int macho_slice_from_macho(MachO *macho, MachOSlice *sliceOut)
+int macho_slice_init_from_macho(MachO *macho, MachOSlice *sliceOut)
 {
     // This function can skip any sanity checks as those will be done by macho_slice_init_from_fat_arch
 
@@ -85,8 +86,16 @@ int macho_slice_from_macho(MachO *macho, MachOSlice *sliceOut)
     fakeArch.cpusubtype = machHeader.cpusubtype;
     fakeArch.cputype = machHeader.cputype;
     fakeArch.offset = 0;
-    fakeArch.size = macho->buffer.size;
+    fakeArch.size = macho->buffer.bufferSize;
     fakeArch.align = 0x4000;
 
     return macho_slice_init_from_fat_arch(macho, fakeArch, sliceOut);
+}
+
+void macho_slice_free(MachOSlice *slice)
+{
+    memory_buffer_free(&slice->buffer);
+    if (slice->loadCommands != NULL) {
+        free(slice->loadCommands);
+    }
 }
