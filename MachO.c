@@ -99,19 +99,16 @@ void macho_free(MachO *macho)
 
 int macho_init_from_path(const char *filePath, MachO *machoOut)
 {
-    MachO macho;
-    
+    memset(machoOut, 0, sizeof(*machoOut));
 
-    if (memory_buffer_init_from_file_path(filePath, 0, &macho.buffer) != 0) {
-        memory_buffer_free(&macho.buffer);
+    if (memory_buffer_init_from_path(filePath, 0, MEMBUF_SIZE_AUTO, &machoOut->buffer) != 0) {
+        memory_buffer_free(&machoOut->buffer);
     }
 
     // Parse the slices
-    if (macho_parse_slices(&macho) != 0) { return -1; }
+    if (macho_parse_slices(machoOut) != 0) { return -1; }
 
-    printf("File size 0x%zx bytes, slice count %zu.\n", macho.buffer.size, macho.sliceCount);
+    printf("File size 0x%zx bytes, slice count %zu.\n", machoOut->buffer.size, machoOut->sliceCount);
 
-    // Update the output MachO structure
-    *machoOut = macho;
     return 0;
 }

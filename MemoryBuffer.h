@@ -4,8 +4,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
+
+#define MEMBUF_SIZE_AUTO 0
 
 /*
 Memory buffer interface:
@@ -20,9 +23,11 @@ typedef struct {
     size_t size;
 } MemoryBuffer;
 
-int memory_buffer_init_from_file_path(const char *path, size_t fileOffset, MemoryBuffer *bufferOut);
+int memory_buffer_init_from_file_descriptor(int fd, uint32_t startOffset, size_t size, MemoryBuffer *bufferOut);
 
-int memory_buffer_init_from_pointer(void *pointer, size_t size, MemoryBuffer *bufferOut);
+int memory_buffer_init_from_path(const char *path, uint32_t startOffset, size_t size, MemoryBuffer *bufferOut);
+
+int memory_buffer_init_from_data(void *dataPointer, uint32_t startOffset, size_t size, MemoryBuffer *bufferOut);
 
 int memory_buffer_read(MemoryBuffer *buffer, uint32_t offset, size_t size, void *output);
 

@@ -1,41 +1,48 @@
 #include "MemoryBuffer.h"
 
-int memory_buffer_init_from_file_path(const char *path, size_t fileOffset, MemoryBuffer *bufferOut) {
+int memory_buffer_init_from_file_descriptor(int fd, uint32_t startOffset, size_t size, MemoryBuffer *bufferOut)
+{
     struct stat s;
-    int ret = stat(path, &s);
+    int ret = fstat(fd, &s);
     if (ret != 0) {
-        printf("Error: stat returned %d with %s.\n", ret, path);
+        printf("Error: stat returned %d for %d.\n", ret, fd);
         return -1;
     }
-    FILE *file = fopen(path, "rb");
-    if (file == NULL) {
-        printf("Error: fopen returned NULL while opening %s.\n", path);
-        return -1;
-    }
-    int fileDescriptor = fileno(file);
-    if (fileDescriptor == -1) {
-        printf("Error: fileno returned -1 while opening %s.\n", path);
-        return -1;
-    }
-    bufferOut->fd = fileDescriptor;
+    bufferOut->fd = fd;
     bufferOut->buffer = NULL;
-    bufferOut->startOffset = fileOffset;
-    bufferOut->size = s.st_size;
+    bufferOut->startOffset = startOffset;
+    if (size == MEMBUF_SIZE_AUTO) {
+        bufferOut->size = s.st_size - startOffset;
+    }
+    else {
+        bufferOut->size = size;
+    }
+
     printf("Successfully initialised MemoryBuffer object, size 0x%zx, fd 0x%x.\n", bufferOut->size, bufferOut->fd);
     return 0;
 }
 
-int memory_buffer_init_from_pointer(void *pointer, size_t size, MemoryBuffer *bufferOut) {
-    bufferOut->buffer = pointer;
+int memory_buffer_init_from_path(const char *path, uint32_t startOffset, size_t size, MemoryBuffer *bufferOut) {
+    int fd = open(path, O_RDONLY);
+    if (fd == -1) {
+        printf("Failed to open %s\n", path);
+        return -1;
+    }
+
+    return memory_buffer_init_from_file_descriptor(fd, startOffset, size, bufferOut);
+}
+
+int memory_buffer_init_from_data(void *dataPointer, uint32_t startOffset, size_t size, MemoryBuffer *bufferOut) {
+    bufferOut->buffer = dataPointer;
     bufferOut->fd = -1;
-    bufferOut->startOffset = 0;
+    bufferOut->startOffset = startOffset;
     bufferOut->size = size;
     return 0;
 }
 
 int memory_buffer_read(MemoryBuffer *buffer, uint32_t offset, size_t size, void *output) {
     if (offset + size > buffer->size) {
-        printf("Error: cannot read %zx bytes, maximum is %zx.\n", size, buffer->size - offset);
+        printf("Error: cannot read %zx bytes at %x, maximum is %zx.\n", size, offset, buffer->size);
         return -1;
     }
 
@@ -43,7 +50,7 @@ int memory_buffer_read(MemoryBuffer *buffer, uint32_t offset, size_t size, void 
         lseek(buffer->fd, buffer->startOffset + offset, SEEK_SET);
         read(buffer->fd, output, size);
     } else {
-        memcpy(output, buffer->buffer + offset, size);
+        memcpy(output, buffer->buffer + buffer->startOffset + offset, size);
     }
 
     return 0;
@@ -51,7 +58,7 @@ int memory_buffer_read(MemoryBuffer *buffer, uint32_t offset, size_t size, void 
 
 int memory_buffer_write(MemoryBuffer *buffer, uint32_t offset, size_t size, void *data) {
 
-    if (offset + size > buffer->size) {
+    /*if (offset + size > buffer->size) {
         printf("Error: cannot write %zx bytes, maximum is %zx.\n", size, buffer->size - offset);
         return -1;
     }
@@ -66,13 +73,13 @@ int memory_buffer_write(MemoryBuffer *buffer, uint32_t offset, size_t size, void
         }
     } else {
         memcpy(buffer->buffer + offset, data, size);
-    }
+    }*/
 
     return 0;
 }
 
 int memory_buffer_grow(MemoryBuffer *buffer, size_t newSize) {
-    if (newSize <= buffer->size) {
+    /*if (newSize <= buffer->size) {
         printf("Error: cannot grow buffer to %zu bytes, current size is %zx.\n", newSize, buffer->size);
         return -1;
     }
@@ -89,12 +96,12 @@ int memory_buffer_grow(MemoryBuffer *buffer, size_t newSize) {
         buffer->buffer = newBuffer;
         buffer->size = newSize;
         free(originalBuffer);
-    }
+    }*/
     return 0;
 }
 
 int memory_buffer_shrink(MemoryBuffer *buffer, size_t newSize) {
-    if (newSize >= buffer->size) {
+    /*if (newSize >= buffer->size) {
         printf("Error: cannot shrink buffer to %zx bytes, current size is %zx.\n", newSize, buffer->size);
         return -1;
     }
@@ -111,7 +118,7 @@ int memory_buffer_shrink(MemoryBuffer *buffer, size_t newSize) {
         buffer->buffer = newBuffer;
         buffer->size = newSize;
         free(originalBuffer);
-    }
+    }*/
     return 0;
 }
 
