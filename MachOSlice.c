@@ -19,6 +19,7 @@ int macho_slice_parse_load_commands(MachOSlice *slice)
 
     printf("Parsing %d load commands for slice %x/%x.\n", slice->machHeader.ncmds, slice->machHeader.cputype, slice->machHeader.cpusubtype);
     slice->loadCommands = malloc(slice->machHeader.sizeofcmds);
+    memset(slice->loadCommands, 0, slice->machHeader.sizeofcmds);
 
     // Get the offset of the first load command
     uint64_t offset = sizeof(struct mach_header_64);

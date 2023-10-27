@@ -15,51 +15,57 @@ int main(int argc, char *argv[]) {
     if (macho_init_from_path(argv[1], &macho) != 0) { return -1; }
 
     // Parse the code signature blob
-    printf("Parsing CMS superblobs from MachO.\n");
-    for (int sliceIndex = 0; sliceIndex < macho.sliceCount; sliceIndex++) {
-        if (macho_parse_superblob(&macho, NULL, sliceIndex) != 0) {
-            if (macho.sliceCount > 1) {
-                if (macho.slices[sliceIndex].isSupported) {
-                    printf("Slice %d does not contain a code signature.\n", sliceIndex + 1);
-                }
-            } else {
-                printf("Binary does not contain a code signature.\n");
-                return -1; 
-            }
-        }
-    }
+    // printf("Parsing CMS superblobs from MachO.\n");
+    // for (int sliceIndex = 0; sliceIndex < macho.sliceCount; sliceIndex++) {
+    //     if (macho_parse_superblob(&macho, NULL, sliceIndex) != 0) {
+    //         if (macho.sliceCount > 1) {
+    //             if (macho.slices[sliceIndex].isSupported) {
+    //                 printf("Slice %d does not contain a code signature.\n", sliceIndex + 1);
+    //             }
+    //         } else {
+    //             printf("Binary does not contain a code signature.\n");
+    //             return -1; 
+    //         }
+    //     }
+    // }
+
+    CS_SuperBlob superblob;
+    macho_slice_parse_superblob(&macho.slices[0], &superblob);
+
+    
 
     // Extract CMS data to file
-    printf("Extracting CMS data from first slice to file.\n");
-    CS_SuperBlob superblob;
-    if (macho_parse_superblob(&macho, &superblob, 0) == 0) {
-        macho_extract_cms_to_file(&macho, &superblob, 0);
+    // printf("Extracting CMS data from first slice to file.\n");
+    // CS_SuperBlob superblob;
+    // if (macho_parse_superblob(&macho, &superblob, 0) == 0) {
+    //     macho_extract_cms_to_file(&macho, &superblob, 0);
 
-        // TODO: Extract this from the CMS data
-        FILE *cmsDERFile = fopen("CMS-DER", "rb");
-        fseek(cmsDERFile, 0, SEEK_END);
-        size_t cmsDERLength = ftell(cmsDERFile);
-        fseek(cmsDERFile, 0, SEEK_SET);
-        uint8_t *cmsDERData = malloc(cmsDERLength);
-        fread(cmsDERData, cmsDERLength, 1, cmsDERFile);
-        fclose(cmsDERFile);
+    //     // TODO: Extract this from the CMS data
+    //     FILE *cmsDERFile = fopen("CMS-DER", "rb");
+    //     fseek(cmsDERFile, 0, SEEK_END);
+    //     size_t cmsDERLength = ftell(cmsDERFile);
+    //     fseek(cmsDERFile, 0, SEEK_SET);
+    //     uint8_t *cmsDERData = malloc(cmsDERLength);
+    //     memset(cmsDERData, 0, cmsDERLength);
+    //     fread(cmsDERData, cmsDERLength, 1, cmsDERFile);
+    //     fclose(cmsDERFile);
 
-        cms_data_decode(cmsDERData, cmsDERLength);
+    //     cms_data_decode(cmsDERData, cmsDERLength);
 
-        // Clean up
-        free(cmsDERData);
-    } else {
-        if (macho.sliceCount > 1) {
-            if (macho.slices[0].isSupported) {
-                printf("First slice does not contain a code signature.\n");
-            } else {
-                printf("Could not parse CMS data for ARMv7 slice.\n");
-            }
-        } else {
-            printf("Binary does not contain a code signature.\n");
-            return -1; 
-        }
-    }
+    //     // Clean up
+    //     free(cmsDERData);
+    // } else {
+    //     if (macho.sliceCount > 1) {
+    //         if (macho.slices[0].isSupported) {
+    //             printf("First slice does not contain a code signature.\n");
+    //         } else {
+    //             printf("Could not parse CMS data for ARMv7 slice.\n");
+    //         }
+    //     } else {
+    //         printf("Binary does not contain a code signature.\n");
+    //         return -1; 
+    //     }
+    // }
     macho_free(&macho);
 
     return 0;

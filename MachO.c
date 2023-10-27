@@ -25,6 +25,7 @@ int macho_parse_slices(MachO *macho)
         }
 
         slicesM = malloc(sizeof(MachOSlice) * fatHeader.nfat_arch);
+        memset(slicesM, 0, sizeof(MachOSlice) * fatHeader.nfat_arch);
 
         // Iterate over all slices
         for (uint32_t i = 0; i < fatHeader.nfat_arch; i++)
@@ -70,6 +71,7 @@ int macho_parse_slices(MachO *macho)
         if (sliceInitRet != 0) return sliceInitRet;
 
         macho->slices = malloc(sizeof(MachOSlice));
+        memset(macho->slices, 0, sizeof(MachOSlice));
         macho->slices[0] = slice;
         macho->sliceCount = 1;
     }
@@ -78,8 +80,7 @@ int macho_parse_slices(MachO *macho)
 
 void macho_free(MachO *macho)
 {
-    // // Close the file
-    // fclose(macho->file);
+    // Free the MemoryBuffer object
     memory_buffer_free(&macho->buffer);
 
     // Free the slices
