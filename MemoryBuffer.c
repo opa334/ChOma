@@ -1,6 +1,6 @@
 #include "MemoryBuffer.h"
 
-int memory_buffer_init_from_file_path(char *path, size_t fileOffset, MemoryBuffer *bufferOut) {
+int memory_buffer_init_from_file_path(const char *path, size_t fileOffset, MemoryBuffer *bufferOut) {
     struct stat s;
     int ret = stat(path, &s);
     if (ret != 0) {
@@ -21,6 +21,7 @@ int memory_buffer_init_from_file_path(char *path, size_t fileOffset, MemoryBuffe
     bufferOut->buffer = NULL;
     bufferOut->startOffset = fileOffset;
     bufferOut->size = s.st_size;
+    printf("Successfully initialised MemoryBuffer object, size 0x%zx, fd 0x%x.\n", bufferOut->size, bufferOut->fd);
     return 0;
 }
 

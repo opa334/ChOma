@@ -9,12 +9,12 @@
 #include <sys/stat.h>
 
 #include "MachOSlice.h"
+#include "MemoryBuffer.h"
 
 // Main MachO structurre
 typedef struct MachO
 {
-    FILE *file;
-    size_t fileSize;
+    MemoryBuffer buffer;
     MachOSlice *slices;
     size_t sliceCount;
     int fileDescriptor;
@@ -22,9 +22,6 @@ typedef struct MachO
 
 // Initialise a MachO structure using the path to the file
 int macho_init_from_path(const char *filePath, MachO *machoOut);
-
-// Read data from the MachO file at a given offset
-int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outputBuffer);
 
 // Free all elements of the MachO structure
 void macho_free(MachO *macho);

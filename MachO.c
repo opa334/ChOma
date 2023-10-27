@@ -4,18 +4,11 @@
 #include "MachO.h"
 #include "MachOByteOrder.h"
 
-int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outputBuffer)
-{
-    fseek(macho->file, offset, SEEK_SET);
-    fread(outputBuffer, size, 1, macho->file);
-    return 0;
-}
-
 int macho_parse_slices(MachO *macho)
 {
     // Read the FAT header
     struct fat_header fatHeader;
-    macho_read_at_offset(macho, 0, sizeof(fatHeader), &fatHeader);
+    memory_buffer_read(&macho->buffer, 0, sizeof(fatHeader), &fatHeader);
     FAT_HEADER_APPLY_BYTE_ORDER(&fatHeader, BIG_TO_HOST_APPLIER);
 
     // Check if the file is a FAT file
@@ -40,14 +33,14 @@ int macho_parse_slices(MachO *macho)
             if (is64)
             {
                 // Read the arch descriptor
-                macho_read_at_offset(macho, sizeof(struct fat_header) + i * sizeof(arch64), sizeof(arch64), &arch64);
+                memory_buffer_read(&macho->buffer, sizeof(struct fat_header) + i * sizeof(arch64), sizeof(arch64), &arch64);
                 FAT_ARCH_64_APPLY_BYTE_ORDER(&arch64, BIG_TO_HOST_APPLIER);
             }
             else
             {
                 // Read the FAT arch structure
                 struct fat_arch arch = {0};
-                macho_read_at_offset(macho, sizeof(struct fat_header) + i * sizeof(arch), sizeof(arch), &arch);
+                memory_buffer_read(&macho->buffer, sizeof(struct fat_header) + i * sizeof(arch), sizeof(arch), &arch);
                 FAT_ARCH_APPLY_BYTE_ORDER(&arch, BIG_TO_HOST_APPLIER);
 
                 // Convert fat_arch to fat_arch_64
@@ -85,8 +78,9 @@ int macho_parse_slices(MachO *macho)
 
 void macho_free(MachO *macho)
 {
-    // Close the file
-    fclose(macho->file);
+    // // Close the file
+    // fclose(macho->file);
+    memory_buffer_free(&macho->buffer);
 
     // Free the slices
     if (macho->slices != NULL) {
@@ -105,31 +99,16 @@ void macho_free(MachO *macho)
 int macho_init_from_path(const char *filePath, MachO *machoOut)
 {
     MachO macho;
-    struct stat s;
+    
 
-    // Get the file size
-    if (stat(filePath, &s) != 0)
-    {
-        printf("Error: could not stat %s.\n", filePath);
-        return -1;
+    if (memory_buffer_init_from_file_path(filePath, 0, &macho.buffer) != 0) {
+        memory_buffer_free(&macho.buffer);
     }
-    macho.fileSize = s.st_size;
-
-    // Open the file
-    macho.file = fopen(filePath, "rb");
-    if (!macho.file)
-    {
-        printf("Error: could not open %s.\n", filePath);
-        return -1;
-    }
-
-    // Get the file descriptor
-    macho.fileDescriptor = fileno(macho.file);
 
     // Parse the slices
     if (macho_parse_slices(&macho) != 0) { return -1; }
 
-    printf("File size 0x%zx bytes, slice count %zu.\n", macho.fileSize, macho.sliceCount);
+    printf("File size 0x%zx bytes, slice count %zu.\n", macho.buffer.size, macho.sliceCount);
 
     // Update the output MachO structure
     *machoOut = macho;

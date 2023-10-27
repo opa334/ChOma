@@ -20,4 +20,14 @@ typedef struct {
     size_t size;
 } MemoryBuffer;
 
+int memory_buffer_init_from_file_path(const char *path, size_t fileOffset, MemoryBuffer *bufferOut);
+
+int memory_buffer_init_from_pointer(void *pointer, size_t size, MemoryBuffer *bufferOut);
+
+int memory_buffer_read(MemoryBuffer *buffer, uint32_t offset, size_t size, void *output);
+
+int memory_buffer_write(MemoryBuffer *buffer, uint32_t offset, size_t size, void *data);
+
+void memory_buffer_free(MemoryBuffer *buffer);
+
 #endif // MEMORY_BUFFER_H

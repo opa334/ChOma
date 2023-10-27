@@ -6,7 +6,7 @@
 
 int macho_slice_read_at_offset(MachOSlice *slice, uint64_t offset, size_t size, void *outputBuffer)
 {
-    return macho_read_at_offset(slice->containingMacho, slice->archDescriptor.offset + offset, size, outputBuffer);
+    return memory_buffer_read(&slice->containingMacho->buffer, slice->archDescriptor.offset + offset, size, outputBuffer);
 }
 
 int macho_slice_parse_load_commands(MachOSlice *slice)
@@ -76,7 +76,7 @@ int macho_slice_from_macho(MachO *macho, MachOSlice *sliceOut)
     // This function can skip any sanity checks as those will be done by macho_slice_init_from_fat_arch
 
     struct mach_header_64 machHeader;
-    macho_read_at_offset(macho, 0, sizeof(machHeader), &machHeader);
+    memory_buffer_read(&macho->buffer, 0, sizeof(machHeader), &machHeader);
     MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, LITTLE_TO_HOST_APPLIER);
 
     // Create a FAT arch structure and populate it
@@ -84,7 +84,7 @@ int macho_slice_from_macho(MachO *macho, MachOSlice *sliceOut)
     fakeArch.cpusubtype = machHeader.cpusubtype;
     fakeArch.cputype = machHeader.cputype;
     fakeArch.offset = 0;
-    fakeArch.size = macho->fileSize;
+    fakeArch.size = macho->buffer.size;
     fakeArch.align = 0x4000;
 
     return macho_slice_init_from_fat_arch(macho, fakeArch, sliceOut);

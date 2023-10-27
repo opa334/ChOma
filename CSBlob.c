@@ -48,13 +48,13 @@ int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex)
 
 			// Create and populate the code signature load command structure
 			struct lc_code_signature *codeSignature = malloc(sizeof(struct lc_code_signature));
-			macho_read_at_offset(macho, offset, sizeof(struct lc_code_signature), codeSignature);
+			memory_buffer_read(&macho->buffer, offset, sizeof(struct lc_code_signature), codeSignature);
 			uint32_t csBlobOffset = macho->slices[sliceIndex].archDescriptor.offset + codeSignature->dataoff;
 			free(codeSignature);
 
 			// Create and populate the CMS superblob structure
 			CS_SuperBlob superblobLocal;
-			macho_read_at_offset(macho, csBlobOffset, sizeof(CS_SuperBlob), &superblobLocal);
+			memory_buffer_read(&macho->buffer, csBlobOffset, sizeof(CS_SuperBlob), &superblobLocal);
 			SUPERBLOB_APPLY_BYTE_ORDER(&superblobLocal, BIG_TO_HOST_APPLIER);
 			if (superblobLocal.magic != CSBLOB_EMBEDDED_SIGNATURE) {
 				printf("Error: incorrect superblob magic 0x%x.\n", superblobLocal.magic);
@@ -68,19 +68,19 @@ int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex)
 				CS_BlobIndex *blobIndex = malloc(sizeof(CS_BlobIndex));
 				//                    Superblob      Start of index array                    Current blob
 				uint32_t blobOffset = csBlobOffset + (__offsetof(CS_SuperBlob, index) - 4) + (blobCount * sizeof(CS_BlobIndex));
-				macho_read_at_offset(macho, blobOffset, sizeof(CS_BlobIndex), blobIndex);
+				memory_buffer_read(&macho->buffer, blobOffset, sizeof(CS_BlobIndex), blobIndex);
 				BLOB_INDEX_APPLY_BYTE_ORDER(blobIndex, BIG_TO_HOST_APPLIER);
 
 				// Read the blob magic
 				uint32_t blobMagic = 0;
-				macho_read_at_offset(macho, csBlobOffset + blobIndex->offset, sizeof(uint32_t), &blobMagic);
+				memory_buffer_read(&macho->buffer, csBlobOffset + blobIndex->offset, sizeof(uint32_t), &blobMagic);
 				blobMagic = BIG_TO_HOST(blobMagic);
 
 				if (blobMagic == CSBLOB_CODEDIRECTORY) {
 
 					// Create and populate the code directory structure
 					CS_CodeDirectory *codeDirectory = malloc(sizeof(CS_CodeDirectory));
-					macho_read_at_offset(macho, csBlobOffset + blobIndex->offset, sizeof(CS_CodeDirectory), codeDirectory);
+					memory_buffer_read(&macho->buffer, csBlobOffset + blobIndex->offset, sizeof(CS_CodeDirectory), codeDirectory);
 					CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, BIG_TO_HOST_APPLIER);
 					// Don't print the information again if it's being extracted this time
 					if (superblob != NULL) { 
@@ -90,7 +90,7 @@ int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex)
 					// Read the special slots and print them from lowest to highest
 					uint8_t *specialSlots = malloc(codeDirectory->nSpecialSlots * codeDirectory->hashSize);
 					size_t lastSpecialSlotOffset = slotZeroOffset - (codeDirectory->nSpecialSlots * codeDirectory->hashSize);
-					macho_read_at_offset(macho, lastSpecialSlotOffset, codeDirectory->nSpecialSlots * codeDirectory->hashSize, specialSlots);
+					memory_buffer_read(&macho->buffer, lastSpecialSlotOffset, codeDirectory->nSpecialSlots * codeDirectory->hashSize, specialSlots);
 					// for (int i = 0; i < codeDirectory->nSpecialSlots; i++) {
 
 					// 	// Print the slot number
@@ -149,8 +149,8 @@ int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblob, int sliceIndex)
 					// // Don't pollute the output with hashes if there are a lot of them
 					// if (codeDirectory->nCodeSlots <= 50) {
 					// 	// Create an array of hashes and print them
-					// 	uint8_t *hashes = malloc(codeDirectory->nCodeSlots * codeDirectory->hashSize);
-					// 	macho_read_at_offset(macho, slotZeroOffset, codeDirectory->nCodeSlots * codeDirectory->hashSize, hashes);
+					//  uint8_t *hashes = malloc(codeDirectory->nCodeSlots * codeDirectory->hashSize);
+					//  memory_buffer_read(&macho->buffer, slotZeroOffset, codeDirectory->nCodeSlots * codeDirectory->hashSize, hashes);
 					// 	for (int i = 0; i < codeDirectory->nCodeSlots; i++) {
 
 					// 		// Align the slot number for cleaner output
@@ -218,7 +218,7 @@ int macho_extract_cms_to_file(MachO *macho, CS_SuperBlob *superblob, int sliceIn
 		if (currentLoadCommand.cmd == LC_CODE_SIGNATURE) {
 			// Create and populate the code signature load command structure
 			struct lc_code_signature *codeSignatureLoadCommand = malloc(sizeof(struct lc_code_signature));
-			macho_read_at_offset(macho, offset, sizeof(struct lc_code_signature), codeSignatureLoadCommand);
+			memory_buffer_read(&macho->buffer, offset, sizeof(struct lc_code_signature), codeSignatureLoadCommand);
 			csBlobOffset = macho->slices[sliceIndex].archDescriptor.offset + codeSignatureLoadCommand->dataoff;
 			free(codeSignatureLoadCommand);
 		}
@@ -231,7 +231,7 @@ int macho_extract_cms_to_file(MachO *macho, CS_SuperBlob *superblob, int sliceIn
 	}
 
 	// Extract the CMS data from the MachO and write to the file
-	macho_read_at_offset(macho, csBlobOffset, cmsLength, cmsData);
+	memory_buffer_read(&macho->buffer, csBlobOffset, cmsLength, cmsData);
 	FILE *cmsDataFile = fopen("CMS-Data", "wb+");
 	fwrite(cmsData, cmsLength, 1, cmsDataFile);
 	fclose(cmsDataFile);
