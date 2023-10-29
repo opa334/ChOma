@@ -321,14 +321,11 @@ int cs_superblob_parse_blobs(MachOSlice *slice, CS_SuperBlob *superblob, struct 
 		memset(blobIndex, 0, sizeof(CS_BlobIndex));
 		uint32_t blobOffset = csLoadCommand.dataoff + (__offsetof(CS_SuperBlob, index) - 4) + (blobCount * sizeof(CS_BlobIndex));
 
-		// printf("blobOffset = 0x%x.\n", blobOffset);
-
 		// Blob offset is correct, but for some reason the MachO slice read always returns zeroes?
 
 		// Read the blob index
 		macho_slice_read_at_offset(slice, blobOffset, sizeof(CS_BlobIndex), blobIndex);
 		BLOB_INDEX_APPLY_BYTE_ORDER(blobIndex, BIG_TO_HOST_APPLIER);
-		printf("blobIndex->offset: 0x%x.\n", blobIndex->offset);
 
 		// Read the blob magic
 		uint32_t blobMagic = 0;
@@ -338,6 +335,7 @@ int cs_superblob_parse_blobs(MachOSlice *slice, CS_SuperBlob *superblob, struct 
 
 		if (blobMagic == CSBLOB_CODEDIRECTORY)
 		{
+			printf("Blob %d: %s (offset 0x%x, magic 0x%x).\n", blobCount + 1, cs_blob_magic_to_string(blobMagic), csLoadCommand.dataoff + blobIndex->offset, blobMagic);
 			CS_CodeDirectory *codeDirectory = malloc(sizeof(CS_CodeDirectory));
 			macho_slice_parse_code_directory_blob(slice, csLoadCommand.dataoff + blobIndex->offset, codeDirectory, true);
 		}
@@ -345,7 +343,7 @@ int cs_superblob_parse_blobs(MachOSlice *slice, CS_SuperBlob *superblob, struct 
 		// if (blobMagic == CSBLOB_SIGNATURE_BLOB)
 		else
 		{
-			printf("Blob %d: %s.\n", blobCount + 1, cs_blob_magic_to_string(blobMagic));
+			printf("Blob %d: %s (offset 0x%x, magic: 0x%x).\n", blobCount + 1, cs_blob_magic_to_string(blobMagic), csLoadCommand.dataoff + blobIndex->offset, blobMagic);
 		}
 
 	}
@@ -385,10 +383,9 @@ int macho_slice_parse_superblob(MachOSlice *slice, CS_SuperBlob *superblobOut)
 
 			// Create and populate the code signature load command structure
 			struct lc_code_signature csLoadCommand = { 0 };
-			printf("readOffset: %x\n", readOffset);
 			macho_slice_read_at_offset(slice, readOffset, sizeof(csLoadCommand), &csLoadCommand);
 			LC_CODE_SIGNATURE_APPLY_BYTE_ORDER(&csLoadCommand, LITTLE_TO_HOST_APPLIER);
-			printf("csLoadCommand.dataoff: %x\n", csLoadCommand.dataoff);
+			printf("Code signature - offset: 0x%x, size: 0x%x.\n", csLoadCommand.dataoff, csLoadCommand.datasize);
 
 			// Read the superblob data
 			macho_slice_read_at_offset(slice, csLoadCommand.dataoff, sizeof(CS_SuperBlob), superblobOut);
@@ -402,6 +399,13 @@ int macho_slice_parse_superblob(MachOSlice *slice, CS_SuperBlob *superblobOut)
 			cs_superblob_parse_blobs(slice, superblobOut, csLoadCommand);
 
 			return 0;
+		}
+
+		if (currentCommand.cmd == LC_SEGMENT_64) {
+			struct segment_command_64 segmentCommand;
+			macho_slice_read_at_offset(slice, readOffset, sizeof(segmentCommand), &segmentCommand);
+			SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(&segmentCommand, LITTLE_TO_HOST_APPLIER);
+			printf("Found %s segment - offset: 0x%llx, size: 0x%llx.\n", segmentCommand.segname, segmentCommand.fileoff, segmentCommand.filesize);
 		}
 		readOffset += currentCommand.cmdsize;
 	}
