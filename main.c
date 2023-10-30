@@ -12,7 +12,7 @@ int main(int argc, char *argv[]) {
     // Initialise the MachO structure
     printf("Initialising MachO structure from %s.\n", argv[1]);
     MachO macho;
-    if (macho_init_from_path(argv[1], &macho) != 0) { return -1; }
+    if (macho_init_from_path(&macho, argv[1]) != 0) { return -1; }
 
     // Parse the code signature blob
     // printf("Parsing CMS superblobs from MachO.\n");

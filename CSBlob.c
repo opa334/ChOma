@@ -414,6 +414,7 @@ int macho_slice_parse_superblob(MachOSlice *slice, CS_SuperBlob *superblobOut)
 
 int macho_extract_cms_to_file(MachO *macho, CS_SuperBlob *superblob, int sliceIndex)
 {
+	MachOSlice *slice = &macho->slices[sliceIndex];
 
 	// Get length of CMS from superblob and allocate memory
 	size_t cmsLength = superblob->length;
@@ -422,18 +423,18 @@ int macho_extract_cms_to_file(MachO *macho, CS_SuperBlob *superblob, int sliceIn
 	uint32_t csBlobOffset = 0;
 
 	// Get the offset of the first load command
-	uint32_t offset = macho->slices[sliceIndex].archDescriptor.offset + sizeof(struct mach_header_64);
+	uint32_t offset = sizeof(struct mach_header_64);
 
 	// Find the LC_CODE_SIGNATURE load command
-	for (int loadCommand = 0; loadCommand < macho->slices[sliceIndex].machHeader.ncmds; loadCommand++)
+	for (int loadCommand = 0; loadCommand < slice->machHeader.ncmds; loadCommand++)
 	{
-		struct load_command currentLoadCommand = macho->slices[sliceIndex].loadCommands[loadCommand];
+		struct load_command currentLoadCommand = slice->loadCommands[loadCommand];
 		if (currentLoadCommand.cmd == LC_CODE_SIGNATURE)
 		{
 			// Create and populate the code signature load command structure
 			struct lc_code_signature *codeSignatureLoadCommand = malloc(sizeof(struct lc_code_signature));
 			memset(codeSignatureLoadCommand, 0, sizeof(struct lc_code_signature));
-			memory_buffer_read(&macho->buffer, offset, sizeof(struct lc_code_signature), codeSignatureLoadCommand);
+			macho_slice_read_at_offset(slice, offset, sizeof(struct lc_code_signature), codeSignatureLoadCommand);
 			csBlobOffset = macho->slices[sliceIndex].archDescriptor.offset + codeSignatureLoadCommand->dataoff;
 			free(codeSignatureLoadCommand);
 		}
@@ -447,7 +448,7 @@ int macho_extract_cms_to_file(MachO *macho, CS_SuperBlob *superblob, int sliceIn
 	}
 
 	// Extract the CMS data from the MachO and write to the file
-	memory_buffer_read(&macho->buffer, csBlobOffset, cmsLength, cmsData);
+	macho_slice_read_at_offset(slice, csBlobOffset, cmsLength, cmsData);
 	FILE *cmsDataFile = fopen("CMS-Data", "wb+");
 	fwrite(cmsData, cmsLength, 1, cmsDataFile);
 	fclose(cmsDataFile);

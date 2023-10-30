@@ -9,19 +9,21 @@
 #include <sys/stat.h>
 
 #include "MachOSlice.h"
-#include "MemoryBuffer.h"
+#include "MemoryStream.h"
 
 // Main MachO structurre
 typedef struct MachO
 {
-    MemoryBuffer buffer;
+    MemoryStream stream;
     MachOSlice *slices;
     size_t sliceCount;
     int fileDescriptor;
 } MachO;
 
+int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBuf);
+
 // Initialise a MachO structure using the path to the file
-int macho_init_from_path(const char *filePath, MachO *machoOut);
+int macho_init_from_path(MachO *macho, const char *filePath);
 
 // Free all elements of the MachO structure
 void macho_free(MachO *macho);

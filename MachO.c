@@ -4,11 +4,18 @@
 #include "MachO.h"
 #include "MachOByteOrder.h"
 
+#include "FileStream.h"
+
+int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBuf)
+{
+    return memory_stream_read(&macho->stream, offset, size, outBuf);
+}
+
 int macho_parse_slices(MachO *macho)
 {
     // Read the FAT header
     struct fat_header fatHeader;
-    memory_buffer_read(&macho->buffer, 0, sizeof(fatHeader), &fatHeader);
+    macho_read_at_offset(macho, 0, sizeof(fatHeader), &fatHeader);
     FAT_HEADER_APPLY_BYTE_ORDER(&fatHeader, BIG_TO_HOST_APPLIER);
 
     // Check if the file is a FAT file
@@ -16,7 +23,6 @@ int macho_parse_slices(MachO *macho)
     {
         printf("FAT header found! Magic: 0x%x.\n", fatHeader.magic);
         bool is64 = fatHeader.magic == FAT_MAGIC_64;
-        MachOSlice *slicesM;
 
         // Sanity check the number of slices
         if (fatHeader.nfat_arch > 5 || fatHeader.nfat_arch < 1) {
@@ -24,8 +30,8 @@ int macho_parse_slices(MachO *macho)
             return -1;
         }
 
-        slicesM = malloc(sizeof(MachOSlice) * fatHeader.nfat_arch);
-        memset(slicesM, 0, sizeof(MachOSlice) * fatHeader.nfat_arch);
+        MachOSlice *allSlices = malloc(sizeof(MachOSlice) * fatHeader.nfat_arch);
+        memset(allSlices, 0, sizeof(MachOSlice) * fatHeader.nfat_arch);
 
         // Iterate over all slices
         for (uint32_t i = 0; i < fatHeader.nfat_arch; i++)
@@ -34,14 +40,14 @@ int macho_parse_slices(MachO *macho)
             if (is64)
             {
                 // Read the arch descriptor
-                memory_buffer_read(&macho->buffer, sizeof(struct fat_header) + i * sizeof(arch64), sizeof(arch64), &arch64);
+                macho_read_at_offset(macho, sizeof(struct fat_header) + i * sizeof(arch64), sizeof(arch64), &arch64);
                 FAT_ARCH_64_APPLY_BYTE_ORDER(&arch64, BIG_TO_HOST_APPLIER);
             }
             else
             {
                 // Read the FAT arch structure
                 struct fat_arch arch = {0};
-                memory_buffer_read(&macho->buffer, sizeof(struct fat_header) + i * sizeof(arch), sizeof(arch), &arch);
+                macho_read_at_offset(macho, sizeof(struct fat_header) + i * sizeof(arch), sizeof(arch), &arch);
                 FAT_ARCH_APPLY_BYTE_ORDER(&arch, BIG_TO_HOST_APPLIER);
 
                 // Convert fat_arch to fat_arch_64
@@ -55,19 +61,19 @@ int macho_parse_slices(MachO *macho)
                 };
             }
 
-            int sliceInitRet = macho_slice_init_from_fat_arch(macho, arch64, &slicesM[i]);
+            int sliceInitRet = macho_slice_init_from_fat_arch(&allSlices[i], macho, arch64);
             if (sliceInitRet != 0) return sliceInitRet;
         }
 
         // Add the new slices to the MachO structure
         macho->sliceCount = fatHeader.nfat_arch;
         printf("Found %zu slices.\n", macho->sliceCount);
-        macho->slices = slicesM;
+        macho->slices = allSlices;
 
     } else {
         // Not FAT? Try parsing it as a single slice macho
         MachOSlice slice;
-        int sliceInitRet = macho_slice_init_from_macho(macho, &slice);
+        int sliceInitRet = macho_slice_init_from_macho(&slice, macho);
         if (sliceInitRet != 0) return sliceInitRet;
 
         macho->slices = malloc(sizeof(MachOSlice));
@@ -80,10 +86,7 @@ int macho_parse_slices(MachO *macho)
 
 void macho_free(MachO *macho)
 {
-    // Free the MemoryBuffer object
-    memory_buffer_free(&macho->buffer);
-
-    // Free the slices
+    memory_stream_free(&macho->stream);
     if (macho->slices != NULL) {
         for (int i = 0; i < macho->sliceCount; i++) {
             macho_slice_free(&macho->slices[i]);
@@ -92,18 +95,23 @@ void macho_free(MachO *macho)
     }
 }
 
-int macho_init_from_path(const char *filePath, MachO *machoOut)
+int macho_init_from_path(MachO *macho, const char *filePath)
 {
-    memset(machoOut, 0, sizeof(*machoOut));
+    memset(macho, 0, sizeof(*macho));
 
-    if (memory_buffer_init_from_path(filePath, 0, MEMORY_BUFFER_SIZE_AUTO, &machoOut->buffer) != 0) {
-        memory_buffer_free(&machoOut->buffer);
+    if (file_stream_init_from_path(&macho->stream, filePath, 0, FILE_STREAM_SIZE_AUTO) != 0) {
+        return -1;
     }
 
-    // Parse the slices
-    if (macho_parse_slices(machoOut) != 0) { return -1; }
+    if (macho_parse_slices(macho) != 0) {
+        return -1;
+    }
 
-    printf("File size 0x%zx bytes, slice count %zu.\n", machoOut->buffer.bufferSize, machoOut->sliceCount);
+    size_t size = 0;
+    if (file_stream_get_size(&macho->stream, &size) != 0) {
+        return -1;
+    }
 
+    printf("File size 0x%zx bytes, slice count %zu.\n", size, macho->sliceCount);
     return 0;
 }
