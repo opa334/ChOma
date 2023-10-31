@@ -24,19 +24,32 @@ int memory_stream_get_size(MemoryStream *stream, size_t *sizeOut)
     return -1;
 }
 
-int memory_stream_clone(MemoryStream *output, MemoryStream *input)
+void _memory_stream_clone(MemoryStream *output, MemoryStream *input)
 {
-    if (input->clone) {
-        output->flags = input->flags;
+    output->flags = input->flags;
+    output->read = input->read;
+    output->write = input->write;
+    output->trim = input->trim;
+    output->expand = input->expand;
+    output->softclone = input->softclone;
+    output->hardclone = input->hardclone;
+    output->free = input->free;
+}
 
-        output->read = input->read;
-        output->write = input->write;
-        output->trim = input->trim;
-        output->expand = input->expand;
-        output->clone = input->clone;
-        output->free = input->free;
+int memory_stream_softclone(MemoryStream *output, MemoryStream *input)
+{
+    _memory_stream_clone(output, input);
+    if (input->softclone) {
+        return input->softclone(output, input);
+    }
+    return -1;
+}
 
-        return input->clone(output, input);
+int memory_stream_hardclone(MemoryStream *output, MemoryStream *input)
+{
+    _memory_stream_clone(output, input);
+    if (input->hardclone) {
+        return input->hardclone(output, input);
     }
     return -1;
 }

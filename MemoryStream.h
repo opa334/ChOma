@@ -25,7 +25,8 @@ typedef struct MemoryStream {
    int (*trim)(struct MemoryStream *stream, size_t trimAtStart, size_t trimAtEnd);
    int (*expand)(struct MemoryStream *stream, size_t expandAtStart, size_t expandAtEnd);
 
-   int (*clone)(struct MemoryStream *output, struct MemoryStream *input);
+   int (*hardclone)(struct MemoryStream *output, struct MemoryStream *input);
+   int (*softclone)(struct MemoryStream *output, struct MemoryStream *input);
    void (*free)(struct MemoryStream *stream);
 } MemoryStream;
 
@@ -33,7 +34,8 @@ int memory_stream_read(MemoryStream *stream, uint32_t offset, size_t size, void 
 int memory_stream_write(MemoryStream *stream, uint32_t offset, size_t size, void *inBuf);
 int memory_stream_get_size(MemoryStream *stream, size_t *sizeOut);
 
-int memory_stream_clone(MemoryStream *output, MemoryStream *input);
+int memory_stream_softclone(MemoryStream *output, MemoryStream *input);
+int memory_stream_hardclone(MemoryStream *output, MemoryStream *input);
 int memory_stream_trim(MemoryStream *stream, size_t trimAtStart, size_t trimAtEnd);
 int memory_stream_expand(MemoryStream *stream, size_t expandAtStart, size_t expandAtEnd);
 

@@ -2,10 +2,14 @@
 #define BUFFERED_STREAM_H
 
 #include "MemoryStream.h"
+#include <stdbool.h>
 
 typedef struct BufferedStreamContext {
     uint8_t *buffer;
     size_t bufferSize;
+    uint32_t subBufferStart;
+    size_t subBufferSize;
+    bool ownsBuffer;
 } BufferedStreamContext;
 
 

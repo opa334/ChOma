@@ -32,6 +32,13 @@ int main(int argc, char *argv[]) {
     CS_SuperBlob superblob;
     macho_slice_parse_superblob(&macho.slices[0], &superblob);
 
+    /*macho_slice_enumerate_load_commands(&macho.slices[0], ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
+        if (loadCommand.cmd == LC_FILESET_ENTRY) {
+            struct fileset_entry_command filesetCommand = *((struct fileset_entry_command *)cmd);
+            FILESET_ENTRY_COMMAND_APPLY_BYTE_ORDER(&filesetCommand, LITTLE_TO_HOST_APPLIER);
+            printf("0x%08llx->0x%llx | %s\n", filesetCommand.fileoff, filesetCommand.vmaddr, (char *)(((uint8_t*)cmd) + filesetCommand.entry_id.offset));
+        }
+    });*/
     
 
     // Extract CMS data to file

@@ -19,7 +19,13 @@ int file_stream_get_size(MemoryStream *stream, size_t *sizeOut)
     return 0;
 }
 
-int file_stream_clone(MemoryStream *output, MemoryStream *input)
+int file_stream_softclone(MemoryStream *output, MemoryStream *input)
+{
+    FileStreamContext *context = input->context;
+    return file_stream_init_from_file_descriptor_nodup(output, context->fd, context->bufferStart, context->bufferSize);
+}
+
+int file_stream_hardclone(MemoryStream *output, MemoryStream *input)
 {
     FileStreamContext *context = input->context;
     return file_stream_init_from_file_descriptor(output, context->fd, context->bufferStart, context->bufferSize);
@@ -83,7 +89,8 @@ int file_stream_init_from_file_descriptor_nodup(MemoryStream *stream, int fd, ui
     stream->expand = NULL;
     //stream->expand = file_stream_expand;
 
-    stream->clone = file_stream_clone;
+    stream->softclone = file_stream_softclone;
+    stream->hardclone = file_stream_hardclone;
     stream->free = file_stream_free;
 
     return 0;

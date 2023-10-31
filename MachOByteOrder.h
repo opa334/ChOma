@@ -136,4 +136,12 @@
     applier(sc64, maxprot); \
     applier(sc64, nsects);
 
+#define FILESET_ENTRY_COMMAND_APPLY_BYTE_ORDER(fse, applier) \
+    applier(fse, cmd); \
+    applier(fse, cmdsize); \
+    applier(fse, vmaddr); \
+    applier(fse, fileoff); \
+    applier(fse, entry_id.offset); \
+    applier(fse, reserved); \
+
 #endif // MACHO_BYTE_ORDER_H

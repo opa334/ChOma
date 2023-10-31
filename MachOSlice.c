@@ -1,6 +1,7 @@
 #include "MachO.h"
 #include "MachOSlice.h"
 #include "MachOByteOrder.h"
+#include "MachOLoadCommand.h"
 
 #include <stdlib.h>
 
@@ -9,31 +10,35 @@ int macho_slice_read_at_offset(MachOSlice *slice, uint64_t offset, size_t size, 
     return memory_stream_read(&slice->stream, offset, size, outBuf);
 }
 
-int macho_slice_parse_load_commands(MachOSlice *slice)
+int macho_slice_enumerate_load_commands(MachOSlice *slice, void (^enumeratorBlock)(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop))
 {
-    // Sanity check the number of load commands
     if (slice->machHeader.ncmds < 1 || slice->machHeader.ncmds > 1000) {
         printf("Error: invalid number of load commands (%d).\n", slice->machHeader.ncmds);
         return -1;
     }
 
-    printf("Parsing %d load commands for slice %x/%x.\n", slice->machHeader.ncmds, slice->machHeader.cputype, slice->machHeader.cpusubtype);
-    slice->loadCommands = malloc(slice->machHeader.sizeofcmds);
-    memset(slice->loadCommands, 0, slice->machHeader.sizeofcmds);
-
-    // Get the offset of the first load command
+    // First load command starts after mach header
     uint64_t offset = sizeof(struct mach_header_64);
 
-    // Iterate over all load commands
     for (int j = 0; j < slice->machHeader.ncmds; j++) {
-        // Read the load command
         struct load_command loadCommand;
         macho_slice_read_at_offset(slice, offset, sizeof(loadCommand), &loadCommand);
         LOAD_COMMAND_APPLY_BYTE_ORDER(&loadCommand, LITTLE_TO_HOST_APPLIER);
 
-        // Add the load command to the slice
-        slice->loadCommands[j] = loadCommand;
-        offset += loadCommand.cmdsize;
+        if (strcmp(load_command_to_string(loadCommand.cmd), "LC_UNKNOWN") == 0)
+		{
+			printf("Ignoring unknown command: 0x%x", loadCommand.cmd);
+		}
+        else {
+            // TODO: Check if cmdsize matches expected size for cmd
+            uint8_t cmd[loadCommand.cmdsize];
+            macho_slice_read_at_offset(slice, offset, loadCommand.cmdsize, cmd);
+            bool stop = false;
+            enumeratorBlock(loadCommand, offset, (void *)cmd, &stop);
+            if (stop) break;
+
+            offset += loadCommand.cmdsize;
+        }
     }
     return 0;
 }
@@ -43,7 +48,7 @@ int macho_slice_init_from_fat_arch(MachOSlice *slice, MachO *machO, struct fat_a
 {
     memset(slice, 0, sizeof(*slice));
 
-    int r = memory_stream_clone(&slice->stream, &machO->stream);
+    int r = memory_stream_softclone(&slice->stream, &machO->stream);
     if (r != 0) return r;
 
     size_t machOSize = 0;
@@ -72,9 +77,6 @@ int macho_slice_init_from_fat_arch(MachOSlice *slice, MachO *machO, struct fat_a
             printf("Error: sizeofcmds is not a multiple of 8.\n");
             return -1;
         }
-        
-        // If so, parse it's contents
-        macho_slice_parse_load_commands(slice);
     }
 
     return 0;
@@ -107,7 +109,4 @@ int macho_slice_init_from_macho(MachOSlice *slice, MachO *macho)
 void macho_slice_free(MachOSlice *slice)
 {
     memory_stream_free(&slice->stream);
-    if (slice->loadCommands != NULL) {
-        free(slice->loadCommands);
-    }
 }

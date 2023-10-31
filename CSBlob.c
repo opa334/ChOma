@@ -362,29 +362,21 @@ int macho_slice_parse_superblob(MachOSlice *slice, CS_SuperBlob *superblobOut)
 	// Get the offset of the first load command
 	uint32_t readOffset = sizeof(struct mach_header_64);
 
-	// Iterate over all load commands
-	for (int loadCommandCount = 0; loadCommandCount < slice->machHeader.ncmds; loadCommandCount++)
-	{
-
-		struct load_command currentCommand = slice->loadCommands[loadCommandCount];
-		if (strcmp(load_command_to_string(currentCommand.cmd), "LC_UNKNOWN") == 0)
-		{
-			printf("Ignoring unknown command: 0x%x", currentCommand.cmd);
-		}
-
+	__block int ret = -1;
+	macho_slice_enumerate_load_commands(slice, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
 		// Find LC_CODE_SIGNATURE
-		if (currentCommand.cmd == LC_CODE_SIGNATURE)
+		if (loadCommand.cmd == LC_CODE_SIGNATURE)
 		{
 			printf("Found code signature load command.\n");
-			if (currentCommand.cmdsize != sizeof(struct lc_code_signature)) {
-				printf("Code signature load command has invalid size: 0x%x (vs 0x%lx)\n", currentCommand.cmdsize, sizeof(struct lc_code_signature));
-				return -1;
+			if (loadCommand.cmdsize != sizeof(struct lc_code_signature)) {
+				printf("Code signature load command has invalid size: 0x%x (vs 0x%lx)\n", loadCommand.cmdsize, sizeof(struct lc_code_signature));
+				*stop = true;
+				return;
 			}
 
 			// Create and populate the code signature load command structure
-			struct lc_code_signature csLoadCommand = { 0 };
-			macho_slice_read_at_offset(slice, readOffset, sizeof(csLoadCommand), &csLoadCommand);
-			LC_CODE_SIGNATURE_APPLY_BYTE_ORDER(&csLoadCommand, LITTLE_TO_HOST_APPLIER);
+			struct lc_code_signature csLoadCommand = *((struct lc_code_signature *)cmd);
+			LC_CODE_SIGNATURE_APPLY_BYTE_ORDER(&csLoadCommand, LITTLE_TO_HOST_APPLIER); // TODO: Move this to macho_slice_enumerate_load_commands impl
 			printf("Code signature - offset: 0x%x, size: 0x%x.\n", csLoadCommand.dataoff, csLoadCommand.datasize);
 
 			// Read the superblob data
@@ -392,24 +384,24 @@ int macho_slice_parse_superblob(MachOSlice *slice, CS_SuperBlob *superblobOut)
 			SUPERBLOB_APPLY_BYTE_ORDER(superblobOut, BIG_TO_HOST_APPLIER);
 			if (superblobOut->magic != CSBLOB_EMBEDDED_SIGNATURE)
 			{
-				printf("Error: incorrect superblob magic 0x%x.\n", superblobOut->magic);
-				return -1;
+				*stop = true;
+				return;
 			}
 
 			cs_superblob_parse_blobs(slice, superblobOut, csLoadCommand);
 
-			return 0;
+			ret = 0;
+			*stop = true;
+			return;
 		}
 
-		if (currentCommand.cmd == LC_SEGMENT_64) {
-			struct segment_command_64 segmentCommand;
-			macho_slice_read_at_offset(slice, readOffset, sizeof(segmentCommand), &segmentCommand);
-			SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(&segmentCommand, LITTLE_TO_HOST_APPLIER);
+		if (loadCommand.cmd == LC_SEGMENT_64) {
+			struct segment_command_64 segmentCommand = *((struct segment_command_64*)cmd);
+			SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(&segmentCommand, LITTLE_TO_HOST_APPLIER); // TODO: Move this to macho_slice_enumerate_load_commands impl
 			printf("Found %s segment - offset: 0x%llx, size: 0x%llx.\n", segmentCommand.segname, segmentCommand.fileoff, segmentCommand.filesize);
 		}
-		readOffset += currentCommand.cmdsize;
-	}
-	return -1;
+	});
+	return ret;
 }
 
 int macho_extract_cms_to_file(MachO *macho, CS_SuperBlob *superblob, int sliceIndex)
@@ -420,26 +412,16 @@ int macho_extract_cms_to_file(MachO *macho, CS_SuperBlob *superblob, int sliceIn
 	size_t cmsLength = superblob->length;
 	void *cmsData = malloc(cmsLength);
 	memset(cmsData, 0, cmsLength);
-	uint32_t csBlobOffset = 0;
+	__block uint32_t csBlobOffset = 0;
 
-	// Get the offset of the first load command
-	uint32_t offset = sizeof(struct mach_header_64);
-
-	// Find the LC_CODE_SIGNATURE load command
-	for (int loadCommand = 0; loadCommand < slice->machHeader.ncmds; loadCommand++)
-	{
-		struct load_command currentLoadCommand = slice->loadCommands[loadCommand];
-		if (currentLoadCommand.cmd == LC_CODE_SIGNATURE)
-		{
-			// Create and populate the code signature load command structure
-			struct lc_code_signature *codeSignatureLoadCommand = malloc(sizeof(struct lc_code_signature));
-			memset(codeSignatureLoadCommand, 0, sizeof(struct lc_code_signature));
-			macho_slice_read_at_offset(slice, offset, sizeof(struct lc_code_signature), codeSignatureLoadCommand);
-			csBlobOffset = macho->slices[sliceIndex].archDescriptor.offset + codeSignatureLoadCommand->dataoff;
-			free(codeSignatureLoadCommand);
+	macho_slice_enumerate_load_commands(slice, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
+		if (loadCommand.cmd == LC_CODE_SIGNATURE) {
+			struct lc_code_signature csLoadCommand = *((struct lc_code_signature *)cmd);
+			LC_CODE_SIGNATURE_APPLY_BYTE_ORDER(&csLoadCommand, LITTLE_TO_HOST_APPLIER);
+			csBlobOffset = csLoadCommand.dataoff;
+			*stop = true;
 		}
-		offset += currentLoadCommand.cmdsize;
-	}
+	});
 
 	if (csBlobOffset == 0)
 	{
