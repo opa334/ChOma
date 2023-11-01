@@ -3,7 +3,9 @@
 int memory_stream_read(MemoryStream *stream, uint32_t offset, size_t size, void *outBuf)
 {
     if (stream->read) {
-        return stream->read(stream, offset, size, outBuf);
+        int ret = stream->read(stream, offset, size, outBuf);
+        if (ret != size) { return -1; }
+        return 0;
     }
     return -1;
 }
@@ -11,7 +13,9 @@ int memory_stream_read(MemoryStream *stream, uint32_t offset, size_t size, void 
 int memory_stream_write(MemoryStream *stream, uint32_t offset, size_t size, void *inBuf)
 {
     if (stream->write) {
-        return stream->write(stream, offset, size, inBuf);
+        int ret = stream->write(stream, offset, size, inBuf);
+        if (ret != size) { return -1; }
+        return 0;
     }
     return -1;
 }

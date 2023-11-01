@@ -16,15 +16,25 @@ typedef struct
     bool boolVal;
 } arg_t;
 
-int main(int argc, char *argv[]) {
+arg_t args[] = {
+    // Name, short option, long option, description, value
+    {"Help", "-h", "--help", "Print this message", false},
+    {"Parse CMS blob", "-c", "--cms", "Parse the CMS blob of a MachO", false},
+    {"Print code slots", "-s", "--code-slots", "Print all page hash code slots in a CMS blob", false},
+    {"Verify code slots", "-v", "--verify-hashes", "Verify that the CodeDirectory hashes are correct", false},
+    {"Parse MH_FILESET", "-f", "--mh-fileset", "Parse an MH_FILESET MachO and output it's sub-files", false}
+};
 
-    arg_t args[] = {
-        // Name, short option, long option, description, examples, type, value
-        {"Help", "-h", "--help", "Print this message", false},
-        {"Parse CMS blob", "-c", "--cms", "Parse the CMS blob of a MachO", false},
-        {"Print code slots", "-s", "--code-slots", "Print all page hash code slots in a CMS blob", false},
-        {"Parse MH_FILESET", "-f", "--mh-fileset", "Parse an MH_FILESET MachO and output it's sub-files", false}
-    };
+bool getArgumentBool(char *shortOpt) {
+    for (int i = 0; i < sizeof(args) / sizeof(arg_t); i++) {
+        if (strcmp(shortOpt, args[i].shortOpt) == 0) {
+            return args[i].boolVal;
+        }
+    }
+    return false;
+}
+
+int main(int argc, char *argv[]) {
 
     // Parse arguments
     bool unknownArgumentUsed = false;
@@ -44,7 +54,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Sanity check passed arguments
-    if (argc < 2 || args[0].boolVal || unknownArgumentUsed) {
+    if (argc < 2 || getArgumentBool("-h") || unknownArgumentUsed) {
         printf("Usage: %s [options] <path to MachO file>\n", argv[0]);
         printf("Options:\n");
         for (int i = 0; i < sizeof(args) / sizeof(arg_t); i++) {
@@ -65,14 +75,14 @@ int main(int argc, char *argv[]) {
     MachO macho;
     if (macho_init_from_path(&macho, argv[argc - 1]) != 0) { return -1; }
 
-    if (args[1].boolVal) {
+    if (getArgumentBool("-c")) {
         CS_SuperBlob superblob;
         for (int sliceCount = 0; sliceCount < macho.sliceCount; sliceCount++) {
-            macho_slice_parse_superblob(&macho.slices[sliceCount], &superblob, args[2].boolVal);
+            macho_slice_parse_superblob(&macho.slices[sliceCount], &superblob, getArgumentBool("-s"));
         }
     }
 
-    if (args[3].boolVal) {
+    if (getArgumentBool("-f")) {
         macho_slice_enumerate_load_commands(&macho.slices[0], ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
             if (loadCommand.cmd == LC_FILESET_ENTRY) {
                 struct fileset_entry_command filesetCommand = *((struct fileset_entry_command *)cmd);

@@ -210,7 +210,7 @@ char *cs_blob_magic_to_string(int magic)
 
 int macho_slice_parse_code_directory_blob(MachOSlice *slice, uint32_t codeDirectoryOffset, CS_CodeDirectory *codeDirectoryOut, bool printSlots)
 {
-	if (macho_slice_read_at_offset(slice, codeDirectoryOffset, sizeof(CS_CodeDirectory), codeDirectoryOut) == 0) // macho_slice_read_at_offset returns number of bytes read
+	if (macho_slice_read_at_offset(slice, codeDirectoryOffset, sizeof(CS_CodeDirectory), codeDirectoryOut) != 0)
 	{
 		printf("Error: could not read code directory blob at offset 0x%x.\n", codeDirectoryOffset);
 		return -1;
