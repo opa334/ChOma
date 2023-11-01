@@ -49,6 +49,6 @@ char *cs_blob_magic_to_string(int magic);
 // Extract CMS signature to file
 int macho_extract_cms_to_file(MachO *macho, CS_SuperBlob *superblob, int sliceIndex);
 
-int macho_slice_parse_superblob(MachOSlice *slice, CS_SuperBlob *superblobOut, bool printAllSlots);
+int macho_slice_parse_superblob(MachOSlice *slice, CS_SuperBlob *superblobOut, bool printAllSlots, bool verifySlots);
 
 #endif // CS_BLOB_H

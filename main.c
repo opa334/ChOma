@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
     if (getArgumentBool("-c")) {
         CS_SuperBlob superblob;
         for (int sliceCount = 0; sliceCount < macho.sliceCount; sliceCount++) {
-            macho_slice_parse_superblob(&macho.slices[sliceCount], &superblob, getArgumentBool("-s"));
+            macho_slice_parse_superblob(&macho.slices[sliceCount], &superblob, getArgumentBool("-s"), getArgumentBool("-v"));
         }
     }
 
