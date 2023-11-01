@@ -210,8 +210,9 @@ char *cs_blob_magic_to_string(int magic)
 
 int macho_slice_parse_code_directory_blob(MachOSlice *slice, uint32_t codeDirectoryOffset, CS_CodeDirectory *codeDirectoryOut, bool printSlots)
 {
-	if (macho_slice_read_at_offset(slice, codeDirectoryOffset, sizeof(CS_CodeDirectory), codeDirectoryOut) != 0)
+	if (macho_slice_read_at_offset(slice, codeDirectoryOffset, sizeof(CS_CodeDirectory), codeDirectoryOut) == 0) // macho_slice_read_at_offset returns number of bytes read
 	{
+		printf("Error: could not read code directory blob at offset 0x%x.\n", codeDirectoryOffset);
 		return -1;
 	}
 	CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectoryOut, BIG_TO_HOST_APPLIER);
@@ -304,6 +305,33 @@ int macho_slice_parse_code_directory_blob(MachOSlice *slice, uint32_t codeDirect
 	// Clean up
 	free(specialSlots);
 
+	if (printSlots) {
+		uint8_t *hashes = malloc(codeDirectoryOut->nCodeSlots * codeDirectoryOut->hashSize);
+		memset(hashes, 0, codeDirectoryOut->nCodeSlots * codeDirectoryOut->hashSize);
+		macho_slice_read_at_offset(slice, slotZeroOffset, codeDirectoryOut->nCodeSlots * codeDirectoryOut->hashSize, hashes);
+		for (int i = 0; i < codeDirectoryOut->nCodeSlots; i++)
+		{
+
+			// Align the slot number for cleaner output
+			if (i > 9)
+			{
+				printf("%d: ", i);
+			}
+			else
+			{
+				printf(" %d: ", i);
+			}
+
+			// Print each byte of the hash
+			for (int j = 0; j < codeDirectoryOut->hashSize; j++)
+			{
+				printf("%02x", hashes[(i * codeDirectoryOut->hashSize) + j]);
+			}
+			printf("\n");
+
+		}
+	}
+
 	return 0;
 }
 
@@ -313,7 +341,7 @@ int macho_slice_parse_signature_blob_to_der(MachOSlice *slice, uint32_t signatur
 }
 
 
-int cs_superblob_parse_blobs(MachOSlice *slice, CS_SuperBlob *superblob, struct lc_code_signature csLoadCommand)
+int cs_superblob_parse_blobs(MachOSlice *slice, CS_SuperBlob *superblob, struct lc_code_signature csLoadCommand, bool printAllSlots)
 {
 	for (int blobCount = 0; blobCount < superblob->count; blobCount++)
 	{
@@ -337,7 +365,7 @@ int cs_superblob_parse_blobs(MachOSlice *slice, CS_SuperBlob *superblob, struct 
 		{
 			printf("Blob %d: %s (offset 0x%x, magic 0x%x).\n", blobCount + 1, cs_blob_magic_to_string(blobMagic), csLoadCommand.dataoff + blobIndex->offset, blobMagic);
 			CS_CodeDirectory *codeDirectory = malloc(sizeof(CS_CodeDirectory));
-			macho_slice_parse_code_directory_blob(slice, csLoadCommand.dataoff + blobIndex->offset, codeDirectory, true);
+			macho_slice_parse_code_directory_blob(slice, csLoadCommand.dataoff + blobIndex->offset, codeDirectory, printAllSlots);
 		}
 
 		// if (blobMagic == CSBLOB_SIGNATURE_BLOB)
@@ -351,7 +379,7 @@ int cs_superblob_parse_blobs(MachOSlice *slice, CS_SuperBlob *superblob, struct 
 }
 
 
-int macho_slice_parse_superblob(MachOSlice *slice, CS_SuperBlob *superblobOut)
+int macho_slice_parse_superblob(MachOSlice *slice, CS_SuperBlob *superblobOut, bool printAllSlots)
 {
 	if (!slice->isSupported)
 	{
@@ -388,7 +416,7 @@ int macho_slice_parse_superblob(MachOSlice *slice, CS_SuperBlob *superblobOut)
 				return;
 			}
 
-			cs_superblob_parse_blobs(slice, superblobOut, csLoadCommand);
+			cs_superblob_parse_blobs(slice, superblobOut, csLoadCommand, printAllSlots);
 
 			ret = 0;
 			*stop = true;
