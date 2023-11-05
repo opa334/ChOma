@@ -15,8 +15,8 @@
 typedef struct MachOContainer
 {
     MemoryStream stream;
-    MachO *slices;
-    size_t sliceCount;
+    MachO *machos;
+    uint32_t machoCount;
     int fileDescriptor;
 } MachOContainer;
 

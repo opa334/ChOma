@@ -66,9 +66,9 @@ int macho_container_parse_machos(MachOContainer *machoContainer)
         }
 
         // Add the new slices to the MachOContainer structure
-        machoContainer->sliceCount = fatHeader.nfat_arch;
-        printf("Found %zu slices.\n", machoContainer->sliceCount);
-        machoContainer->slices = allSlices;
+        machoContainer->machoCount = fatHeader.nfat_arch;
+        printf("Found %u slices.\n", machoContainer->machoCount);
+        machoContainer->machos = allSlices;
 
     } else {
         // Not FAT? Try parsing it as a single slice MachO
@@ -76,10 +76,10 @@ int macho_container_parse_machos(MachOContainer *machoContainer)
         int sliceInitRet = macho_init_from_macho(&slice, machoContainer);
         if (sliceInitRet != 0) return sliceInitRet;
 
-        machoContainer->slices = malloc(sizeof(MachO));
-        memset(machoContainer->slices, 0, sizeof(MachO));
-        machoContainer->slices[0] = slice;
-        machoContainer->sliceCount = 1;
+        machoContainer->machos = malloc(sizeof(MachO));
+        memset(machoContainer->machos, 0, sizeof(MachO));
+        machoContainer->machos[0] = slice;
+        machoContainer->machoCount = 1;
     }
     return 0;
 }
@@ -87,11 +87,11 @@ int macho_container_parse_machos(MachOContainer *machoContainer)
 void macho_container_free(MachOContainer *machoContainer)
 {
     memory_stream_free(&machoContainer->stream);
-    if (machoContainer->slices != NULL) {
-        for (int i = 0; i < machoContainer->sliceCount; i++) {
-            macho_free(&machoContainer->slices[i]);
+    if (machoContainer->machos != NULL) {
+        for (int i = 0; i < machoContainer->machoCount; i++) {
+            macho_free(&machoContainer->machos[i]);
         }
-        free(machoContainer->slices);
+        free(machoContainer->machos);
     }
 }
 
@@ -108,7 +108,7 @@ int macho_container_init_from_memory_stream(MachOContainer *machoContainer, Memo
         return -1;
     }
 
-    printf("File size 0x%zx bytes, slice count %zu.\n", size, machoContainer->sliceCount);
+    printf("File size 0x%zx bytes, slice count %u.\n", size, machoContainer->machoCount);
     return 0;
 }
 

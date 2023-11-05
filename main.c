@@ -72,29 +72,29 @@ int main(int argc, char *argv[]) {
 
     // Initialise the MachOContainer structure
     printf("Initialising MachOContainer structure from %s.\n", argv[argc - 1]);
-    MachOContainer macho;
-    if (macho_container_init_from_path(&macho, argv[argc - 1]) != 0) { return -1; }
+    MachOContainer machoContainer;
+    if (macho_container_init_from_path(&machoContainer, argv[argc - 1]) != 0) { return -1; }
 
     if (getArgumentBool("-c")) {
         CS_SuperBlob superblob;
-        for (int sliceCount = 0; sliceCount < macho.sliceCount; sliceCount++) {
-            macho_parse_superblob(&macho.slices[sliceCount], &superblob, getArgumentBool("-s"), getArgumentBool("-v"));
+        for (int sliceCount = 0; sliceCount < machoContainer.machoCount; sliceCount++) {
+            macho_parse_superblob(&machoContainer.machos[sliceCount], &superblob, getArgumentBool("-s"), getArgumentBool("-v"));
         }
     }
 
     if (getArgumentBool("-f")) {
-        MachO *slice = &macho.slices[0];
-        for (uint32_t i = 0; i < slice->segmentCount; i++) {
-            MachOSegment *segment = slice->segments[i];
+        MachO *macho = &machoContainer.machos[0];
+        for (uint32_t i = 0; i < macho->segmentCount; i++) {
+            MachOSegment *segment = macho->segments[i];
             printf("(0x%08llx-0x%08llx)->(0x%09llx-0x%09llx) | %s\n", segment->command.fileoff, segment->command.fileoff + segment->command.filesize, segment->command.vmaddr, segment->command.vmaddr + segment->command.vmsize, segment->command.segname);
             for (int j = 0; j < segment->command.nsects; j++) {
                 struct section_64 *section = &segment->sections[j];
                 printf("(0x%08x-0x%08llx)->(0x%09llx-0x%09llx) | %s.%s\n", section->offset, section->offset + section->size, section->addr, section->addr + section->size, section->segname, section->sectname);
             }
         }
-        for (uint32_t i = 0; i < slice->filesetCount; i++) {
-            MachO *filesetMachoSlice = &slice->filesetMachos[i].underlyingMachO.slices[0];
-            char *entry_id = slice->filesetMachos[i].entry_id;
+        for (uint32_t i = 0; i < macho->filesetCount; i++) {
+            MachO *filesetMachoSlice = &macho->filesetMachos[i].underlyingMachO.machos[0];
+            char *entry_id = macho->filesetMachos[i].entry_id;
             for (int j = 0; j < filesetMachoSlice->segmentCount; j++) {
                 MachOSegment *segment = filesetMachoSlice->segments[j];
                 printf("(0x%08llx-0x%08llx)->(0x%09llx-0x%09llx) | %s.%s\n", segment->command.fileoff, segment->command.fileoff + segment->command.filesize, segment->command.vmaddr, segment->command.vmaddr + segment->command.vmsize, entry_id, segment->command.segname);
@@ -110,8 +110,8 @@ int main(int argc, char *argv[]) {
     // Extract CMS data to file
     // printf("Extracting CMS data from first slice to file.\n");
     // CS_SuperBlob superblob;
-    // if (macho_parse_superblob(&macho, &superblob, 0) == 0) {
-    //     macho_extract_cms_to_file(&macho, &superblob, 0);
+    // if (macho_parse_superblob(&machoContainer, &superblob, 0) == 0) {
+    //     macho_extract_cms_to_file(&machoContainer, &superblob, 0);
 
     //     // TODO: Extract this from the CMS data
     //     FILE *cmsDERFile = fopen("CMS-DER", "rb");
@@ -128,8 +128,8 @@ int main(int argc, char *argv[]) {
     //     // Clean up
     //     free(cmsDERData);
     // } else {
-    //     if (macho.sliceCount > 1) {
-    //         if (macho.slices[0].isSupported) {
+    //     if (machoContainer.sliceCount > 1) {
+    //         if (machoContainer.slices[0].isSupported) {
     //             printf("First slice does not contain a code signature.\n");
     //         } else {
     //             printf("Could not parse CMS data for ARMv7 slice.\n");
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
     //         return -1; 
     //     }
     // }
-    macho_container_free(&macho);
+    macho_container_free(&machoContainer);
 
     return 0;
     
