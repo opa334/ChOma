@@ -1,5 +1,6 @@
 #include "CSBlob.h"
 #include "CMSDecoding.h"
+#include "Host.h"
 
 typedef enum
 {
@@ -75,6 +76,9 @@ int main(int argc, char *argv[]) {
     MachOContainer machoContainer;
     if (macho_container_init_from_path(&machoContainer, argv[argc - 1]) != 0) { return -1; }
 
+    MachO *macho = macho_container_find_preferred_macho_slice(&machoContainer);
+    if (!macho) return -1;
+
     if (getArgumentBool("-c")) {
         CS_SuperBlob superblob;
         for (int machoCount = 0; machoCount < machoContainer.machoCount; machoCount++) {
@@ -83,7 +87,6 @@ int main(int argc, char *argv[]) {
     }
 
     if (getArgumentBool("-f")) {
-        MachO *macho = &machoContainer.machos[0];
         for (uint32_t i = 0; i < macho->segmentCount; i++) {
             MachOSegment *segment = macho->segments[i];
             printf("(0x%08llx-0x%08llx)->(0x%09llx-0x%09llx) | %s\n", segment->command.fileoff, segment->command.fileoff + segment->command.filesize, segment->command.vmaddr, segment->command.vmaddr + segment->command.vmsize, segment->command.segname);

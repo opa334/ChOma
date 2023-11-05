@@ -1,5 +1,12 @@
 #include "Host.h"
 
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#include <mach/machine.h>
+
+#define CPU_SUBTYPE_ARM64E_ABI_V2 0x80000000
+
 int host_get_cpu_information(cpu_type_t *cputype, cpu_subtype_t *cpusubtype) {
     size_t len;
     
@@ -11,21 +18,43 @@ int host_get_cpu_information(cpu_type_t *cputype, cpu_subtype_t *cpusubtype) {
     len = sizeof(cpusubtype);
     if (sysctlbyname("hw.cpusubtype", cpusubtype, &len, NULL, 0) == -1) { printf("ERROR: no cpusubtype.\n"); return -1; }
     
-    printf("cputype: 0x%x, cpusubtype: %d.\n", *cputype, *cpusubtype);
     return 0;
 }
 
-int macho_container_get_preferred_macho_index(MachOContainer *machOContainer) {
+MachO *macho_container_find_preferred_macho_slice(MachOContainer *machoContainer) {
     cpu_type_t cputype;
     cpu_subtype_t cpusubtype;
-    if (host_get_cpu_information(&cputype, &cpusubtype) != 0) { return -1; }
-    for (int i = 0; i < machOContainer->machoCount; i++) {
-        if (machOContainer->machos[i].archDescriptor.cputype == cputype
-        && machOContainer->machos[i].archDescriptor.cpusubtype == cpusubtype
-        && machOContainer->machos[i].isSupported) {
-            return i;
+    if (host_get_cpu_information(&cputype, &cpusubtype) != 0) { return NULL; }
+    
+    MachO *preferredMacho = NULL;
+
+    // If you intend on supporting non darwin, implement platform specific logic here using #ifdef's
+    if (cputype == CPU_TYPE_ARM64) {
+        if (cpusubtype == CPU_SUBTYPE_ARM64E) {
+            // If this is an arm64e device, first try to find a new ABI arm64e slice
+            // TODO: Gate this behind iOS 14+?
+            preferredMacho = macho_container_find_macho_slice(machoContainer, cputype, (CPU_SUBTYPE_ARM64E | CPU_SUBTYPE_ARM64E_ABI_V2));
+            if (!preferredMacho) {
+                // If that's not found, try to find an old ABI arm64e slice
+                preferredMacho = macho_container_find_macho_slice(machoContainer, cputype, CPU_SUBTYPE_ARM64E);
+            }
+        }
+
+        if (!preferredMacho) {
+            // If not arm64e device or no arm64e slice found, try to find regular arm64 slice
+
+            // On iOS 15+, the Kernel prefers an arm64v8 slice to an arm64 slice, so check that first
+            // TODO: Gate this behind iOS 15+?
+            preferredMacho = macho_container_find_macho_slice(machoContainer, cputype, CPU_SUBTYPE_ARM64_V8);
+            if (!preferredMacho) {
+                // If that's not found, finally check for a regular arm64 slice
+                preferredMacho = macho_container_find_macho_slice(machoContainer, cputype, CPU_SUBTYPE_ARM64_ALL);
+            }
         }
     }
-    printf("Error: failed to find a valid, preferred macho.\n");
-    return -1;
+
+    if (!preferredMacho) {
+        printf("Error: failed to find a valid, preferred macho.\n");
+    }
+    return preferredMacho;
 }

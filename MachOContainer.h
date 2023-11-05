@@ -42,6 +42,9 @@ int macho_container_init_from_memory_stream(MachOContainer *macho, MemoryStream 
 // Initialise a MachOContainer structure using the path to the file
 int macho_container_init_from_path(MachOContainer *macho, const char *filePath);
 
+// Find macho with cputype and cpusubtype in MachOContainer, returns NULL if not found
+MachO *macho_container_find_macho_slice(MachOContainer *machoContainer, cpu_type_t cputype, cpu_subtype_t cpusubtype);
+
 // Free all elements of the MachOContainer structure
 void macho_container_free(MachOContainer *macho);
 

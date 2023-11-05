@@ -1,14 +1,9 @@
 #ifndef HOST_H
 #define HOST_H
 
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/sysctl.h>
-#include <mach/machine.h>
-
 #include "MachOContainer.h"
 
-// Retrieve the index of the macho preferred by the host
-int macho_container_get_preferred_macho_index(MachOContainer *macho);
+// Retrieve the preferred MachO slice from a MachO container
+MachO *macho_container_find_preferred_macho_slice(MachOContainer *machoContainer);
 
 #endif // HOST_H

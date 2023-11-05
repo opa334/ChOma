@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#include "MachO.h"
 #include "MachOContainer.h"
 #include "MachOByteOrder.h"
 
@@ -82,6 +83,17 @@ int macho_container_parse_machos(MachOContainer *machoContainer)
         machoContainer->machoCount = 1;
     }
     return 0;
+}
+
+MachO *macho_container_find_macho_slice(MachOContainer *machoContainer, cpu_type_t cputype, cpu_subtype_t cpusubtype)
+{
+    for (uint32_t i = 0; i < machoContainer->machoCount; i++) {
+        MachO *curMacho = &machoContainer->machos[i];
+        if (curMacho->machHeader.cputype == cputype && curMacho->machHeader.cpusubtype == cpusubtype) {
+            return curMacho;
+        }
+    }
+    return NULL;
 }
 
 void macho_container_free(MachOContainer *machoContainer)
