@@ -12,7 +12,7 @@ int fat_read_at_offset(FAT *fat, uint64_t offset, size_t size, void *outBuf)
     return memory_stream_read(&fat->stream, offset, size, outBuf);
 }
 
-int fat_parse_machos(FAT *fat)
+int fat_parse_slices(FAT *fat)
 {
     // Read the FAT header
     struct fat_header fatHeader;
@@ -111,7 +111,7 @@ int fat_init_from_memory_stream(FAT *fat, MemoryStream *stream)
 {
     fat->stream = *stream;
 
-    if (fat_parse_machos(fat) != 0) {
+    if (fat_parse_slices(fat) != 0) {
         return -1;
     }
 
