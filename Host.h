@@ -8,7 +8,7 @@
 
 #include "MachOContainer.h"
 
-// Retrieve the index of the slice preferred by the host
-int macho_get_preferred_slice_index(MachOContainer *macho);
+// Retrieve the index of the macho preferred by the host
+int macho_container_get_preferred_macho_index(MachOContainer *macho);
 
 #endif // HOST_H

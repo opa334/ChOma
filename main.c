@@ -77,8 +77,8 @@ int main(int argc, char *argv[]) {
 
     if (getArgumentBool("-c")) {
         CS_SuperBlob superblob;
-        for (int sliceCount = 0; sliceCount < machoContainer.machoCount; sliceCount++) {
-            macho_parse_superblob(&machoContainer.machos[sliceCount], &superblob, getArgumentBool("-s"), getArgumentBool("-v"));
+        for (int machoCount = 0; machoCount < machoContainer.machoCount; machoCount++) {
+            macho_parse_superblob(&machoContainer.machos[machoCount], &superblob, getArgumentBool("-s"), getArgumentBool("-v"));
         }
     }
 
@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
     
 
     // Extract CMS data to file
-    // printf("Extracting CMS data from first slice to file.\n");
+    // printf("Extracting CMS data from first MachO slice to file.\n");
     // CS_SuperBlob superblob;
     // if (macho_parse_superblob(&machoContainer, &superblob, 0) == 0) {
     //     macho_extract_cms_to_file(&machoContainer, &superblob, 0);
@@ -128,11 +128,11 @@ int main(int argc, char *argv[]) {
     //     // Clean up
     //     free(cmsDERData);
     // } else {
-    //     if (machoContainer.sliceCount > 1) {
-    //         if (machoContainer.slices[0].isSupported) {
-    //             printf("First slice does not contain a code signature.\n");
+    //     if (machoContainer.machoCount > 1) {
+    //         if (machoContainer.machos[0].isSupported) {
+    //             printf("First MachO slice does not contain a code signature.\n");
     //         } else {
-    //             printf("Could not parse CMS data for ARMv7 slice.\n");
+    //             printf("Could not parse CMS data for ARMv7 MachO slice.\n");
     //         }
     //     } else {
     //         printf("Binary does not contain a code signature.\n");

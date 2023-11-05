@@ -24,16 +24,16 @@ int macho_container_parse_machos(MachOContainer *machoContainer)
         printf("FAT header found! Magic: 0x%x.\n", fatHeader.magic);
         bool is64 = fatHeader.magic == FAT_MAGIC_64;
 
-        // Sanity check the number of slices
+        // Sanity check the number of machOs
         if (fatHeader.nfat_arch > 5 || fatHeader.nfat_arch < 1) {
-            printf("Error: invalid number of slices (%d), this likely means you are not using an iOS MachOContainer.\n", fatHeader.nfat_arch);
+            printf("Error: invalid number of MachO slices (%d), this likely means you are not using an iOS MachO.\n", fatHeader.nfat_arch);
             return -1;
         }
 
         MachO *allSlices = malloc(sizeof(MachO) * fatHeader.nfat_arch);
         memset(allSlices, 0, sizeof(MachO) * fatHeader.nfat_arch);
 
-        // Iterate over all slices
+        // Iterate over all machOs
         for (uint32_t i = 0; i < fatHeader.nfat_arch; i++)
         {
             struct fat_arch_64 arch64 = {0};
@@ -61,24 +61,24 @@ int macho_container_parse_machos(MachOContainer *machoContainer)
                 };
             }
 
-            int sliceInitRet = macho_init_from_fat_arch(&allSlices[i], machoContainer, arch64);
-            if (sliceInitRet != 0) return sliceInitRet;
+            int machoInitRet = macho_init_from_fat_arch(&allSlices[i], machoContainer, arch64);
+            if (machoInitRet != 0) return machoInitRet;
         }
 
-        // Add the new slices to the MachOContainer structure
+        // Add the new machos to the MachOContainer structure
         machoContainer->machoCount = fatHeader.nfat_arch;
-        printf("Found %u slices.\n", machoContainer->machoCount);
+        printf("Found %u MachO slices.\n", machoContainer->machoCount);
         machoContainer->machos = allSlices;
 
     } else {
         // Not FAT? Try parsing it as a single slice MachO
-        MachO slice;
-        int sliceInitRet = macho_init_from_macho(&slice, machoContainer);
-        if (sliceInitRet != 0) return sliceInitRet;
+        MachO macho;
+        int machoInitRet = macho_init_from_macho(&macho, machoContainer);
+        if (machoInitRet != 0) return machoInitRet;
 
         machoContainer->machos = malloc(sizeof(MachO));
         memset(machoContainer->machos, 0, sizeof(MachO));
-        machoContainer->machos[0] = slice;
+        machoContainer->machos[0] = macho;
         machoContainer->machoCount = 1;
     }
     return 0;
@@ -108,7 +108,7 @@ int macho_container_init_from_memory_stream(MachOContainer *machoContainer, Memo
         return -1;
     }
 
-    printf("File size 0x%zx bytes, slice count %u.\n", size, machoContainer->machoCount);
+    printf("File size 0x%zx bytes, MachO slice count %u.\n", size, machoContainer->machoCount);
     return 0;
 }
 

@@ -23,7 +23,7 @@ typedef struct MachO {
     MachOSegment **segments;
 } MachO;
 
-// Read data from a MachOContainer slice at a specified offset
+// Read data from a MachO at a specified offset
 int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBuf);
 
 int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop));

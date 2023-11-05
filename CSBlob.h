@@ -43,12 +43,12 @@ struct lc_code_signature;
 // Convert blob magic to readable blob type string
 char *cs_blob_magic_to_string(int magic);
 
-// Retrieve CMS superblob from slice
-// int macho_parse_superblob(MachOContainer *macho, CS_SuperBlob *superblob, int sliceIndex);
+// Retrieve CMS superblob from macho
+// int macho_parse_superblob(MachOContainer *macho, CS_SuperBlob *superblob, int machoIndex);
 
 // Extract CMS signature to file
-int macho_extract_cms_to_file(MachOContainer *macho, CS_SuperBlob *superblob, int sliceIndex);
+int macho_extract_cms_to_file(MachOContainer *macho, CS_SuperBlob *superblob, int machoIndex);
 
-int macho_parse_superblob(MachO *slice, CS_SuperBlob *superblobOut, bool printAllSlots, bool verifySlots);
+int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblobOut, bool printAllSlots, bool verifySlots);
 
 #endif // CS_BLOB_H

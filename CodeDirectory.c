@@ -1,7 +1,7 @@
 #include "CodeDirectory.h"
 
 // TODO: Validate that hashes are correct using the application bundle
-// int code_directory_verify_special_slots(MachO *slice, CS_CodeDirectory *codeDirectory, uint8_t *hashes) {
+// int code_directory_verify_special_slots(MachO *macho, CS_CodeDirectory *codeDirectory, uint8_t *hashes) {
 //     for (int i = 0; i < codeDirectory->nSpecialSlots; i++) {
 //         uint8_t *zeroHash = malloc(codeDirectory->hashSize);
 //         memset(zeroHash, 0, codeDirectory->hashSize);
@@ -47,13 +47,13 @@
 //     }
 // }
 
-int code_directory_verify_code_slots(MachO *slice, CS_CodeDirectory *codeDirectory, uint8_t *hashes) {
+int code_directory_verify_code_slots(MachO *macho, CS_CodeDirectory *codeDirectory, uint8_t *hashes) {
     bool foundIncorrectHash = false;
     uint32_t dataOffsetToRead = 0;
     __block uint32_t dataSizeToRead = (uint32_t)(pow(2.0, (double)(codeDirectory->pageSize)));
     for (int i = 0; i < codeDirectory->nCodeSlots; i++) {
         if (i == codeDirectory->nCodeSlots - 1) {
-            macho_enumerate_load_commands(slice, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
+            macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
                 if (loadCommand.cmd == LC_CODE_SIGNATURE) {
                     // Create and populate the code signature load command structure
                     struct lc_code_signature csLoadCommand = *((struct lc_code_signature *)cmd);
@@ -64,7 +64,7 @@ int code_directory_verify_code_slots(MachO *slice, CS_CodeDirectory *codeDirecto
         }
         uint8_t *data = malloc(dataSizeToRead);
         memset(data, 0, dataSizeToRead);
-        macho_read_at_offset(slice, dataOffsetToRead, dataSizeToRead, data);
+        macho_read_at_offset(macho, dataOffsetToRead, dataSizeToRead, data);
         uint8_t actualHash[codeDirectory->hashSize];
         bool failedToGetHash = false;
         switch (codeDirectory->hashType) {
@@ -117,9 +117,9 @@ int code_directory_verify_code_slots(MachO *slice, CS_CodeDirectory *codeDirecto
 }
 
 
-int macho_parse_code_directory_blob(MachO *slice, uint32_t codeDirectoryOffset, CS_CodeDirectory *codeDirectoryOut, bool printSlots, bool verifySlots)
+int macho_parse_code_directory_blob(MachO *macho, uint32_t codeDirectoryOffset, CS_CodeDirectory *codeDirectoryOut, bool printSlots, bool verifySlots)
 {
-	if (macho_read_at_offset(slice, codeDirectoryOffset, sizeof(CS_CodeDirectory), codeDirectoryOut) != 0)
+	if (macho_read_at_offset(macho, codeDirectoryOffset, sizeof(CS_CodeDirectory), codeDirectoryOut) != 0)
 	{
 		printf("Error: could not read code directory blob at offset 0x%x.\n", codeDirectoryOffset);
 		return -1;
@@ -130,7 +130,7 @@ int macho_parse_code_directory_blob(MachO *slice, uint32_t codeDirectoryOffset, 
 	uint8_t *specialSlots = malloc(codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize);
 	memset(specialSlots, 0, codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize);
 	size_t lastSpecialSlotOffset = slotZeroOffset - (codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize);
-	macho_read_at_offset(slice, lastSpecialSlotOffset, codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize, specialSlots);
+	macho_read_at_offset(macho, lastSpecialSlotOffset, codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize, specialSlots);
 
 	for (int i = 0; i < codeDirectoryOut->nSpecialSlots; i++)
 	{
@@ -157,7 +157,7 @@ int macho_parse_code_directory_blob(MachO *slice, uint32_t codeDirectoryOffset, 
 		}
 
 		// TrollStore TODO: Validate that hashes are correct
-		// validateHashes(slice, specialSlots, codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize);
+		// validateHashes(macho, specialSlots, codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize);
 		// Don't print the special slot name if the hash is just zeroes
 		if (!isZero)
 		{
@@ -217,7 +217,7 @@ int macho_parse_code_directory_blob(MachO *slice, uint32_t codeDirectoryOffset, 
 	if (printSlots) {
 		uint8_t *hashes = malloc(codeDirectoryOut->nCodeSlots * codeDirectoryOut->hashSize);
 		memset(hashes, 0, codeDirectoryOut->nCodeSlots * codeDirectoryOut->hashSize);
-		macho_read_at_offset(slice, slotZeroOffset, codeDirectoryOut->nCodeSlots * codeDirectoryOut->hashSize, hashes);
+		macho_read_at_offset(macho, slotZeroOffset, codeDirectoryOut->nCodeSlots * codeDirectoryOut->hashSize, hashes);
 		for (int i = 0; i < codeDirectoryOut->nCodeSlots; i++)
 		{
 
@@ -240,7 +240,7 @@ int macho_parse_code_directory_blob(MachO *slice, uint32_t codeDirectoryOffset, 
 
 		}
         if (verifySlots) {
-            if (code_directory_verify_code_slots(slice, codeDirectoryOut, hashes) == -1) {
+            if (code_directory_verify_code_slots(macho, codeDirectoryOut, hashes) == -1) {
                 printf("Error: code slot hashes are not correct!\n");
             }
         }

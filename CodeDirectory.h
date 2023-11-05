@@ -32,6 +32,6 @@ typedef struct __CodeDirectory {
 #define CS_HASHTYPE_SHA256_160 3
 #define CS_HASHTYPE_SHA384_384 4
 
-int macho_parse_code_directory_blob(MachO *slice, uint32_t codeDirectoryOffset, CS_CodeDirectory *codeDirectoryOut, bool printSlots, bool verifySlots);
+int macho_parse_code_directory_blob(MachO *macho, uint32_t codeDirectoryOffset, CS_CodeDirectory *codeDirectoryOut, bool printSlots, bool verifySlots);
 
 #endif // CODE_DIRECTORY_H
