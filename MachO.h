@@ -5,7 +5,7 @@
 #include <mach-o/fat.h>
 #include <mach-o/loader.h>
 #include "MemoryStream.h"
-#include "MachOContainer.h"
+#include "FAT.h"
 
 typedef struct MachOSegment
 {
@@ -17,7 +17,7 @@ typedef struct FilesetMachO {
     char *entry_id;
     uint64_t vmaddr;
     uint64_t fileoff;
-	MachOContainer underlyingMachO;
+	FAT underlyingMachO;
 } FilesetMachO;
 
 typedef struct MachO {
@@ -38,11 +38,11 @@ int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBu
 
 int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop));
 
-// Initialise a MachO object from a MachOContainer and it's corresponding FAT arch descriptor
-int macho_init_from_fat_arch(MachO *macho, MachOContainer *machO, struct fat_arch_64 archDescriptor);
+// Initialise a MachO object from a FAT and it's corresponding FAT arch descriptor
+int macho_init_from_fat_arch(MachO *macho, FAT *fat, struct fat_arch_64 archDescriptor);
 
-// Initialise a MachO object from a MachOContainer object that only has one MachO contained in it
-int macho_init_from_macho(MachO *macho, MachOContainer *machoContainer);
+// Initialise a MachO object from a FAT object that only has one MachO contained in it
+int macho_init_from_single_slice_fat(MachO *macho, FAT *fat);
 
 void macho_free(MachO *macho);
 

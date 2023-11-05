@@ -1,4 +1,4 @@
-#include "MachOContainer.h"
+#include "FAT.h"
 #include "MachO.h"
 #include "MachOByteOrder.h"
 #include "MachOLoadCommand.h"
@@ -88,18 +88,18 @@ int macho_parse_fileset_machos(MachO *macho)
             memory_stream_softclone(&subStream, &macho->stream);
             // TODO: Also cut trim to the end of the macho, but for that we would need to determine it's size
             memory_stream_trim(&subStream, filesetCommand->fileoff, 0);
-            macho_container_init_from_memory_stream(&filesetMacho->underlyingMachO, &subStream);
+            fat_init_from_memory_stream(&filesetMacho->underlyingMachO, &subStream);
         }
     });
 }
 
 
 // For one arch of a fat binary
-int macho_init_from_fat_arch(MachO *macho, MachOContainer *machO, struct fat_arch_64 archDescriptor)
+int macho_init_from_fat_arch(MachO *macho, FAT *fat, struct fat_arch_64 archDescriptor)
 {
     memset(macho, 0, sizeof(*macho));
 
-    int r = memory_stream_softclone(&macho->stream, &machO->stream);
+    int r = memory_stream_softclone(&macho->stream, &fat->stream);
     if (r != 0) return r;
 
     size_t machOSize = 0;
@@ -136,16 +136,16 @@ int macho_init_from_fat_arch(MachO *macho, MachOContainer *machO, struct fat_arc
 }
 
 // For single arch MachOs
-int macho_init_from_macho(MachO *macho, MachOContainer *machoContainer)
+int macho_init_from_single_slice_fat(MachO *macho, FAT *fat)
 {
     // This function can skip any sanity checks as those will be done by macho_init_from_fat_arch
 
     size_t machoSize = 0;
-    int r = memory_stream_get_size(&machoContainer->stream, &machoSize);
+    int r = memory_stream_get_size(&fat->stream, &machoSize);
     if (r != 0) return r;
 
     struct mach_header_64 machHeader;
-    memory_stream_read(&machoContainer->stream, 0, sizeof(machHeader), &machHeader);
+    memory_stream_read(&fat->stream, 0, sizeof(machHeader), &machHeader);
     MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, LITTLE_TO_HOST_APPLIER);
 
     // Create a FAT arch structure and populate it
@@ -156,14 +156,14 @@ int macho_init_from_macho(MachO *macho, MachOContainer *machoContainer)
     fakeArch.size = machoSize;
     fakeArch.align = 0x4000;
 
-    return macho_init_from_fat_arch(macho, machoContainer, fakeArch);
+    return macho_init_from_fat_arch(macho, fat, fakeArch);
 }
 
 void macho_free(MachO *macho)
 {
     if (macho->filesetCount != 0 && macho->filesetMachos) {
         for (uint32_t i = 0; i < macho->filesetCount; i++) {
-            macho_container_free(&macho->filesetMachos[i].underlyingMachO);
+            fat_free(&macho->filesetMachos[i].underlyingMachO);
         }
         free(macho->filesetMachos);
     }

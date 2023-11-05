@@ -21,7 +21,7 @@ int host_get_cpu_information(cpu_type_t *cputype, cpu_subtype_t *cpusubtype) {
     return 0;
 }
 
-MachO *macho_container_find_preferred_macho_slice(MachOContainer *machoContainer) {
+MachO *fat_find_preferred_slice(FAT *fat) {
     cpu_type_t cputype;
     cpu_subtype_t cpusubtype;
     if (host_get_cpu_information(&cputype, &cpusubtype) != 0) { return NULL; }
@@ -33,10 +33,10 @@ MachO *macho_container_find_preferred_macho_slice(MachOContainer *machoContainer
         if (cpusubtype == CPU_SUBTYPE_ARM64E) {
             // If this is an arm64e device, first try to find a new ABI arm64e slice
             // TODO: Gate this behind iOS 14+?
-            preferredMacho = macho_container_find_macho_slice(machoContainer, cputype, (CPU_SUBTYPE_ARM64E | CPU_SUBTYPE_ARM64E_ABI_V2));
+            preferredMacho = fat_find_slice(fat, cputype, (CPU_SUBTYPE_ARM64E | CPU_SUBTYPE_ARM64E_ABI_V2));
             if (!preferredMacho) {
                 // If that's not found, try to find an old ABI arm64e slice
-                preferredMacho = macho_container_find_macho_slice(machoContainer, cputype, CPU_SUBTYPE_ARM64E);
+                preferredMacho = fat_find_slice(fat, cputype, CPU_SUBTYPE_ARM64E);
             }
         }
 
@@ -45,10 +45,10 @@ MachO *macho_container_find_preferred_macho_slice(MachOContainer *machoContainer
 
             // On iOS 15+, the Kernel prefers an arm64v8 slice to an arm64 slice, so check that first
             // TODO: Gate this behind iOS 15+?
-            preferredMacho = macho_container_find_macho_slice(machoContainer, cputype, CPU_SUBTYPE_ARM64_V8);
+            preferredMacho = fat_find_slice(fat, cputype, CPU_SUBTYPE_ARM64_V8);
             if (!preferredMacho) {
                 // If that's not found, finally check for a regular arm64 slice
-                preferredMacho = macho_container_find_macho_slice(machoContainer, cputype, CPU_SUBTYPE_ARM64_ALL);
+                preferredMacho = fat_find_slice(fat, cputype, CPU_SUBTYPE_ARM64_ALL);
             }
         }
     }

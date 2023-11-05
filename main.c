@@ -20,10 +20,10 @@ typedef struct
 arg_t args[] = {
     // Name, short option, long option, description, value
     {"Help", "-h", "--help", "Print this message", false},
-    {"Parse CMS blob", "-c", "--cms", "Parse the CMS blob of a MachOContainer", false},
+    {"Parse CMS blob", "-c", "--cms", "Parse the CMS blob of a MachO", false},
     {"Print code slots", "-s", "--code-slots", "Print all page hash code slots in a CMS blob", false},
     {"Verify code slots", "-v", "--verify-hashes", "Verify that the CodeDirectory hashes are correct", false},
-    {"Parse MH_FILESET", "-f", "--mh-fileset", "Parse an MH_FILESET MachOContainer and output it's sub-files", false}
+    {"Parse MH_FILESET", "-f", "--mh-fileset", "Parse an MH_FILESET MachO and output it's sub-files", false}
 };
 
 bool getArgumentBool(char *shortOpt) {
@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
 
     // Sanity check passed arguments
     if (argc < 2 || getArgumentBool("-h") || unknownArgumentUsed) {
-        printf("Usage: %s [options] <path to MachOContainer file>\n", argv[0]);
+        printf("Usage: %s [options] <path to FAT/MachO file>\n", argv[0]);
         printf("Options:\n");
         for (int i = 0; i < sizeof(args) / sizeof(arg_t); i++) {
             printf("\t%s, %s - %s\n", args[i].shortOpt, args[i].longOpt, args[i].description);
@@ -64,25 +64,25 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    // Make sure the last argument is the path to the MachOContainer file
+    // Make sure the last argument is the path to the FAT/MachO file
     struct stat fileStat;
     if (stat(argv[argc - 1], &fileStat) != 0 && argc > 1) {
-        printf("Please ensure the last argument is the path to a MachOContainer file.\n");
+        printf("Please ensure the last argument is the path to a FAT/MachO file.\n");
         return -1;
     }
 
-    // Initialise the MachOContainer structure
-    printf("Initialising MachOContainer structure from %s.\n", argv[argc - 1]);
-    MachOContainer machoContainer;
-    if (macho_container_init_from_path(&machoContainer, argv[argc - 1]) != 0) { return -1; }
+    // Initialise the FAT structure
+    printf("Initialising FAT structure from %s.\n", argv[argc - 1]);
+    FAT fat;
+    if (fat_init_from_path(&fat, argv[argc - 1]) != 0) { return -1; }
 
-    MachO *macho = macho_container_find_preferred_macho_slice(&machoContainer);
+    MachO *macho = fat_find_preferred_slice(&fat);
     if (!macho) return -1;
 
     if (getArgumentBool("-c")) {
         CS_SuperBlob superblob;
-        for (int machoCount = 0; machoCount < machoContainer.machoCount; machoCount++) {
-            macho_parse_superblob(&machoContainer.machos[machoCount], &superblob, getArgumentBool("-s"), getArgumentBool("-v"));
+        for (int slicesCount = 0; slicesCount < fat.slicesCount; slicesCount++) {
+            macho_parse_superblob(&fat.slices[slicesCount], &superblob, getArgumentBool("-s"), getArgumentBool("-v"));
         }
     }
 
@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
             }
         }
         for (uint32_t i = 0; i < macho->filesetCount; i++) {
-            MachO *filesetMachoSlice = &macho->filesetMachos[i].underlyingMachO.machos[0];
+            MachO *filesetMachoSlice = &macho->filesetMachos[i].underlyingMachO.slices[0];
             char *entry_id = macho->filesetMachos[i].entry_id;
             for (int j = 0; j < filesetMachoSlice->segmentCount; j++) {
                 MachOSegment *segment = filesetMachoSlice->segments[j];
@@ -113,8 +113,8 @@ int main(int argc, char *argv[]) {
     // Extract CMS data to file
     // printf("Extracting CMS data from first MachO slice to file.\n");
     // CS_SuperBlob superblob;
-    // if (macho_parse_superblob(&machoContainer, &superblob, 0) == 0) {
-    //     macho_extract_cms_to_file(&machoContainer, &superblob, 0);
+    // if (macho_parse_superblob(macho, &superblob) == 0) {
+    //     macho_extract_cms_to_file(macho, &superblob);
 
     //     // TODO: Extract this from the CMS data
     //     FILE *cmsDERFile = fopen("CMS-DER", "rb");
@@ -131,8 +131,8 @@ int main(int argc, char *argv[]) {
     //     // Clean up
     //     free(cmsDERData);
     // } else {
-    //     if (machoContainer.machoCount > 1) {
-    //         if (machoContainer.machos[0].isSupported) {
+    //     if (fat.slicesCount > 1) {
+    //         if (fat.slices[0].isSupported) {
     //             printf("First MachO slice does not contain a code signature.\n");
     //         } else {
     //             printf("Could not parse CMS data for ARMv7 MachO slice.\n");
@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
     //         return -1; 
     //     }
     // }
-    macho_container_free(&machoContainer);
+    fat_free(&fat);
 
     return 0;
     

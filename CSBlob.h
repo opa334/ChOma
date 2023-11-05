@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#include "MachOContainer.h"
+#include "FAT.h"
 #include "MachO.h"
 
 // Blob index
@@ -42,10 +42,10 @@ struct lc_code_signature;
 char *cs_blob_magic_to_string(int magic);
 
 // Retrieve CMS superblob from macho
-// int macho_parse_superblob(MachOContainer *macho, CS_SuperBlob *superblob, int machoIndex);
+// int macho_parse_superblob(FAT *fat, CS_SuperBlob *superblob, int machoIndex);
 
 // Extract CMS signature to file
-int macho_extract_cms_to_file(MachOContainer *macho, CS_SuperBlob *superblob, int machoIndex);
+int macho_extract_cms_to_file(MachO *macho, CS_SuperBlob *superblob);
 
 int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblobOut, bool printAllSlots, bool verifySlots);
 

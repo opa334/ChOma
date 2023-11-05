@@ -1,10 +1,10 @@
 #ifndef HOST_H
 #define HOST_H
 
-#include "MachOContainer.h"
+#include "FAT.h"
 
-// Retrieve the preferred MachO slice from a MachO container
+// Retrieve the preferred MachO slice from a FAT
 // Preferred slice as in the slice that the kernel would use when loading the file
-MachO *macho_container_find_preferred_macho_slice(MachOContainer *machoContainer);
+MachO *fat_find_preferred_slice(FAT *fat);
 
 #endif // HOST_H

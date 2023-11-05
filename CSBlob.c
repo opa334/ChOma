@@ -123,10 +123,8 @@ int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblobOut, bool printAl
 	return ret;
 }
 
-int macho_extract_cms_to_file(MachOContainer *machoContainer, CS_SuperBlob *superblob, int machoIndex)
+int macho_extract_cms_to_file(MachO *macho, CS_SuperBlob *superblob)
 {
-	MachO *macho = &machoContainer->machos[machoIndex];
-
 	// Get length of CMS from superblob and allocate memory
 	size_t cmsLength = superblob->length;
 	void *cmsData = malloc(cmsLength);
@@ -148,7 +146,7 @@ int macho_extract_cms_to_file(MachOContainer *machoContainer, CS_SuperBlob *supe
 		return -1;
 	}
 
-	// Extract the CMS data from the MachOContainer and write to the file
+	// Extract the CMS data from the MachO and write to the file
 	macho_read_at_offset(macho, csBlobOffset, cmsLength, cmsData);
 	FILE *cmsDataFile = fopen("CMS-Data", "wb+");
 	fwrite(cmsData, cmsLength, 1, cmsDataFile);
