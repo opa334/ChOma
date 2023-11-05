@@ -10,6 +10,11 @@ int macho_slice_read_at_offset(MachOSlice *slice, uint64_t offset, size_t size, 
     return memory_stream_read(&slice->stream, offset, size, outBuf);
 }
 
+uint32_t macho_slice_get_filetype(MachOSlice *slice)
+{
+    return slice->machHeader.filetype;
+}
+
 int macho_slice_enumerate_load_commands(MachOSlice *slice, void (^enumeratorBlock)(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop))
 {
     if (slice->machHeader.ncmds < 1 || slice->machHeader.ncmds > 1000) {
@@ -43,6 +48,53 @@ int macho_slice_enumerate_load_commands(MachOSlice *slice, void (^enumeratorBloc
     return 0;
 }
 
+int macho_slice_parse_segments(MachOSlice *slice)
+{
+    return macho_slice_enumerate_load_commands(slice, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
+        if (loadCommand.cmd == LC_SEGMENT_64) {
+            slice->segmentCount++;
+            if (slice->segments == NULL) { slice->segments = malloc(slice->segmentCount * sizeof(*slice->segments)); }
+            else { slice->segments = realloc(slice->segments, slice->segmentCount * sizeof(*slice->segments)); }
+            slice->segments[slice->segmentCount-1] = malloc(loadCommand.cmdsize);
+            memcpy(slice->segments[slice->segmentCount-1], cmd, loadCommand.cmdsize);
+            SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(&slice->segments[slice->segmentCount-1]->command, LITTLE_TO_HOST_APPLIER);
+            for (uint32_t i = 0; i < slice->segments[slice->segmentCount-1]->command.nsects; i++) {
+                SECTION_64_APPLY_BYTE_ORDER(&slice->segments[slice->segmentCount-1]->sections[i], LITTLE_TO_HOST_APPLIER);
+            }
+        }
+    });
+}
+
+int macho_slice_parse_fileset_machos(MachOSlice *slice)
+{
+    if (macho_slice_get_filetype(slice) != MH_FILESET) return -1;
+    return macho_slice_enumerate_load_commands(slice, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
+        if (loadCommand.cmd == LC_FILESET_ENTRY) {
+            uint32_t i = slice->filesetCount;
+            slice->filesetCount++;
+
+            struct fileset_entry_command *filesetCommand = cmd;
+            FILESET_ENTRY_COMMAND_APPLY_BYTE_ORDER(filesetCommand, LITTLE_TO_HOST_APPLIER);
+
+            if (slice->filesetMachos == NULL) { slice->filesetMachos = malloc(slice->filesetCount * sizeof(FilesetMachO)); }
+            else { slice->filesetMachos = realloc(slice->filesetMachos, slice->filesetCount * sizeof(FilesetMachO)); }
+
+            FilesetMachO *filesetMacho = &slice->filesetMachos[i];
+            filesetMacho->entry_id = strdup((char *)cmd + filesetCommand->entry_id.offset);
+            filesetMacho->vmaddr = filesetCommand->vmaddr;
+            filesetMacho->fileoff = filesetCommand->fileoff;
+            
+            MemoryStream subStream;
+            memory_stream_softclone(&subStream, &slice->stream);
+            // TODO: Also cut trim to the end of the macho, but for that we would need to determine it's size
+            memory_stream_trim(&subStream, filesetCommand->fileoff, 0);
+            macho_init_from_memory_stream(&filesetMacho->underlyingMachO, &subStream);
+        }
+    });
+}
+
+
+
 // For one arch of a fat binary
 int macho_slice_init_from_fat_arch(MachOSlice *slice, MachO *machO, struct fat_arch_64 archDescriptor)
 {
@@ -71,12 +123,14 @@ int macho_slice_init_from_fat_arch(MachOSlice *slice, MachO *machO, struct fat_a
     slice->isSupported = (archDescriptor.cpusubtype != 0x9);
 
     if (slice->isSupported) {
-
         // Ensure that the sizeofcmds is a multiple of 8 (it would need padding otherwise)
         if (slice->machHeader.sizeofcmds % 8 != 0) {
             printf("Error: sizeofcmds is not a multiple of 8.\n");
             return -1;
         }
+
+        macho_slice_parse_segments(slice);
+        macho_slice_parse_fileset_machos(slice);
     }
 
     return 0;
@@ -108,5 +162,17 @@ int macho_slice_init_from_macho(MachOSlice *slice, MachO *macho)
 
 void macho_slice_free(MachOSlice *slice)
 {
+    if (slice->filesetCount != 0 && slice->filesetMachos) {
+        for (uint32_t i = 0; i < slice->filesetCount; i++) {
+            macho_free(&slice->filesetMachos[i].underlyingMachO);
+        }
+        free(slice->filesetMachos);
+    }
+    if (slice->segmentCount != 0 && slice->segments) {
+        for (uint32_t i = 0; i < slice->segmentCount; i++) {
+            free(slice->segments[i]);
+        }
+        free(slice->segments);
+    }
     memory_stream_free(&slice->stream);
 }

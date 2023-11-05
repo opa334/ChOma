@@ -4,12 +4,20 @@
 #include <stdbool.h>
 #include "MemoryStream.h"
 typedef struct MachO MachO;
+typedef struct FilesetMachO FilesetMachO;
+typedef struct MachOSegment MachOSegment;
 
 typedef struct MachOSlice {
     MemoryStream stream;
+    bool isSupported;
     struct mach_header_64 machHeader;
     struct fat_arch_64 archDescriptor;
-    bool isSupported;
+
+    uint32_t filesetCount;
+    FilesetMachO *filesetMachos;
+
+    uint32_t segmentCount;
+    MachOSegment **segments;
 } MachOSlice;
 
 // Read data from a MachO slice at a specified offset

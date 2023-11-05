@@ -95,13 +95,9 @@ void macho_free(MachO *macho)
     }
 }
 
-int macho_init_from_path(MachO *macho, const char *filePath)
+int macho_init_from_memory_stream(MachO *macho, MemoryStream *stream)
 {
-    memset(macho, 0, sizeof(*macho));
-
-    if (file_stream_init_from_path(&macho->stream, filePath, 0, FILE_STREAM_SIZE_AUTO) != 0) {
-        return -1;
-    }
+    macho->stream = *stream;
 
     if (macho_parse_slices(macho) != 0) {
         return -1;
@@ -114,4 +110,14 @@ int macho_init_from_path(MachO *macho, const char *filePath)
 
     printf("File size 0x%zx bytes, slice count %zu.\n", size, macho->sliceCount);
     return 0;
+}
+
+int macho_init_from_path(MachO *macho, const char *filePath)
+{
+    memset(macho, 0, sizeof(*macho));
+
+    MemoryStream stream;
+    if (file_stream_init_from_path(&stream, filePath, 0, FILE_STREAM_SIZE_AUTO) != 0) return -1;
+
+    return macho_init_from_memory_stream(macho, &stream);
 }

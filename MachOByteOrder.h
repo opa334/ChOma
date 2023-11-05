@@ -136,6 +136,17 @@
     applier(sc64, maxprot); \
     applier(sc64, nsects);
 
+#define SECTION_64_APPLY_BYTE_ORDER(sc64, applier) \
+    applier(sc64, addr); \
+    applier(sc64, align); \
+    applier(sc64, flags); \
+    applier(sc64, nreloc); \
+    applier(sc64, offset); \
+    applier(sc64, reserved1); \
+    applier(sc64, reserved2); \
+    applier(sc64, reserved3); \
+    applier(sc64, size);
+
 #define FILESET_ENTRY_COMMAND_APPLY_BYTE_ORDER(fse, applier) \
     applier(fse, cmd); \
     applier(fse, cmdsize); \
