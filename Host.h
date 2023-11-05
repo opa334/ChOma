@@ -6,9 +6,9 @@
 #include <sys/sysctl.h>
 #include <mach/machine.h>
 
-#include "MachO.h"
+#include "MachOContainer.h"
 
 // Retrieve the index of the slice preferred by the host
-int macho_get_preferred_slice_index(MachO *macho);
+int macho_get_preferred_slice_index(MachOContainer *macho);
 
 #endif // HOST_H

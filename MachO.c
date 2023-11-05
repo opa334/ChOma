@@ -1,123 +1,177 @@
-#include <stdbool.h>
-#include <assert.h>
-
+#include "MachOContainer.h"
 #include "MachO.h"
 #include "MachOByteOrder.h"
+#include "MachOLoadCommand.h"
 
-#include "FileStream.h"
+#include <stdlib.h>
 
 int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBuf)
 {
     return memory_stream_read(&macho->stream, offset, size, outBuf);
 }
 
-int macho_parse_slices(MachO *macho)
+uint32_t macho_get_filetype(MachO *macho)
 {
-    // Read the FAT header
-    struct fat_header fatHeader;
-    macho_read_at_offset(macho, 0, sizeof(fatHeader), &fatHeader);
-    FAT_HEADER_APPLY_BYTE_ORDER(&fatHeader, BIG_TO_HOST_APPLIER);
+    return macho->machHeader.filetype;
+}
 
-    // Check if the file is a FAT file
-    if (fatHeader.magic == FAT_MAGIC || fatHeader.magic == FAT_MAGIC_64)
-    {
-        printf("FAT header found! Magic: 0x%x.\n", fatHeader.magic);
-        bool is64 = fatHeader.magic == FAT_MAGIC_64;
+int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop))
+{
+    if (macho->machHeader.ncmds < 1 || macho->machHeader.ncmds > 1000) {
+        printf("Error: invalid number of load commands (%d).\n", macho->machHeader.ncmds);
+        return -1;
+    }
 
-        // Sanity check the number of slices
-        if (fatHeader.nfat_arch > 5 || fatHeader.nfat_arch < 1) {
-            printf("Error: invalid number of slices (%d), this likely means you are not using an iOS MachO.\n", fatHeader.nfat_arch);
+    // First load command starts after mach header
+    uint64_t offset = sizeof(struct mach_header_64);
+
+    for (int j = 0; j < macho->machHeader.ncmds; j++) {
+        struct load_command loadCommand;
+        macho_read_at_offset(macho, offset, sizeof(loadCommand), &loadCommand);
+        LOAD_COMMAND_APPLY_BYTE_ORDER(&loadCommand, LITTLE_TO_HOST_APPLIER);
+
+        if (strcmp(load_command_to_string(loadCommand.cmd), "LC_UNKNOWN") == 0)
+		{
+			printf("Ignoring unknown command: 0x%x", loadCommand.cmd);
+		}
+        else {
+            // TODO: Check if cmdsize matches expected size for cmd
+            uint8_t cmd[loadCommand.cmdsize];
+            macho_read_at_offset(macho, offset, loadCommand.cmdsize, cmd);
+            bool stop = false;
+            enumeratorBlock(loadCommand, offset, (void *)cmd, &stop);
+            if (stop) break;
+
+            offset += loadCommand.cmdsize;
+        }
+    }
+    return 0;
+}
+
+int macho_parse_segments(MachO *macho)
+{
+    return macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
+        if (loadCommand.cmd == LC_SEGMENT_64) {
+            macho->segmentCount++;
+            if (macho->segments == NULL) { macho->segments = malloc(macho->segmentCount * sizeof(MachOSegment*)); }
+            else { macho->segments = realloc(macho->segments, macho->segmentCount * sizeof(MachOSegment*)); }
+            macho->segments[macho->segmentCount-1] = malloc(loadCommand.cmdsize);
+            memcpy(macho->segments[macho->segmentCount-1], cmd, loadCommand.cmdsize);
+            SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(&macho->segments[macho->segmentCount-1]->command, LITTLE_TO_HOST_APPLIER);
+            for (uint32_t i = 0; i < macho->segments[macho->segmentCount-1]->command.nsects; i++) {
+                SECTION_64_APPLY_BYTE_ORDER(&macho->segments[macho->segmentCount-1]->sections[i], LITTLE_TO_HOST_APPLIER);
+            }
+        }
+    });
+}
+
+int macho_parse_fileset_machos(MachO *macho)
+{
+    if (macho_get_filetype(macho) != MH_FILESET) return -1;
+    return macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
+        if (loadCommand.cmd == LC_FILESET_ENTRY) {
+            uint32_t i = macho->filesetCount;
+            macho->filesetCount++;
+
+            struct fileset_entry_command *filesetCommand = cmd;
+            FILESET_ENTRY_COMMAND_APPLY_BYTE_ORDER(filesetCommand, LITTLE_TO_HOST_APPLIER);
+
+            if (macho->filesetMachos == NULL) { macho->filesetMachos = malloc(macho->filesetCount * sizeof(FilesetMachO)); }
+            else { macho->filesetMachos = realloc(macho->filesetMachos, macho->filesetCount * sizeof(FilesetMachO)); }
+
+            FilesetMachO *filesetMacho = &macho->filesetMachos[i];
+            filesetMacho->entry_id = strdup((char *)cmd + filesetCommand->entry_id.offset);
+            filesetMacho->vmaddr = filesetCommand->vmaddr;
+            filesetMacho->fileoff = filesetCommand->fileoff;
+            
+            MemoryStream subStream;
+            memory_stream_softclone(&subStream, &macho->stream);
+            // TODO: Also cut trim to the end of the macho, but for that we would need to determine it's size
+            memory_stream_trim(&subStream, filesetCommand->fileoff, 0);
+            macho_container_init_from_memory_stream(&filesetMacho->underlyingMachO, &subStream);
+        }
+    });
+}
+
+
+// For one arch of a fat binary
+int macho_init_from_fat_arch(MachO *macho, MachOContainer *machO, struct fat_arch_64 archDescriptor)
+{
+    memset(macho, 0, sizeof(*macho));
+
+    int r = memory_stream_softclone(&macho->stream, &machO->stream);
+    if (r != 0) return r;
+
+    size_t machOSize = 0;
+    r = memory_stream_get_size(&macho->stream, &machOSize);
+    if (r != 0) return r;
+
+    r = memory_stream_trim(&macho->stream, archDescriptor.offset, machOSize - (archDescriptor.offset + archDescriptor.size));
+    if (r != 0) return r;
+
+    macho->archDescriptor = archDescriptor;
+    macho_read_at_offset(macho, 0, sizeof(macho->machHeader), &macho->machHeader);
+
+    // Check the magic against the expected values
+    if (macho->machHeader.magic != MH_MAGIC_64 && macho->machHeader.magic != MH_MAGIC) {
+        printf("Error: invalid magic 0x%x for mach header at offset 0x%llx.\n", macho->machHeader.magic, archDescriptor.offset);
+        return -1;
+    }
+
+    // Determine if this arch is supported by ChOma
+    macho->isSupported = (archDescriptor.cpusubtype != 0x9);
+
+    if (macho->isSupported) {
+        // Ensure that the sizeofcmds is a multiple of 8 (it would need padding otherwise)
+        if (macho->machHeader.sizeofcmds % 8 != 0) {
+            printf("Error: sizeofcmds is not a multiple of 8.\n");
             return -1;
         }
 
-        MachOSlice *allSlices = malloc(sizeof(MachOSlice) * fatHeader.nfat_arch);
-        memset(allSlices, 0, sizeof(MachOSlice) * fatHeader.nfat_arch);
-
-        // Iterate over all slices
-        for (uint32_t i = 0; i < fatHeader.nfat_arch; i++)
-        {
-            struct fat_arch_64 arch64 = {0};
-            if (is64)
-            {
-                // Read the arch descriptor
-                macho_read_at_offset(macho, sizeof(struct fat_header) + i * sizeof(arch64), sizeof(arch64), &arch64);
-                FAT_ARCH_64_APPLY_BYTE_ORDER(&arch64, BIG_TO_HOST_APPLIER);
-            }
-            else
-            {
-                // Read the FAT arch structure
-                struct fat_arch arch = {0};
-                macho_read_at_offset(macho, sizeof(struct fat_header) + i * sizeof(arch), sizeof(arch), &arch);
-                FAT_ARCH_APPLY_BYTE_ORDER(&arch, BIG_TO_HOST_APPLIER);
-
-                // Convert fat_arch to fat_arch_64
-                arch64 = (struct fat_arch_64){
-                    .cputype = arch.cputype,
-                    .cpusubtype = arch.cpusubtype,
-                    .offset = (uint64_t)arch.offset,
-                    .size = (uint64_t)arch.size,
-                    .align = arch.align,
-                    .reserved = 0,
-                };
-            }
-
-            int sliceInitRet = macho_slice_init_from_fat_arch(&allSlices[i], macho, arch64);
-            if (sliceInitRet != 0) return sliceInitRet;
-        }
-
-        // Add the new slices to the MachO structure
-        macho->sliceCount = fatHeader.nfat_arch;
-        printf("Found %zu slices.\n", macho->sliceCount);
-        macho->slices = allSlices;
-
-    } else {
-        // Not FAT? Try parsing it as a single slice macho
-        MachOSlice slice;
-        int sliceInitRet = macho_slice_init_from_macho(&slice, macho);
-        if (sliceInitRet != 0) return sliceInitRet;
-
-        macho->slices = malloc(sizeof(MachOSlice));
-        memset(macho->slices, 0, sizeof(MachOSlice));
-        macho->slices[0] = slice;
-        macho->sliceCount = 1;
+        macho_parse_segments(macho);
+        macho_parse_fileset_machos(macho);
     }
+
     return 0;
+}
+
+// For single arch MachOs
+int macho_init_from_macho(MachO *macho, MachOContainer *machoContainer)
+{
+    // This function can skip any sanity checks as those will be done by macho_init_from_fat_arch
+
+    size_t machoSize = 0;
+    int r = memory_stream_get_size(&machoContainer->stream, &machoSize);
+    if (r != 0) return r;
+
+    struct mach_header_64 machHeader;
+    memory_stream_read(&machoContainer->stream, 0, sizeof(machHeader), &machHeader);
+    MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, LITTLE_TO_HOST_APPLIER);
+
+    // Create a FAT arch structure and populate it
+    struct fat_arch_64 fakeArch = {0};
+    fakeArch.cpusubtype = machHeader.cpusubtype;
+    fakeArch.cputype = machHeader.cputype;
+    fakeArch.offset = 0;
+    fakeArch.size = machoSize;
+    fakeArch.align = 0x4000;
+
+    return macho_init_from_fat_arch(macho, machoContainer, fakeArch);
 }
 
 void macho_free(MachO *macho)
 {
-    memory_stream_free(&macho->stream);
-    if (macho->slices != NULL) {
-        for (int i = 0; i < macho->sliceCount; i++) {
-            macho_slice_free(&macho->slices[i]);
+    if (macho->filesetCount != 0 && macho->filesetMachos) {
+        for (uint32_t i = 0; i < macho->filesetCount; i++) {
+            macho_container_free(&macho->filesetMachos[i].underlyingMachO);
         }
-        free(macho->slices);
+        free(macho->filesetMachos);
     }
-}
-
-int macho_init_from_memory_stream(MachO *macho, MemoryStream *stream)
-{
-    macho->stream = *stream;
-
-    if (macho_parse_slices(macho) != 0) {
-        return -1;
+    if (macho->segmentCount != 0 && macho->segments) {
+        for (uint32_t i = 0; i < macho->segmentCount; i++) {
+            free(macho->segments[i]);
+        }
+        free(macho->segments);
     }
-
-    size_t size = 0;
-    if (file_stream_get_size(&macho->stream, &size) != 0) {
-        return -1;
-    }
-
-    printf("File size 0x%zx bytes, slice count %zu.\n", size, macho->sliceCount);
-    return 0;
-}
-
-int macho_init_from_path(MachO *macho, const char *filePath)
-{
-    memset(macho, 0, sizeof(*macho));
-
-    MemoryStream stream;
-    if (file_stream_init_from_path(&stream, filePath, 0, FILE_STREAM_SIZE_AUTO) != 0) return -1;
-
-    return macho_init_from_memory_stream(macho, &stream);
+    memory_stream_free(&macho->stream);
 }

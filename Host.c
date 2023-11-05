@@ -15,7 +15,7 @@ int host_get_cpu_information(cpu_type_t *cputype, cpu_subtype_t *cpusubtype) {
     return 0;
 }
 
-int macho_get_preferred_slice_index(MachO *macho) {
+int macho_get_preferred_slice_index(MachOContainer *macho) {
     cpu_type_t cputype;
     cpu_subtype_t cpusubtype;
     if (host_get_cpu_information(&cputype, &cpusubtype) != 0) { return -1; }

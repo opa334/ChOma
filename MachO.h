@@ -1,48 +1,39 @@
-#ifndef MACHO_H
-#define MACHO_H
+#ifndef MACHO_SLICE_H
+#define MACHO_SLICE_H
 
-#include <stdio.h>
-#include <libkern/OSByteOrder.h>
-#include <mach/mach.h>
-#include <mach-o/loader.h>
+#include <stdbool.h>
 #include <mach-o/fat.h>
-#include <sys/stat.h>
-
-#include "MachOSlice.h"
+#include <mach-o/loader.h>
 #include "MemoryStream.h"
 
-// Main MachO structurre
-typedef struct MachO
-{
+typedef struct MachOContainer MachOContainer;
+typedef struct FilesetMachO FilesetMachO;
+typedef struct MachOSegment MachOSegment;
+
+typedef struct MachO {
     MemoryStream stream;
-    MachOSlice *slices;
-    size_t sliceCount;
-    int fileDescriptor;
+    bool isSupported;
+    struct mach_header_64 machHeader;
+    struct fat_arch_64 archDescriptor;
+
+    uint32_t filesetCount;
+    FilesetMachO *filesetMachos;
+
+    uint32_t segmentCount;
+    MachOSegment **segments;
 } MachO;
 
-typedef struct MachOSegment MachOSegment;
-typedef struct MachOSegment
-{
-    struct segment_command_64 command;
-    struct section_64 sections[];
-} __attribute__((__packed__)) MachOSegment;
-
-typedef struct FilesetMachO {
-    char *entry_id;
-    uint64_t vmaddr;
-    uint64_t fileoff;
-	MachO underlyingMachO;
-} FilesetMachO;
-
+// Read data from a MachOContainer slice at a specified offset
 int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBuf);
 
-// Initialise a MachO structure from a memory stream
-int macho_init_from_memory_stream(MachO *macho, MemoryStream *stream);
+int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop));
 
-// Initialise a MachO structure using the path to the file
-int macho_init_from_path(MachO *macho, const char *filePath);
+// Initialise a MachO object from a MachOContainer and it's corresponding FAT arch descriptor
+int macho_init_from_fat_arch(MachO *macho, MachOContainer *machO, struct fat_arch_64 archDescriptor);
 
-// Free all elements of the MachO structure
+// Initialise a MachO object from a MachOContainer object that only has one MachO contained in it
+int macho_init_from_macho(MachO *macho, MachOContainer *machoContainer);
+
 void macho_free(MachO *macho);
 
-#endif // MACHO_H
+#endif // MACHO_SLICE_H

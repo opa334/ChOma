@@ -19,10 +19,10 @@ typedef struct
 arg_t args[] = {
     // Name, short option, long option, description, value
     {"Help", "-h", "--help", "Print this message", false},
-    {"Parse CMS blob", "-c", "--cms", "Parse the CMS blob of a MachO", false},
+    {"Parse CMS blob", "-c", "--cms", "Parse the CMS blob of a MachOContainer", false},
     {"Print code slots", "-s", "--code-slots", "Print all page hash code slots in a CMS blob", false},
     {"Verify code slots", "-v", "--verify-hashes", "Verify that the CodeDirectory hashes are correct", false},
-    {"Parse MH_FILESET", "-f", "--mh-fileset", "Parse an MH_FILESET MachO and output it's sub-files", false}
+    {"Parse MH_FILESET", "-f", "--mh-fileset", "Parse an MH_FILESET MachOContainer and output it's sub-files", false}
 };
 
 bool getArgumentBool(char *shortOpt) {
@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
 
     // Sanity check passed arguments
     if (argc < 2 || getArgumentBool("-h") || unknownArgumentUsed) {
-        printf("Usage: %s [options] <path to MachO file>\n", argv[0]);
+        printf("Usage: %s [options] <path to MachOContainer file>\n", argv[0]);
         printf("Options:\n");
         for (int i = 0; i < sizeof(args) / sizeof(arg_t); i++) {
             printf("\t%s, %s - %s\n", args[i].shortOpt, args[i].longOpt, args[i].description);
@@ -63,27 +63,27 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    // Make sure the last argument is the path to the MachO file
+    // Make sure the last argument is the path to the MachOContainer file
     struct stat fileStat;
     if (stat(argv[argc - 1], &fileStat) != 0 && argc > 1) {
-        printf("Please ensure the last argument is the path to a MachO file.\n");
+        printf("Please ensure the last argument is the path to a MachOContainer file.\n");
         return -1;
     }
 
-    // Initialise the MachO structure
-    printf("Initialising MachO structure from %s.\n", argv[argc - 1]);
-    MachO macho;
-    if (macho_init_from_path(&macho, argv[argc - 1]) != 0) { return -1; }
+    // Initialise the MachOContainer structure
+    printf("Initialising MachOContainer structure from %s.\n", argv[argc - 1]);
+    MachOContainer macho;
+    if (macho_container_init_from_path(&macho, argv[argc - 1]) != 0) { return -1; }
 
     if (getArgumentBool("-c")) {
         CS_SuperBlob superblob;
         for (int sliceCount = 0; sliceCount < macho.sliceCount; sliceCount++) {
-            macho_slice_parse_superblob(&macho.slices[sliceCount], &superblob, getArgumentBool("-s"), getArgumentBool("-v"));
+            macho_parse_superblob(&macho.slices[sliceCount], &superblob, getArgumentBool("-s"), getArgumentBool("-v"));
         }
     }
 
     if (getArgumentBool("-f")) {
-        MachOSlice *slice = &macho.slices[0];
+        MachO *slice = &macho.slices[0];
         for (uint32_t i = 0; i < slice->segmentCount; i++) {
             MachOSegment *segment = slice->segments[i];
             printf("(0x%08llx-0x%08llx)->(0x%09llx-0x%09llx) | %s\n", segment->command.fileoff, segment->command.fileoff + segment->command.filesize, segment->command.vmaddr, segment->command.vmaddr + segment->command.vmsize, segment->command.segname);
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
             }
         }
         for (uint32_t i = 0; i < slice->filesetCount; i++) {
-            MachOSlice *filesetMachoSlice = &slice->filesetMachos[i].underlyingMachO.slices[0];
+            MachO *filesetMachoSlice = &slice->filesetMachos[i].underlyingMachO.slices[0];
             char *entry_id = slice->filesetMachos[i].entry_id;
             for (int j = 0; j < filesetMachoSlice->segmentCount; j++) {
                 MachOSegment *segment = filesetMachoSlice->segments[j];
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
     //         return -1; 
     //     }
     // }
-    macho_free(&macho);
+    macho_container_free(&macho);
 
     return 0;
     

@@ -25,12 +25,12 @@ char *cs_blob_magic_to_string(int magic)
 	}
 }
 
-int macho_slice_parse_signature_blob_to_der_encoded_data(MachOSlice *slice, uint32_t signatureBlobOffset, uint32_t signatureBlobLength, void *outputDER)
+int macho_parse_signature_blob_to_der_encoded_data(MachO *slice, uint32_t signatureBlobOffset, uint32_t signatureBlobLength, void *outputDER)
 {
-	return macho_slice_read_at_offset(slice, signatureBlobOffset + 8, signatureBlobLength - 8, outputDER);
+	return macho_read_at_offset(slice, signatureBlobOffset + 8, signatureBlobLength - 8, outputDER);
 }
 
-int cs_superblob_parse_blobs(MachOSlice *slice, CS_SuperBlob *superblob, struct lc_code_signature csLoadCommand, bool printAllSlots, bool verifySlots)
+int cs_superblob_parse_blobs(MachO *slice, CS_SuperBlob *superblob, struct lc_code_signature csLoadCommand, bool printAllSlots, bool verifySlots)
 {
 	for (int blobCount = 0; blobCount < superblob->count; blobCount++)
 	{
@@ -38,23 +38,21 @@ int cs_superblob_parse_blobs(MachOSlice *slice, CS_SuperBlob *superblob, struct 
 		memset(blobIndex, 0, sizeof(CS_BlobIndex));
 		uint32_t blobOffset = csLoadCommand.dataoff + (__offsetof(CS_SuperBlob, index) - 4) + (blobCount * sizeof(CS_BlobIndex));
 
-		// Blob offset is correct, but for some reason the MachO slice read always returns zeroes?
-
 		// Read the blob index
-		macho_slice_read_at_offset(slice, blobOffset, sizeof(CS_BlobIndex), blobIndex);
+		macho_read_at_offset(slice, blobOffset, sizeof(CS_BlobIndex), blobIndex);
 		BLOB_INDEX_APPLY_BYTE_ORDER(blobIndex, BIG_TO_HOST_APPLIER);
 
 		// Read the blob magic
 		uint32_t blobMagic = 0;
 		
-		macho_slice_read_at_offset(slice, csLoadCommand.dataoff + blobIndex->offset, sizeof(blobMagic), &blobMagic);
+		macho_read_at_offset(slice, csLoadCommand.dataoff + blobIndex->offset, sizeof(blobMagic), &blobMagic);
 		blobMagic = BIG_TO_HOST(blobMagic);
 
 		if (blobMagic == CSBLOB_CODEDIRECTORY)
 		{
 			printf("Blob %d: %s (offset 0x%x, magic 0x%x).\n", blobCount + 1, cs_blob_magic_to_string(blobMagic), csLoadCommand.dataoff + blobIndex->offset, blobMagic);
 			CS_CodeDirectory *codeDirectory = malloc(sizeof(CS_CodeDirectory));
-			macho_slice_parse_code_directory_blob(slice, csLoadCommand.dataoff + blobIndex->offset, codeDirectory, printAllSlots, verifySlots);
+			macho_parse_code_directory_blob(slice, csLoadCommand.dataoff + blobIndex->offset, codeDirectory, printAllSlots, verifySlots);
 		}
 
 		// if (blobMagic == CSBLOB_SIGNATURE_BLOB)
@@ -68,7 +66,7 @@ int cs_superblob_parse_blobs(MachOSlice *slice, CS_SuperBlob *superblob, struct 
 }
 
 
-int macho_slice_parse_superblob(MachOSlice *slice, CS_SuperBlob *superblobOut, bool printAllSlots, bool verifySlots)
+int macho_parse_superblob(MachO *slice, CS_SuperBlob *superblobOut, bool printAllSlots, bool verifySlots)
 {
 	if (!slice->isSupported)
 	{
@@ -80,7 +78,7 @@ int macho_slice_parse_superblob(MachOSlice *slice, CS_SuperBlob *superblobOut, b
 	uint32_t readOffset = sizeof(struct mach_header_64);
 
 	__block int ret = -1;
-	macho_slice_enumerate_load_commands(slice, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
+	macho_enumerate_load_commands(slice, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
 		// Find LC_CODE_SIGNATURE
 		if (loadCommand.cmd == LC_CODE_SIGNATURE)
 		{
@@ -93,11 +91,11 @@ int macho_slice_parse_superblob(MachOSlice *slice, CS_SuperBlob *superblobOut, b
 
 			// Create and populate the code signature load command structure
 			struct lc_code_signature csLoadCommand = *((struct lc_code_signature *)cmd);
-			LC_CODE_SIGNATURE_APPLY_BYTE_ORDER(&csLoadCommand, LITTLE_TO_HOST_APPLIER); // TODO: Move this to macho_slice_enumerate_load_commands impl
+			LC_CODE_SIGNATURE_APPLY_BYTE_ORDER(&csLoadCommand, LITTLE_TO_HOST_APPLIER); // TODO: Move this to macho_enumerate_load_commands impl
 			printf("Code signature - offset: 0x%x, size: 0x%x.\n", csLoadCommand.dataoff, csLoadCommand.datasize);
 
 			// Read the superblob data
-			macho_slice_read_at_offset(slice, csLoadCommand.dataoff, sizeof(CS_SuperBlob), superblobOut);
+			macho_read_at_offset(slice, csLoadCommand.dataoff, sizeof(CS_SuperBlob), superblobOut);
 			SUPERBLOB_APPLY_BYTE_ORDER(superblobOut, BIG_TO_HOST_APPLIER);
 			if (superblobOut->magic != CSBLOB_EMBEDDED_SIGNATURE)
 			{
@@ -114,16 +112,16 @@ int macho_slice_parse_superblob(MachOSlice *slice, CS_SuperBlob *superblobOut, b
 
 		if (loadCommand.cmd == LC_SEGMENT_64) {
 			struct segment_command_64 segmentCommand = *((struct segment_command_64*)cmd);
-			SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(&segmentCommand, LITTLE_TO_HOST_APPLIER); // TODO: Move this to macho_slice_enumerate_load_commands impl
+			SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(&segmentCommand, LITTLE_TO_HOST_APPLIER); // TODO: Move this to macho_enumerate_load_commands impl
 			printf("Found %s segment - offset: 0x%llx, size: 0x%llx.\n", segmentCommand.segname, segmentCommand.fileoff, segmentCommand.filesize);
 		}
 	});
 	return ret;
 }
 
-int macho_extract_cms_to_file(MachO *macho, CS_SuperBlob *superblob, int sliceIndex)
+int macho_extract_cms_to_file(MachOContainer *macho, CS_SuperBlob *superblob, int sliceIndex)
 {
-	MachOSlice *slice = &macho->slices[sliceIndex];
+	MachO *slice = &macho->slices[sliceIndex];
 
 	// Get length of CMS from superblob and allocate memory
 	size_t cmsLength = superblob->length;
@@ -131,7 +129,7 @@ int macho_extract_cms_to_file(MachO *macho, CS_SuperBlob *superblob, int sliceIn
 	memset(cmsData, 0, cmsLength);
 	__block uint32_t csBlobOffset = 0;
 
-	macho_slice_enumerate_load_commands(slice, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
+	macho_enumerate_load_commands(slice, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
 		if (loadCommand.cmd == LC_CODE_SIGNATURE) {
 			struct lc_code_signature csLoadCommand = *((struct lc_code_signature *)cmd);
 			LC_CODE_SIGNATURE_APPLY_BYTE_ORDER(&csLoadCommand, LITTLE_TO_HOST_APPLIER);
@@ -146,8 +144,8 @@ int macho_extract_cms_to_file(MachO *macho, CS_SuperBlob *superblob, int sliceIn
 		return -1;
 	}
 
-	// Extract the CMS data from the MachO and write to the file
-	macho_slice_read_at_offset(slice, csBlobOffset, cmsLength, cmsData);
+	// Extract the CMS data from the MachOContainer and write to the file
+	macho_read_at_offset(slice, csBlobOffset, cmsLength, cmsData);
 	FILE *cmsDataFile = fopen("CMS-Data", "wb+");
 	fwrite(cmsData, cmsLength, 1, cmsDataFile);
 	fclose(cmsDataFile);
