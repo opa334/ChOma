@@ -20,12 +20,13 @@ int memory_stream_write(MemoryStream *stream, uint32_t offset, size_t size, void
     return -1;
 }
 
-int memory_stream_get_size(MemoryStream *stream, size_t *sizeOut)
+size_t memory_stream_get_size(MemoryStream *stream)
 {
     if (stream->getSize) {
-        return stream->getSize(stream, sizeOut);
+        size_t sizeOut;
+        if (stream->getSize(stream, &sizeOut) == 0) return sizeOut;
     }
-    return -1;
+    return MEMORY_STREAM_SIZE_INVALID;
 }
 
 void _memory_stream_clone(MemoryStream *output, MemoryStream *input)
@@ -84,9 +85,9 @@ void memory_stream_free(MemoryStream *stream)
 #define COPY_DATA_BUFFER_SIZE 0x4000
 int memory_stream_copy_data(MemoryStream *originStream, uint32_t originOffset, MemoryStream *targetStream, uint32_t targetOffset, size_t size)
 {
-    size_t originSize = 0, targetSize = 0;
-    if (memory_stream_get_size(originStream, &originSize) != 0) return -1;
-    if (memory_stream_get_size(targetStream, &targetSize) != 0) return -1;
+    size_t originSize = memory_stream_get_size(originStream);
+    size_t targetSize = memory_stream_get_size(targetStream);
+    if (originSize == MEMORY_STREAM_SIZE_INVALID || targetSize == MEMORY_STREAM_SIZE_INVALID) return -1;
 
     if (originOffset + size > originSize) {
         return -1;

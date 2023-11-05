@@ -102,9 +102,8 @@ int macho_init_from_fat_arch(MachO *macho, FAT *fat, struct fat_arch_64 archDesc
     int r = memory_stream_softclone(&macho->stream, &fat->stream);
     if (r != 0) return r;
 
-    size_t machOSize = 0;
-    r = memory_stream_get_size(&macho->stream, &machOSize);
-    if (r != 0) return r;
+    size_t machOSize = memory_stream_get_size(&macho->stream);
+    if (machOSize == MEMORY_STREAM_SIZE_INVALID) return -1;
 
     r = memory_stream_trim(&macho->stream, archDescriptor.offset, machOSize - (archDescriptor.offset + archDescriptor.size));
     if (r != 0) return r;
@@ -140,9 +139,8 @@ int macho_init_from_single_slice_fat(MachO *macho, FAT *fat)
 {
     // This function can skip any sanity checks as those will be done by macho_init_from_fat_arch
 
-    size_t machoSize = 0;
-    int r = memory_stream_get_size(&fat->stream, &machoSize);
-    if (r != 0) return r;
+    size_t machoSize = memory_stream_get_size(&fat->stream);
+    if (machoSize == MEMORY_STREAM_SIZE_INVALID) return -1;
 
     struct mach_header_64 machHeader;
     memory_stream_read(&fat->stream, 0, sizeof(machHeader), &machHeader);

@@ -12,6 +12,8 @@
 #define MEMORY_STREAM_FLAG_MUTABLE (1 << 1)
 #define MEMORY_STREAM_FLAG_AUTO_EXPAND (1 << 2)
 
+#define MEMORY_STREAM_SIZE_INVALID (size_t)-1
+
 // A generic memory IO interface that is used throughout this project
 // Can be backed by anything, just the functions have to be implemented
 typedef struct MemoryStream {
@@ -32,7 +34,7 @@ typedef struct MemoryStream {
 
 int memory_stream_read(MemoryStream *stream, uint32_t offset, size_t size, void *outBuf);
 int memory_stream_write(MemoryStream *stream, uint32_t offset, size_t size, void *inBuf);
-int memory_stream_get_size(MemoryStream *stream, size_t *sizeOut);
+size_t memory_stream_get_size(MemoryStream *stream);
 
 int memory_stream_softclone(MemoryStream *output, MemoryStream *input);
 int memory_stream_hardclone(MemoryStream *output, MemoryStream *input);
