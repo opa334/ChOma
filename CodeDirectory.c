@@ -1,5 +1,9 @@
 #include "CodeDirectory.h"
 
+#include "MachOContainer.h"
+#include "MachOByteOrder.h"
+#include "MachOLoadCommand.h"
+
 // TODO: Validate that hashes are correct using the application bundle
 // int code_directory_verify_special_slots(MachO *macho, CS_CodeDirectory *codeDirectory, uint8_t *hashes) {
 //     for (int i = 0; i < codeDirectory->nSpecialSlots; i++) {

@@ -6,10 +6,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#include "CodeDirectory.h"
 #include "MachOContainer.h"
-#include "MachOByteOrder.h"
-#include "MachOLoadCommand.h"
+#include "MachO.h"
 
 // Blob index
 typedef struct __BlobIndex {

@@ -5,10 +5,20 @@
 #include <mach-o/fat.h>
 #include <mach-o/loader.h>
 #include "MemoryStream.h"
+#include "MachOContainer.h"
 
-typedef struct MachOContainer MachOContainer;
-typedef struct FilesetMachO FilesetMachO;
-typedef struct MachOSegment MachOSegment;
+typedef struct MachOSegment
+{
+    struct segment_command_64 command;
+    struct section_64 sections[];
+} __attribute__((__packed__)) MachOSegment;
+
+typedef struct FilesetMachO {
+    char *entry_id;
+    uint64_t vmaddr;
+    uint64_t fileoff;
+	MachOContainer underlyingMachO;
+} FilesetMachO;
 
 typedef struct MachO {
     MemoryStream stream;

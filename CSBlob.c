@@ -1,5 +1,9 @@
 #include "CSBlob.h"
 
+#include "CodeDirectory.h"
+#include "MachOByteOrder.h"
+#include "MachOLoadCommand.h"
+
 char *cs_blob_magic_to_string(int magic)
 {
 	switch (magic)

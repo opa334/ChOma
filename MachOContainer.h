@@ -8,8 +8,8 @@
 #include <mach-o/fat.h>
 #include <sys/stat.h>
 
-#include "MachO.h"
 #include "MemoryStream.h"
+typedef struct MachO MachO;
 
 // Main MachOContainer structurre
 typedef struct MachOContainer
@@ -19,20 +19,6 @@ typedef struct MachOContainer
     uint32_t machoCount;
     int fileDescriptor;
 } MachOContainer;
-
-typedef struct MachOSegment MachOSegment;
-typedef struct MachOSegment
-{
-    struct segment_command_64 command;
-    struct section_64 sections[];
-} __attribute__((__packed__)) MachOSegment;
-
-typedef struct FilesetMachO {
-    char *entry_id;
-    uint64_t vmaddr;
-    uint64_t fileoff;
-	MachOContainer underlyingMachO;
-} FilesetMachO;
 
 int macho_container_read_at_offset(MachOContainer *macho, uint64_t offset, size_t size, void *outBuf);
 

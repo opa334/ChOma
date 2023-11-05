@@ -5,9 +5,7 @@
 #include <math.h>
 #include <CommonCrypto/CommonDigest.h>
 
-#include "MachOContainer.h"
-#include "MachOByteOrder.h"
-#include "MachOLoadCommand.h"
+#include "MachO.h"
 
 // Code directory blob header
 typedef struct __CodeDirectory {
