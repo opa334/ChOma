@@ -6,6 +6,7 @@
 #include "MachOByteOrder.h"
 
 #include "FileStream.h"
+#include "MemoryStream.h"
 
 int fat_read_at_offset(FAT *fat, uint64_t offset, size_t size, void *outBuf)
 {
@@ -14,6 +15,10 @@ int fat_read_at_offset(FAT *fat, uint64_t offset, size_t size, void *outBuf)
 
 int fat_parse_slices(FAT *fat)
 {
+    // Get size of file
+    size_t fileSize = memory_stream_get_size(&fat->stream);
+    if (fileSize == MEMORY_STREAM_SIZE_INVALID) return -1;
+
     // Read the FAT header
     struct fat_header fatHeader;
     fat_read_at_offset(fat, 0, sizeof(fatHeader), &fatHeader);
@@ -31,8 +36,8 @@ int fat_parse_slices(FAT *fat)
             return -1;
         }
 
-        MachO *allSlices = malloc(sizeof(MachO) * fatHeader.nfat_arch);
-        memset(allSlices, 0, sizeof(MachO) * fatHeader.nfat_arch);
+        fat->slices = malloc(sizeof(MachO) * fatHeader.nfat_arch);
+        fat->slicesCount = fatHeader.nfat_arch;
 
         // Iterate over all machOs
         for (uint32_t i = 0; i < fatHeader.nfat_arch; i++)
@@ -62,26 +67,35 @@ int fat_parse_slices(FAT *fat)
                 };
             }
 
-            int machoInitRet = macho_init_from_fat_arch(&allSlices[i], fat, arch64);
-            if (machoInitRet != 0) return machoInitRet;
+            MemoryStream machOStream;
+            memory_stream_softclone(&machOStream, &fat->stream);
+            int r = memory_stream_trim(&machOStream, arch64.offset, fileSize - (arch64.offset + arch64.size));
+            if (r != 0) return r;
+            r = macho_init(&fat->slices[i], &machOStream, arch64);
+            if (r != 0) return r;
         }
-
-        // Add the machos to the FAT structure
-        fat->slicesCount = fatHeader.nfat_arch;
-        fat->slices = allSlices;
-
-        printf("Found %u MachO slices.\n", fat->slicesCount);
     } else {
-        // Not FAT? Try parsing it as a single slice MachO
-        MachO macho;
-        int machoInitRet = macho_init_from_single_slice_fat(&macho, fat);
-        if (machoInitRet != 0) return machoInitRet;
+        // Not FAT? Parse single slice
 
         fat->slices = malloc(sizeof(MachO));
-        memset(fat->slices, 0, sizeof(MachO));
-        fat->slices[0] = macho;
         fat->slicesCount = 1;
+
+        MemoryStream machOStream;
+        memory_stream_softclone(&machOStream, &fat->stream);
+
+        struct mach_header_64 machHeader;
+        memory_stream_read(&machOStream, 0, sizeof(machHeader), &machHeader);
+
+        struct fat_arch_64 singleArch = {0};
+        singleArch.cpusubtype = machHeader.cpusubtype;
+        singleArch.cputype = machHeader.cputype;
+        singleArch.offset = 0;
+        singleArch.size = fileSize;
+        singleArch.align = 0x4000;
+
+        macho_init(&fat->slices[0], &machOStream, singleArch);
     }
+    printf("Found %u MachO slices.\n", fat->slicesCount);
     return 0;
 }
 

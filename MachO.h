@@ -38,11 +38,8 @@ int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBu
 
 int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop));
 
-// Initialise a MachO object from a FAT and it's corresponding FAT arch descriptor
-int macho_init_from_fat_arch(MachO *macho, FAT *fat, struct fat_arch_64 archDescriptor);
-
-// Initialise a MachO object from a FAT object that only has one MachO contained in it
-int macho_init_from_single_slice_fat(MachO *macho, FAT *fat);
+// Initialise a MachO object from a MemoryStream and it's corresponding FAT arch descriptor
+int macho_init(MachO *macho, MemoryStream *stream, struct fat_arch_64 archDescriptor);
 
 void macho_free(MachO *macho);
 
