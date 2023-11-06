@@ -63,3 +63,4 @@ copy-DER-headers: $(DER_HEADERS)
 
 clean:
 	rm -rf $(OUTPUT_DIR)/*.a $(OUTPUT_DIR)/*.dylib $(BUILD_DIR)/*.o
+	rm -rf build/*
