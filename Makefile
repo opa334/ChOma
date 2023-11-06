@@ -62,5 +62,4 @@ copy-DER-headers: $(DER_HEADERS)
 	cp $^ $(DER_HEADERS_DST_DIR)
 
 clean:
-	rm -rf $(OUTPUT_DIR)/*.a $(OUTPUT_DIR)/*.dylib $(BUILD_DIR)/*.o
-	rm -rf build/*
+	rm -rf $(OUTPUT_DIR)/*.a $(OUTPUT_DIR)/*.dylib $(BUILD_DIR)/*
