@@ -52,14 +52,14 @@ $(TESTS_OUTPUT_DIR)/%: $(TESTS_SRC_DIR)/%
 copy-headers: copy-choma-headers copy-DER-headers
 
 copy-choma-headers: $(CHOMA_HEADERS)
-	rm -rf $(CHOMA_HEADERS_DST_DIR)
+	@rm -rf $(CHOMA_HEADERS_DST_DIR)
 	@mkdir -p $(CHOMA_HEADERS_DST_DIR)
-	cp $^ $(CHOMA_HEADERS_DST_DIR)
+	@cp $^ $(CHOMA_HEADERS_DST_DIR)
 
 copy-DER-headers: $(DER_HEADERS)
-	rm -rf $(DER_HEADERS_DST_DIR)
+	@rm -rf $(DER_HEADERS_DST_DIR)
 	@mkdir -p $(DER_HEADERS_DST_DIR)
-	cp $^ $(DER_HEADERS_DST_DIR)
+	@cp $^ $(DER_HEADERS_DST_DIR)
 
 clean:
-	rm -rf $(OUTPUT_DIR)/*.a $(OUTPUT_DIR)/*.dylib $(BUILD_DIR)/*
+	@rm -rf $(OUTPUT_DIR)/*.a $(OUTPUT_DIR)/*.dylib $(BUILD_DIR)/*
