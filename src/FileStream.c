@@ -52,7 +52,9 @@ void file_stream_free(MemoryStream *stream)
 {
     FileStreamContext *context = stream->context;
     if (context->fd != -1) {
-        close(context->fd);
+        if (stream->flags & MEMORY_STREAM_FLAG_OWNS_DATA) {
+            close(context->fd);
+        }
     }
     free(context);
 }
@@ -98,7 +100,11 @@ int file_stream_init_from_file_descriptor_nodup(MemoryStream *stream, int fd, ui
 
 int file_stream_init_from_file_descriptor(MemoryStream *stream, int fd, uint32_t bufferStart, size_t bufferSize)
 {
-    return file_stream_init_from_file_descriptor_nodup(stream, dup(fd), bufferStart, bufferSize);
+    int r = file_stream_init_from_file_descriptor_nodup(stream, dup(fd), bufferStart, bufferSize);
+    if (r == 0) {
+        stream->flags |= MEMORY_STREAM_FLAG_OWNS_DATA;
+    }
+    return r;
 }
 
 int file_stream_init_from_path(MemoryStream *stream, const char *path, uint32_t bufferStart, size_t bufferSize)
@@ -108,5 +114,9 @@ int file_stream_init_from_path(MemoryStream *stream, const char *path, uint32_t 
         printf("Failed to open %s\n", path);
         return -1;
     }
-    return file_stream_init_from_file_descriptor_nodup(stream, fd, bufferStart, bufferSize);
+    int r = file_stream_init_from_file_descriptor_nodup(stream, fd, bufferStart, bufferSize);
+    if (r == 0) {
+        stream->flags |= MEMORY_STREAM_FLAG_OWNS_DATA;
+    }
+    return r;
 }

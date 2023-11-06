@@ -9,7 +9,6 @@ typedef struct BufferedStreamContext {
     size_t bufferSize;
     uint32_t subBufferStart;
     size_t subBufferSize;
-    bool ownsBuffer;
 } BufferedStreamContext;
 
 

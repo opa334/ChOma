@@ -52,11 +52,11 @@ int buffered_stream_expand(MemoryStream *stream, size_t expandAtStart, size_t ex
     void *newBuffer = malloc(newSize);
     memset(newBuffer, 0, newSize);
     memcpy(newBuffer + expandAtEnd, context->buffer, newSize);
-    if (context->ownsBuffer) {
+    if (stream->flags & MEMORY_STREAM_FLAG_OWNS_DATA) {
         free(context->buffer);
     }
     context->buffer = newBuffer;
-    context->ownsBuffer = true;
+    stream->flags |= MEMORY_STREAM_FLAG_OWNS_DATA;
 
     return 0;
 }
@@ -68,7 +68,7 @@ int buffered_stream_softclone(MemoryStream *output, MemoryStream *input)
 
     contextCopy->subBufferStart = context->subBufferStart;
     contextCopy->subBufferSize = context->subBufferSize;
-    contextCopy->ownsBuffer = false;
+    output->flags = input->flags & ~(MEMORY_STREAM_FLAG_OWNS_DATA);
 
     output->context = contextCopy;
     return 0;
@@ -90,7 +90,9 @@ void buffered_stream_free(MemoryStream *stream)
 {
     BufferedStreamContext *context = stream->context;
     if (context->buffer) {
-        free(context->buffer);
+        if (stream->flags & MEMORY_STREAM_FLAG_OWNS_DATA) {
+            free(context->buffer);
+        }
     }
     free(context);
 }
@@ -117,7 +119,7 @@ int buffered_stream_init_from_buffer_nocopy(MemoryStream *stream, void *buffer, 
     context->bufferSize = bufferSize;
     context->subBufferStart = 0;
     context->subBufferSize = bufferSize;
-    context->ownsBuffer = false;
+    stream->flags = 0;
 
     stream->context = context;
     return _buffered_stream_init(stream);
@@ -133,7 +135,7 @@ int buffered_stream_init_from_buffer(MemoryStream *stream, void *buffer, size_t 
     context->bufferSize = bufferSize;
     context->subBufferStart = 0;
     context->subBufferSize = bufferSize;
-    context->ownsBuffer = true;
+    stream->flags = MEMORY_STREAM_FLAG_OWNS_DATA;
 
     stream->context = context;
     return _buffered_stream_init(stream);

@@ -35,6 +35,7 @@ typedef struct MemoryStream {
 int memory_stream_read(MemoryStream *stream, uint32_t offset, size_t size, void *outBuf);
 int memory_stream_write(MemoryStream *stream, uint32_t offset, size_t size, void *inBuf);
 size_t memory_stream_get_size(MemoryStream *stream);
+uint32_t memory_stream_get_flags(MemoryStream *stream);
 
 int memory_stream_softclone(MemoryStream *output, MemoryStream *input);
 int memory_stream_hardclone(MemoryStream *output, MemoryStream *input);

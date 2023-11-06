@@ -29,6 +29,11 @@ size_t memory_stream_get_size(MemoryStream *stream)
     return MEMORY_STREAM_SIZE_INVALID;
 }
 
+uint32_t memory_stream_get_flags(MemoryStream *stream)
+{
+    return stream->flags;
+}
+
 void _memory_stream_clone(MemoryStream *output, MemoryStream *input)
 {
     output->flags = input->flags;
