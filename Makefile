@@ -61,5 +61,10 @@ copy-DER-headers: $(DER_HEADERS)
 	@mkdir -p $(DER_HEADERS_DST_DIR)
 	@cp $^ $(DER_HEADERS_DST_DIR)
 
+clean-all: clean clean-output
+
 clean:
-	@rm -rf $(OUTPUT_DIR)/*.a $(OUTPUT_DIR)/*.dylib $(BUILD_DIR)/*
+	@rm -rf $(BUILD_DIR)/*
+
+clean-output:
+	@rm -rf $(OUTPUT_DIR)/*
