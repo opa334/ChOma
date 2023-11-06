@@ -78,9 +78,6 @@ int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblobOut, bool printAl
 		return -1;
 	}
 
-	// Get the offset of the first load command
-	uint32_t readOffset = sizeof(struct mach_header_64);
-
 	__block int ret = -1;
 	macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
 		// Find LC_CODE_SIGNATURE

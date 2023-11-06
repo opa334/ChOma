@@ -55,7 +55,7 @@ int cms_data_decode(uint8_t *cmsDERData, size_t cmsDERLength) {
     printf("Successfully decoded SignedData!\n");
 
     // Decode SignerInfos (there should only be one)
-    CMSSignerInfoDER signerInfo;
+    //CMSSignerInfoDER signerInfo;
     DERItem signerInfosDERItem = {
         .data = signedData.signerInfos.data,
         .length = signedData.signerInfos.length

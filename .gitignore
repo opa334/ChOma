@@ -12,6 +12,8 @@
 
 # Ignore build/
 build/
+output/
+data/
 
 # Ignore .DS_Store
 .DS_Store
