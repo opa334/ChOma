@@ -19,7 +19,8 @@ data/
 .DS_Store
 
 # Ignore .vscode/
-.vscode/
+.vscode/*
+!.vscode/settings.json
 
 # Ignore nocommit-* files and dirs
 nocommit-*

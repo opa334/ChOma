@@ -1,0 +1,7 @@
+{
+	"C_Cpp.default.compilerPath": "/usr/bin/clang",
+	"clangd.fallbackFlags": [
+		"-I${workspaceFolder}/src/external",
+		"-I${workspaceFolder}/output/include",
+	]
+}
