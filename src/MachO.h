@@ -36,10 +36,16 @@ typedef struct MachO {
 // Read data from a MachO at a specified offset
 int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBuf);
 
+// Write data from a MachO at a specified offset, auto expands, only works if opened via macho_init_for_writing
+int macho_write_at_offset(MachO *macho, uint64_t offset, size_t size, void *inBuf);
+
 int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop));
 
 // Initialise a MachO object from a MemoryStream and it's corresponding FAT arch descriptor
 int macho_init(MachO *macho, MemoryStream *stream, struct fat_arch_64 archDescriptor);
+
+// Initialize a single slice macho for writing to it
+int macho_init_for_writing(MachO *macho, char *filePath);
 
 void macho_free(MachO *macho);
 

@@ -1,13 +1,21 @@
 #include "FAT.h"
+#include "FileStream.h"
 #include "MachO.h"
 #include "MachOByteOrder.h"
 #include "MachOLoadCommand.h"
+#include "MemoryStream.h"
 
+#include <mach-o/loader.h>
 #include <stdlib.h>
 
 int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBuf)
 {
     return memory_stream_read(&macho->stream, offset, size, outBuf);
+}
+
+int macho_write_at_offset(MachO *macho, uint64_t offset, size_t size, void *inBuf)
+{
+    return memory_stream_write(&macho->stream, offset, size, inBuf);
 }
 
 uint32_t macho_get_filetype(MachO *macho)
@@ -93,21 +101,10 @@ int macho_parse_fileset_machos(MachO *macho)
     });
 }
 
-int macho_init(MachO *macho, MemoryStream *stream, struct fat_arch_64 archDescriptor)
+int _macho_parse(MachO *macho)
 {
-    memset(macho, 0, sizeof(*macho));
-    macho->stream = *stream;
-    macho->archDescriptor = archDescriptor;
-    macho_read_at_offset(macho, 0, sizeof(macho->machHeader), &macho->machHeader);
-
-    // Check the magic against the expected values
-    if (macho->machHeader.magic != MH_MAGIC_64 && macho->machHeader.magic != MH_MAGIC) {
-        printf("Error: invalid magic 0x%x for mach header at offset 0x%llx.\n", macho->machHeader.magic, archDescriptor.offset);
-        return -1;
-    }
-
     // Determine if this arch is supported by ChOma
-    macho->isSupported = (archDescriptor.cpusubtype != 0x9);
+    macho->isSupported = (macho->archDescriptor.cpusubtype != 0x9);
 
     if (macho->isSupported) {
         // Ensure that the sizeofcmds is a multiple of 8 (it would need padding otherwise)
@@ -122,6 +119,44 @@ int macho_init(MachO *macho, MemoryStream *stream, struct fat_arch_64 archDescri
     return 0;
 }
 
+int macho_init(MachO *macho, MemoryStream *stream, struct fat_arch_64 archDescriptor)
+{
+    memset(macho, 0, sizeof(*macho));
+    macho->stream = *stream;
+    macho->archDescriptor = archDescriptor;
+    macho_read_at_offset(macho, 0, sizeof(macho->machHeader), &macho->machHeader);
+    MACH_HEADER_APPLY_BYTE_ORDER(&macho->machHeader, HOST_TO_LITTLE_APPLIER);
+
+    // Check the magic against the expected values
+    if (macho->machHeader.magic != MH_MAGIC_64 && macho->machHeader.magic != MH_MAGIC) {
+        printf("Error: invalid magic 0x%x for mach header at offset 0x%llx.\n", macho->machHeader.magic, archDescriptor.offset);
+        return -1;
+    }
+
+    return _macho_parse(macho);
+}
+
+int macho_init_for_writing(MachO *macho, char *filePath)
+{
+    memset(macho, 0, sizeof(*macho));
+
+    int r = file_stream_init_from_path(&macho->stream, filePath, 0, FILE_STREAM_SIZE_AUTO, FILE_STREAM_FLAG_WRITABLE | FILE_STREAM_FLAG_AUTO_EXPAND);
+    if (r != 0) return r;
+
+    size_t fileSize = memory_stream_get_size(&macho->stream);
+    struct mach_header_64 machHeader;
+    memory_stream_read(&macho->stream, 0, sizeof(machHeader), &machHeader);
+    MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, HOST_TO_LITTLE_APPLIER);
+    if (machHeader.magic != MH_MAGIC_64) return -1;
+
+    macho->archDescriptor.cpusubtype = machHeader.cpusubtype;
+    macho->archDescriptor.cputype = machHeader.cputype;
+    macho->archDescriptor.offset = 0;
+    macho->archDescriptor.size = fileSize;
+    macho->archDescriptor.align = 0x4000;
+
+    return _macho_parse(macho);
+}
 
 void macho_free(MachO *macho)
 {
