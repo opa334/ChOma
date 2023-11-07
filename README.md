@@ -2,15 +2,23 @@
 
 ChOma is a simple library for parsing and manipulating MachO files and their CMS blobs. Written for exploitation of [CVE-2023-41991](https://support.apple.com/en-gb/HT213926), a vulnerability in the CoreTrust kernel extension.
 
-The library works primarily on iOS binaries, and should work on macOS binaries too, but this is not guaranteed. It's written entirely in C, so it's both fast and portable to iOS (for TrollStore or similar apps) as well as most other devices - however, due to the fact that it is in C, a malformed MachO could cause a memory fault, so I cannot guarantee that this parser will work correctly for such binaries.
+The library works primarily on iOS binaries, and should work on macOS binaries too, but this is not guaranteed. It's written entirely in C, so it's both fast and portable to iOS (for TrollStore or similar apps) as well as most other devices - however, due to the fact that it is in C, a malformed MachO could cause a fault, so we cannot guarantee that this parser will work correctly for such binaries.
 
-Thin MachO binaries that are built for ARMv7, or FAT binaries with ARMv7 slices, are currently unsupported for parsing. More handling of such files is planned, but full ARMv7 support is not planned at the moment.
+Thin MachO binaries that are built for ARMv7, or FAT binaries with ARMv7 slices, are currently unsupported for parsing. Support for parsing such binaries is not currently planned for the future, as modern iOS devices do not support executing ARMv7 binaries.
 
 ## Usage
 
-To use the library, you can either compile with `make all`, to have an executable that demonstrates the abilities of this library, or you can simply drop the header files and their relevant `.c` files into your project folder and just include the ones you need.
+To use the library, you can compile with `make all`. This will produce the `choma_cli` executable that demonstrates the abilities of this library, and then `libchoma.a` and `libchoma.dylib` which can be linked to your own project.
 
-Use `getPreferredSliceIndex(MachO *macho)` to get the index of the preferred architecture slice in a FAT MachO. This is the slice that will be executed by the host device if you were to run the binary. If you're using a thin MachO, this function will just return index 0, or -1 if the architecture does not match.
+## Terminology
+Inside ChOma, there are a few terms that are used to describe various parts of the MachO file. These are:
+- **FAT** - represents a FAT MachO file (a MachO file that contains multiple slices, which are each a MachO file for a different architecture).
+- **MachO** - represents either a single-architecture MachO file, or a slice of a FAT MachO file.
+
+## Underlying mechanisms
+ChOma uses the `MemoryBuffer` structure to provide a unified way to read, write, shrink and expand data buffers, that works across both files and memory. Each `MemoryBuffer` has a `context` field that determines whether the functions interpret it as a `BufferedStream` object (for regular memory buffers) or as a `FileStream` object (for files).
+
+Each `MemoryBuffer` object contains function pointers for reading, writing, retrieving the size, expanding, shrinking and then soft or hard cloning. You can inspect these inside [`src/MemoryBuffer.h`](src/MemoryStream.h), and can see how they are used by looking at how we manipulate MachO files across the library.
 
 ## Relevant MachO File Structures
 
@@ -71,9 +79,9 @@ struct load_command {
     /* More command-specific fields follow */
 };
 ```
-To see some examples of load commands, try parsing an iOS MachO with this library and printing the `cmd` field of each load command, using `loadCommandToName(int loadCommand)` to see which command it is.
+To see some examples of load commands, try parsing a MachO with this library and printing the `cmd` field of each load command, using `loadCommandToName(int loadCommand)` to see which command it is.
 
-Following the load commands, there are 'segments' of code that are loaded into memory. Each segment has a number of sections, which contain the actual code and data. The contents of sections and segments is not too relevant to the CoreTrust bug, so I didn't spend much time researching them. However, more information can be found online with a quick search.
+Following the load commands, there are 'segments' of code that are loaded into memory. Each segment has a number of sections, which contain the actual code and data. ChOma will parse these segment load commands and output information about each one, such as their offset in their MachO slice, as well as their size.
 
 ## Additional credits
 
