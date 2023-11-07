@@ -1,5 +1,6 @@
 #include "CSBlob.h"
 
+#include "CMSDecoding.h"
 #include "CodeDirectory.h"
 #include "MachOByteOrder.h"
 #include "MachOLoadCommand.h"
@@ -59,7 +60,22 @@ int cs_superblob_parse_blobs(MachO *macho, CS_SuperBlob *superblob, struct lc_co
 			macho_parse_code_directory_blob(macho, csLoadCommand.dataoff + blobIndex->offset, codeDirectory, printAllSlots, verifySlots);
 		}
 
-		// if (blobMagic == CSBLOB_SIGNATURE_BLOB)
+		if (blobMagic == CSBLOB_SIGNATURE_BLOB) {
+			uint32_t blobOffset = 0;
+			macho_read_at_offset(macho, csLoadCommand.dataoff + blobIndex->offset, sizeof(blobOffset), &blobOffset);
+			blobOffset = BIG_TO_HOST(blobOffset);
+			uint32_t blobLength = 0;
+			macho_read_at_offset(macho, csLoadCommand.dataoff + blobIndex->offset + 4, sizeof(blobLength), &blobLength);
+			blobLength = BIG_TO_HOST(blobLength);
+			printf("Blob %d: %s (offset 0x%x, magic 0x%x, length 0x%x).\n", blobCount + 1, cs_blob_magic_to_string(blobMagic), csLoadCommand.dataoff + blobIndex->offset, blobMagic, blobLength);
+			uint8_t *cmsData = malloc(blobLength);
+			macho_read_at_offset(macho, csLoadCommand.dataoff + blobIndex->offset + 8, blobLength - 8, cmsData);
+			cms_data_decode(cmsData, blobLength - 8);
+			free(cmsData);
+		}
+
+
+
 		else
 		{
 			printf("Blob %d: %s (offset 0x%x, magic: 0x%x).\n", blobCount + 1, cs_blob_magic_to_string(blobMagic), csLoadCommand.dataoff + blobIndex->offset, blobMagic);

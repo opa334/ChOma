@@ -39,7 +39,7 @@
 
 #if		DER_DECODE_ENABLE
 
-#define DER_DECODE_DEBUG	0
+#define DER_DECODE_DEBUG	1
 #if		DER_DECODE_DEBUG
 #include <stdio.h>
 #define derDecDbg(a)			printf(a)

@@ -10,6 +10,10 @@
 
 // https://datatracker.ietf.org/doc/html/rfc5652#section-12.1
 
+typedef struct {
+    DERItem signatureBlob;
+} CMSSignatureBlobDER;
+
 /*
 ContentInfo ::= SEQUENCE {
     contentType ContentType,
