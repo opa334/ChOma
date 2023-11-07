@@ -143,7 +143,7 @@ int fat_init_from_path(FAT *fat, const char *filePath)
     memset(fat, 0, sizeof(*fat));
 
     MemoryStream stream;
-    if (file_stream_init_from_path(&stream, filePath, 0, FILE_STREAM_SIZE_AUTO) != 0) return -1;
+    if (file_stream_init_from_path(&stream, filePath, 0, FILE_STREAM_SIZE_AUTO, 0) != 0) return -1;
 
     return fat_init_from_memory_stream(fat, &stream);
 }
