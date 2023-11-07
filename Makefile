@@ -31,7 +31,7 @@ DER_HEADERS_DST_DIR := $(HEADER_OUTPUT_DIR)/libDER
 CHOMA_HEADERS := $(shell find $(CHOMA_HEADERS_SRC_DIR) -type f -name "*.h")
 DER_HEADERS := $(shell find $(DER_HEADERS_SRC_DIR) -type f -name "*.h")
 
-all: $(STATIC_LIB) $(DYNAMIC_LIB) copy-headers $(TESTS_BINARIES)
+all: $(STATIC_LIB) $(DYNAMIC_LIB) copy-headers clean-test $(TESTS_BINARIES)
 
 $(STATIC_LIB): $(OBJ_FILES)
 	@mkdir -p $(LIB_DIR)
@@ -47,6 +47,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 
 $(TESTS_OUTPUT_DIR)/%: $(TESTS_SRC_DIR)/%
 	@mkdir -p $(dir $@)
+	@rm -rf $@
 	$(CC) $(CFLAGS) -I$(OUTPUT_DIR)/include -o $@ $</*.c $(OUTPUT_DIR)/lib/libchoma.a
 
 copy-headers: copy-choma-headers copy-DER-headers
@@ -63,8 +64,10 @@ copy-DER-headers: $(DER_HEADERS)
 
 clean-all: clean clean-output
 
-clean:
+clean: clean-test
 	@rm -rf $(BUILD_DIR)/*
+
+clean-test:
 	@rm -rf $(OUTPUT_DIR)/tests/*
 
 clean-output:
