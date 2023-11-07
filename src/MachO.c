@@ -128,6 +128,7 @@ void macho_free(MachO *macho)
     if (macho->filesetCount != 0 && macho->filesetMachos) {
         for (uint32_t i = 0; i < macho->filesetCount; i++) {
             fat_free(&macho->filesetMachos[i].underlyingMachO);
+            free(macho->filesetMachos[i].entry_id);
         }
         free(macho->filesetMachos);
     }
