@@ -47,7 +47,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 
 $(TESTS_OUTPUT_DIR)/%: $(TESTS_SRC_DIR)/%
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -I$(OUTPUT_DIR)/include -o $@ $</*.c -L$(LIB_DIR) -lchoma
+	$(CC) $(CFLAGS) -I$(OUTPUT_DIR)/include -o $@ $</*.c $(OUTPUT_DIR)/lib/libchoma.a
 
 copy-headers: copy-choma-headers copy-DER-headers
 
@@ -65,6 +65,7 @@ clean-all: clean clean-output
 
 clean:
 	@rm -rf $(BUILD_DIR)/*
+	@rm -rf $(OUTPUT_DIR)/tests/*
 
 clean-output:
 	@rm -rf $(OUTPUT_DIR)/*
