@@ -45,5 +45,6 @@ int memory_stream_expand(MemoryStream *stream, size_t expandAtStart, size_t expa
 void memory_stream_free(MemoryStream *stream);
 
 int memory_stream_copy_data(MemoryStream *originStream, uint32_t originOffset, MemoryStream *targetStream, uint32_t targetOffset, size_t size);
+int memory_stream_find_memory(MemoryStream *stream, uint32_t searchOffset, size_t searchSize, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint32_t *foundOffsetOut);
 
 #endif // MEMORY_STREAM_H

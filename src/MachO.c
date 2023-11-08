@@ -23,6 +23,53 @@ uint32_t macho_get_filetype(MachO *macho)
     return macho->machHeader.filetype;
 }
 
+int macho_translate_fileoff_to_vmaddr(MachO *macho, uint64_t fileoff, uint64_t *vmaddrOut, MachOSegment **segmentOut)
+{
+    for (uint32_t i = 0; i < macho->segmentCount; i++) {
+        MachOSegment *segment = macho->segments[i];
+        uint64_t segmentStartOff = segment->command.fileoff;
+        uint64_t segmentEndOff = segment->command.fileoff + segment->command.filesize;
+        if (fileoff >= segmentStartOff && fileoff < segmentEndOff) {
+            uint64_t relativeFileoff = fileoff - segmentStartOff;
+            *vmaddrOut = segment->command.vmaddr + relativeFileoff;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+int macho_translate_vmaddr_to_fileoff(MachO *macho, uint64_t vmaddr, uint64_t *fileoffOut, MachOSegment **segmentOut)
+{
+    for (uint32_t i = 0; i < macho->segmentCount; i++) {
+        MachOSegment *segment = macho->segments[i];
+        uint64_t segmentVmAddr = segment->command.vmaddr;
+        uint64_t segmentVmEnd = segment->command.vmaddr + segment->command.vmsize;
+        if (vmaddr >= segmentVmAddr && vmaddr < segmentVmEnd) {
+            uint64_t relativeVmAddr = vmaddr - segmentVmAddr;
+            *fileoffOut = segment->command.fileoff + relativeVmAddr;
+            if (segmentOut) *segmentOut = segment;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+int macho_read_at_vmaddr(MachO *macho, uint64_t vmaddr, size_t size, void *outBuf)
+{
+    MachOSegment *segment;
+    uint64_t fileoff = 0;
+    int r = macho_translate_vmaddr_to_fileoff(macho, vmaddr, &fileoff, &segment);
+    if (r != 0) return r;
+
+    uint64_t readEnd = vmaddr + size;
+    if (readEnd >= (segment->command.vmaddr + segment->command.vmsize)) {
+        // prevent OOB
+        return -1;
+    }
+
+    return macho_read_at_offset(macho, fileoff, size, outBuf);
+}
+
 int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop))
 {
     if (macho->machHeader.ncmds < 1 || macho->machHeader.ncmds > 1000) {

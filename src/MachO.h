@@ -39,6 +39,13 @@ int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBu
 // Write data from a MachO at a specified offset, auto expands, only works if opened via macho_init_for_writing
 int macho_write_at_offset(MachO *macho, uint64_t offset, size_t size, void *inBuf);
 
+// Perform translation between file offsets and virtual addresses
+int macho_translate_fileoff_to_vmaddr(MachO *macho, uint64_t fileoff, uint64_t *vmaddrOut, MachOSegment **segmentOut);
+int macho_translate_vmaddr_to_fileoff(MachO *macho, uint64_t vmaddr, uint64_t *fileoffOut, MachOSegment **segmentOut);
+
+// Read data from a MachO at a specified virtual address
+int macho_read_at_vmaddr(MachO *macho, uint64_t vmaddr, size_t size, void *outBuf);
+
 int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop));
 
 // Initialise a MachO object from a MemoryStream and it's corresponding FAT arch descriptor
