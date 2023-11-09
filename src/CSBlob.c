@@ -137,12 +137,12 @@ int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblobOut, bool printAl
 	return ret;
 }
 
-int macho_extract_cms_to_file(MachO *macho, CS_SuperBlob *superblob)
+int macho_extract_cs_to_file(MachO *macho, CS_SuperBlob *superblob)
 {
-	// Get length of CMS from superblob and allocate memory
-	size_t cmsLength = superblob->length;
-	void *cmsData = malloc(cmsLength);
-	memset(cmsData, 0, cmsLength);
+	// Get length of CodeSignature from superblob and allocate memory
+	size_t csLength = superblob->length;
+	void *csData = malloc(csLength);
+	memset(csData, 0, csLength);
 	__block uint32_t csBlobOffset = 0;
 
 	macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
@@ -160,12 +160,12 @@ int macho_extract_cms_to_file(MachO *macho, CS_SuperBlob *superblob)
 		return -1;
 	}
 
-	// Extract the CMS data from the MachO and write to the file
-	macho_read_at_offset(macho, csBlobOffset, cmsLength, cmsData);
-	FILE *cmsDataFile = fopen("CMS-Data", "wb+");
-	fwrite(cmsData, cmsLength, 1, cmsDataFile);
-	fclose(cmsDataFile);
-	free(cmsData);
+	// Extract the Code Signature from the MachO and write to file
+	macho_read_at_offset(macho, csBlobOffset, csLength, csData);
+	FILE *csDataFile = fopen("Code_Signature-Data", "wb+");
+	fwrite(csData, csLength, 1, csDataFile);
+	fclose(csDataFile);
+	free(csData);
 
 	return 0;
 }
