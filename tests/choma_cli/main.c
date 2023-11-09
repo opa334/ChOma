@@ -20,8 +20,9 @@ typedef struct
 arg_t args[] = {
     // Name, short option, long option, description, value
     {"Help", "-h", "--help", "Print this message", false},
-    {"Parse CMS blob", "-c", "--cms", "Parse the CMS blob of a MachO", false},
-    {"Print code slots", "-s", "--code-slots", "Print all page hash code slots in a CMS blob", false},
+    {"Parse CMS blob", "-c", "--cms", "Parse the CMS superblob blob of a MachO", false},
+    {"Extract CMS blob", "-e", "--extract", "Parse the CMS superblob blob of a MachO", false},
+    {"Print code slots", "-s", "--code-slots", "Print all page hash code slots in a CodeDirectory blob", false},
     {"Verify code slots", "-v", "--verify-hashes", "Verify that the CodeDirectory hashes are correct", false},
     {"Parse MH_FILESET", "-f", "--mh-fileset", "Parse an MH_FILESET MachO and output it's sub-files", false}
 };
@@ -83,6 +84,9 @@ int main(int argc, char *argv[]) {
         CS_SuperBlob superblob;
         for (int slicesCount = 0; slicesCount < fat.slicesCount; slicesCount++) {
             macho_parse_superblob(&fat.slices[slicesCount], &superblob, getArgumentBool("-s"), getArgumentBool("-v"));
+            if (getArgumentBool("-e")) {
+                macho_extract_cms_to_file(&fat.slices[slicesCount], &superblob);
+            }
         }
     }
 

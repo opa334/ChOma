@@ -69,6 +69,7 @@ int cs_superblob_parse_blobs(MachO *macho, CS_SuperBlob *superblob, struct lc_co
 			blobLength = BIG_TO_HOST(blobLength);
 			printf("Blob %d: %s (offset 0x%x, magic 0x%x, length 0x%x).\n", blobCount + 1, cs_blob_magic_to_string(blobMagic), csLoadCommand.dataoff + blobIndex->offset, blobMagic, blobLength);
 			uint8_t *cmsData = malloc(blobLength);
+			memset (cmsData, 0, blobLength);
 			macho_read_at_offset(macho, csLoadCommand.dataoff + blobIndex->offset + 8, blobLength - 8, cmsData);
 			cms_data_decode(cmsData, blobLength - 8);
 			free(cmsData);
