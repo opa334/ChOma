@@ -122,7 +122,9 @@
     applier(cd, hashType); \
     applier(cd, spare1); \
     applier(cd, pageSize); \
-    applier(cd, spare2);
+    applier(cd, spare2); \
+    applier(cd, scatterOffset); \
+    applier(cd, teamOffset);
 
 #define SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(sc64, applier) \
     applier(sc64, cmd); \

@@ -130,6 +130,22 @@ int macho_parse_code_directory_blob(MachO *macho, uint32_t codeDirectoryOffset, 
 	}
 	CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectoryOut, BIG_TO_HOST_APPLIER);
 
+	printf("Code directory:\n");
+	printf("\tMagic: 0x%X\n", codeDirectoryOut->magic);
+	printf("\tLength: 0x%x\n", codeDirectoryOut->length);
+	printf("\tVersion: 0x%x\n", codeDirectoryOut->version);
+	printf("\tFlags: 0x%x\n", codeDirectoryOut->flags);
+	printf("\tHash offset: 0x%x\n", codeDirectoryOut->hashOffset);
+	printf("\tIdentity offset: 0x%x\n", codeDirectoryOut->identOffset);
+	printf("\tNumber of special slots: %d\n", codeDirectoryOut->nSpecialSlots);
+	printf("\tNumber of code slots: %d\n", codeDirectoryOut->nCodeSlots);
+	printf("\tCode limit: 0x%x\n", codeDirectoryOut->codeLimit);
+	printf("\tHash size: 0x%x\n", codeDirectoryOut->hashSize);
+	printf("\tHash type: %d\n", codeDirectoryOut->hashType);
+	printf("\tPage size: 0x%x\n", codeDirectoryOut->pageSize);
+	printf("\tScatter offset: 0x%x\n", codeDirectoryOut->scatterOffset);
+	printf("\tTeam offset: 0x%x\n", codeDirectoryOut->teamOffset);
+
 	uint32_t slotZeroOffset = codeDirectoryOffset + codeDirectoryOut->hashOffset;
 	uint8_t *specialSlots = malloc(codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize);
 	memset(specialSlots, 0, codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize);
@@ -188,7 +204,7 @@ int macho_parse_code_directory_blob(MachO *macho, uint32_t codeDirectoryOffset, 
 			}
 			else if (slotNumber == -6)
 			{
-				printf(" (Used for disk rep)");
+				printf(" (DMG signature hash)");
 			}
 			else if (slotNumber == -7)
 			{

@@ -23,6 +23,8 @@ typedef struct __CodeDirectory {
 	uint8_t spare1;
 	uint8_t	pageSize;
 	uint32_t spare2;
+	uint32_t scatterOffset;
+	uint32_t teamOffset;
 } CS_CodeDirectory;
 
 #define CS_HASHTYPE_SHA160_160 1

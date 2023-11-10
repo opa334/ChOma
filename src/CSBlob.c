@@ -53,9 +53,10 @@ int cs_superblob_parse_blobs(MachO *macho, CS_SuperBlob *superblob, struct lc_co
 		macho_read_at_offset(macho, csLoadCommand.dataoff + blobIndex->offset, sizeof(blobMagic), &blobMagic);
 		blobMagic = BIG_TO_HOST(blobMagic);
 
+		printf("Blob %d: %s (offset 0x%x, magic: 0x%x).\n", blobCount + 1, cs_blob_magic_to_string(blobMagic), csLoadCommand.dataoff + blobIndex->offset, blobMagic);
+
 		if (blobMagic == CSBLOB_CODEDIRECTORY)
 		{
-			printf("Blob %d: %s (offset 0x%x, magic 0x%x).\n", blobCount + 1, cs_blob_magic_to_string(blobMagic), csLoadCommand.dataoff + blobIndex->offset, blobMagic);
 			CS_CodeDirectory *codeDirectory = malloc(sizeof(CS_CodeDirectory));
 			macho_parse_code_directory_blob(macho, csLoadCommand.dataoff + blobIndex->offset, codeDirectory, printAllSlots, verifySlots);
 		}
@@ -67,19 +68,11 @@ int cs_superblob_parse_blobs(MachO *macho, CS_SuperBlob *superblob, struct lc_co
 			uint32_t blobLength = 0;
 			macho_read_at_offset(macho, csLoadCommand.dataoff + blobIndex->offset + 4, sizeof(blobLength), &blobLength);
 			blobLength = BIG_TO_HOST(blobLength);
-			printf("Blob %d: %s (offset 0x%x, magic 0x%x, length 0x%x).\n", blobCount + 1, cs_blob_magic_to_string(blobMagic), csLoadCommand.dataoff + blobIndex->offset, blobMagic, blobLength);
 			uint8_t *cmsData = malloc(blobLength);
 			memset (cmsData, 0, blobLength);
 			macho_read_at_offset(macho, csLoadCommand.dataoff + blobIndex->offset + 8, blobLength - 8, cmsData);
 			cms_data_decode(cmsData, blobLength - 8);
 			free(cmsData);
-		}
-
-
-
-		else
-		{
-			printf("Blob %d: %s (offset 0x%x, magic: 0x%x).\n", blobCount + 1, cs_blob_magic_to_string(blobMagic), csLoadCommand.dataoff + blobIndex->offset, blobMagic);
 		}
 
 	}
