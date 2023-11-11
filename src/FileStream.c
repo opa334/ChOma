@@ -6,14 +6,14 @@ int _file_stream_context_is_trimmed(FileStreamContext *context)
     return (context->bufferStart != 0 || context->bufferSize != context->fileSize);
 }
 
-int file_stream_read(MemoryStream *stream, uint32_t offset, size_t size, void *outBuf)
+int file_stream_read(MemoryStream *stream, uint64_t offset, size_t size, void *outBuf)
 {
     FileStreamContext *context = stream->context;
     lseek(context->fd, context->bufferStart + offset, SEEK_SET);
     return read(context->fd, outBuf, size);
 }
 
-int file_stream_write(MemoryStream *stream, uint32_t offset, size_t size, void *inBuf)
+int file_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf)
 {
     FileStreamContext *context = stream->context;
 

@@ -15,11 +15,11 @@ int _buffered_stream_make_own_data(MemoryStream *stream)
     return 0;
 }
 
-int buffered_stream_read(MemoryStream *stream, uint32_t offset, size_t size, void *outBuf)
+int buffered_stream_read(MemoryStream *stream, uint64_t offset, size_t size, void *outBuf)
 {
     BufferedStreamContext *context = stream->context;
     if ((offset + size) > context->subBufferSize) {
-        printf("Error: cannot read %zx bytes at %x, maximum is %zx.\n", size, offset, context->bufferSize);
+        printf("Error: cannot read %zx bytes at %llx, maximum is %zx.\n", size, offset, context->bufferSize);
         return -1;
     }
 
@@ -27,11 +27,11 @@ int buffered_stream_read(MemoryStream *stream, uint32_t offset, size_t size, voi
     return 0;
 }
 
-int buffered_stream_write(MemoryStream *stream, uint32_t offset, size_t size, void *inBuf)
+int buffered_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf)
 {
     BufferedStreamContext *context = stream->context;
     if ((offset + size) > context->bufferSize) {
-        printf("Error: cannot write %zx bytes at %x, maximum is %zx.\n", size, offset, context->bufferSize);
+        printf("Error: cannot write %zx bytes at %llx, maximum is %zx.\n", size, offset, context->bufferSize);
         return -1;
     }
 

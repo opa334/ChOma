@@ -57,7 +57,7 @@ int code_directory_verify_code_slots(MachO *macho, CS_CodeDirectory *codeDirecto
     __block uint32_t dataSizeToRead = (uint32_t)(pow(2.0, (double)(codeDirectory->pageSize)));
     for (int i = 0; i < codeDirectory->nCodeSlots; i++) {
         if (i == codeDirectory->nCodeSlots - 1) {
-            macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
+            macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
                 if (loadCommand.cmd == LC_CODE_SIGNATURE) {
                     // Create and populate the code signature load command structure
                     struct lc_code_signature csLoadCommand = *((struct lc_code_signature *)cmd);

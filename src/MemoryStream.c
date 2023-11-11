@@ -1,6 +1,6 @@
 #include "MemoryStream.h"
 
-int memory_stream_read(MemoryStream *stream, uint32_t offset, size_t size, void *outBuf)
+int memory_stream_read(MemoryStream *stream, uint64_t offset, size_t size, void *outBuf)
 {
     if (stream->read) {
         int ret = stream->read(stream, offset, size, outBuf);
@@ -10,7 +10,7 @@ int memory_stream_read(MemoryStream *stream, uint32_t offset, size_t size, void 
     return -1;
 }
 
-int memory_stream_write(MemoryStream *stream, uint32_t offset, size_t size, void *inBuf)
+int memory_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf)
 {
     if (stream->write) {
         int ret = stream->write(stream, offset, size, inBuf);
@@ -88,7 +88,7 @@ void memory_stream_free(MemoryStream *stream)
 }
 
 #define COPY_DATA_BUFFER_SIZE 0x4000
-int memory_stream_copy_data(MemoryStream *originStream, uint32_t originOffset, MemoryStream *targetStream, uint32_t targetOffset, size_t size)
+int memory_stream_copy_data(MemoryStream *originStream, uint64_t originOffset, MemoryStream *targetStream, uint64_t targetOffset, size_t size)
 {
     size_t originSize = memory_stream_get_size(originStream);
     size_t targetSize = memory_stream_get_size(targetStream);

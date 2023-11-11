@@ -89,7 +89,7 @@ int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblobOut, bool printAl
 	}
 
 	__block int ret = -1;
-	macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
+	macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
 		// Find LC_CODE_SIGNATURE
 		if (loadCommand.cmd == LC_CODE_SIGNATURE)
 		{
@@ -138,7 +138,7 @@ int macho_extract_cs_to_file(MachO *macho, CS_SuperBlob *superblob)
 	memset(csData, 0, csLength);
 	__block uint32_t csBlobOffset = 0;
 
-	macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
+	macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
 		if (loadCommand.cmd == LC_CODE_SIGNATURE) {
 			struct lc_code_signature csLoadCommand = *((struct lc_code_signature *)cmd);
 			LC_CODE_SIGNATURE_APPLY_BYTE_ORDER(&csLoadCommand, LITTLE_TO_HOST_APPLIER);

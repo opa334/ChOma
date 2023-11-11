@@ -46,7 +46,7 @@ int macho_translate_vmaddr_to_fileoff(MachO *macho, uint64_t vmaddr, uint64_t *f
 // Read data from a MachO at a specified virtual address
 int macho_read_at_vmaddr(MachO *macho, uint64_t vmaddr, size_t size, void *outBuf);
 
-int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop));
+int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop));
 
 // Initialise a MachO object from a MemoryStream and it's corresponding FAT arch descriptor
 int macho_init(MachO *macho, MemoryStream *stream, struct fat_arch_64 archDescriptor);

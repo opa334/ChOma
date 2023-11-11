@@ -70,7 +70,7 @@ int macho_read_at_vmaddr(MachO *macho, uint64_t vmaddr, size_t size, void *outBu
     return macho_read_at_offset(macho, fileoff, size, outBuf);
 }
 
-int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop))
+int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop))
 {
     if (macho->machHeader.ncmds < 1 || macho->machHeader.ncmds > 1000) {
         printf("Error: invalid number of load commands (%d).\n", macho->machHeader.ncmds);
@@ -105,7 +105,7 @@ int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct l
 
 int macho_parse_segments(MachO *macho)
 {
-    return macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
+    return macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
         if (loadCommand.cmd == LC_SEGMENT_64) {
             macho->segmentCount++;
             if (macho->segments == NULL) { macho->segments = malloc(macho->segmentCount * sizeof(MachOSegment*)); }
@@ -123,7 +123,7 @@ int macho_parse_segments(MachO *macho)
 int macho_parse_fileset_machos(MachO *macho)
 {
     if (macho_get_filetype(macho) != MH_FILESET) return -1;
-    return macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint32_t offset, void *cmd, bool *stop) {
+    return macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
         if (loadCommand.cmd == LC_FILESET_ENTRY) {
             uint32_t i = macho->filesetCount;
             macho->filesetCount++;

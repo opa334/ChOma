@@ -20,8 +20,8 @@ typedef struct MemoryStream {
    void *context;
    uint32_t flags;
 
-   int (*read)(struct MemoryStream *stream, uint32_t offset, size_t size, void *outBuf);
-   int (*write)(struct MemoryStream *stream, uint32_t offset, size_t size, void *inBuf);
+   int (*read)(struct MemoryStream *stream, uint64_t offset, size_t size, void *outBuf);
+   int (*write)(struct MemoryStream *stream, uint64_t offset, size_t size, void *inBuf);
    int (*getSize)(struct MemoryStream *stream, size_t *sizeOut);
 
    int (*trim)(struct MemoryStream *stream, size_t trimAtStart, size_t trimAtEnd);
@@ -32,8 +32,8 @@ typedef struct MemoryStream {
    void (*free)(struct MemoryStream *stream);
 } MemoryStream;
 
-int memory_stream_read(MemoryStream *stream, uint32_t offset, size_t size, void *outBuf);
-int memory_stream_write(MemoryStream *stream, uint32_t offset, size_t size, void *inBuf);
+int memory_stream_read(MemoryStream *stream, uint64_t offset, size_t size, void *outBuf);
+int memory_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf);
 size_t memory_stream_get_size(MemoryStream *stream);
 uint32_t memory_stream_get_flags(MemoryStream *stream);
 
@@ -44,7 +44,7 @@ int memory_stream_expand(MemoryStream *stream, size_t expandAtStart, size_t expa
 
 void memory_stream_free(MemoryStream *stream);
 
-int memory_stream_copy_data(MemoryStream *originStream, uint32_t originOffset, MemoryStream *targetStream, uint32_t targetOffset, size_t size);
+int memory_stream_copy_data(MemoryStream *originStream, uint64_t originOffset, MemoryStream *targetStream, uint64_t targetOffset, size_t size);
 int memory_stream_find_memory(MemoryStream *stream, uint64_t searchOffset, size_t searchSize, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundOffsetOut);
 
 #endif // MEMORY_STREAM_H
