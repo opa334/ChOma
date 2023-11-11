@@ -126,7 +126,10 @@ int memcmp_masked(const void *str1, const void *str2, unsigned char* mask, size_
 
     for(int i = 0; i < n; i++)
     {
-        unsigned char cMask = mask[i];
+        unsigned char cMask = 0xFF;
+        if (mask) {
+            cMask = mask[i];
+        }
         if((p[i] & cMask) != (q[i] & cMask))
         {
             // we do not care about 1 / -1
@@ -147,7 +150,10 @@ int memory_stream_find_memory(MemoryStream *stream, uint32_t searchOffset, size_
 
     size_t nbytesMatched = 0;
     for (uint32_t curOffset = searchOffset; curOffset < (searchOffset + searchSize); curOffset += alignment) {
-        uint8_t *curCheckMask = &maskC[nbytesMatched];
+        uint8_t *curCheckMask = NULL;
+        if (maskC) {
+            curCheckMask = &maskC[nbytesMatched];
+        }
         uint8_t *curCheckBytes = &bytesC[nbytesMatched];
 
         uint8_t curReadBytes[alignment];

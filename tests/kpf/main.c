@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
             PFSection *textSection = macho_patchfinder_create_section(macho, "com.apple.kernel|__TEXT_EXEC|__text");
             BytePatternMetric *metric = macho_patchfinder_create_byte_pattern_metric(textSection, &inst, &mask, sizeof(inst), BYTE_PATTERN_ALIGN_32_BIT);
             macho_patchfinder_run_metric(macho, metric, ^(uint64_t vmaddr, bool *stop) {
-                printf("PACIZA: 0x%llx\n", vmaddr);
+                printf("PACIBSP: 0x%llx\n", vmaddr);
             });
 
             free(textSection);
