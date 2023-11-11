@@ -9,9 +9,12 @@ typedef struct PFSection {
 	uint64_t fileoff;
 	uint64_t vmaddr;
 	uint64_t size;
+	uint8_t *cache;
 } PFSection;
 
-PFSection *macho_patchfinder_create_section(MachO *macho, const char *segmentIdentifier);
+PFSection *macho_patchfinder_create_section(MachO *macho, const char *filesetEntryId, const char *segName, const char *sectName);
+int macho_patchfinder_cache_section(PFSection *section, MachO *fromMacho);
+void macho_patchfinder_section_free(PFSection *section);
 
 typedef struct MetricShared {
 	uint32_t type;

@@ -4,6 +4,8 @@
 #include <choma/Host.h>
 #include <choma/PatchFinder.h>
 
+#include <time.h>
+
 int main(int argc, char *argv[]) {
 
     if (argc == 2) {
@@ -16,13 +18,21 @@ int main(int argc, char *argv[]) {
             uint32_t inst = 0xD503237F;
             uint32_t mask = 0xFFFFFFFF;
 
-            PFSection *textSection = macho_patchfinder_create_section(macho, "com.apple.kernel|__TEXT_EXEC|__text");
-            BytePatternMetric *metric = macho_patchfinder_create_byte_pattern_metric(textSection, &inst, &mask, sizeof(inst), BYTE_PATTERN_ALIGN_32_BIT);
+            clock_t t;
+            t = clock();
+
+            PFSection *kernelTextSection = macho_patchfinder_create_section(macho, "com.apple.kernel", "__TEXT_EXEC", "__text");
+            macho_patchfinder_cache_section(kernelTextSection, macho);
+            BytePatternMetric *metric = macho_patchfinder_create_byte_pattern_metric(kernelTextSection, &inst, &mask, sizeof(inst), BYTE_PATTERN_ALIGN_32_BIT);
             macho_patchfinder_run_metric(macho, metric, ^(uint64_t vmaddr, bool *stop) {
                 printf("PACIBSP: 0x%llx\n", vmaddr);
             });
 
-            free(textSection);
+            t = clock() - t; 
+            double time_taken = ((double)t)/CLOCKS_PER_SEC;
+            printf("KPF finished in %lf seconds\n", time_taken);
+
+            macho_patchfinder_section_free(kernelTextSection);
             free(metric);
         }
         
