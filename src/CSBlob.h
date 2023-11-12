@@ -20,8 +20,14 @@ typedef struct __SuperBlob {
 	uint32_t magic;
 	uint32_t length;
 	uint32_t count;
-	CS_BlobIndex *index;
+	CS_BlobIndex index[];
 } CS_SuperBlob;
+
+typedef struct __GenericBlob {
+	uint32_t magic;					/* magic number */
+	uint32_t length;				/* total length of blob */
+	char data[];
+} CS_GenericBlob;
 
 // CMS blob magic types
 enum {
@@ -34,6 +40,20 @@ enum {
     CSBLOB_DER_ENTITLEMENTS = 0xfade7172,
     CSBLOB_SIGNATURE_BLOB = 0xfade0b01
 } CS_BlobType;
+
+enum {
+    CSSLOT_CODEDIRECTORY = 0,
+	CSSLOT_INFOSLOT = 1,
+	CSSLOT_REQUIREMENTS = 2,
+	CSSLOT_RESOURCEDIR = 3,
+	CSSLOT_APPLICATION = 4,
+	CSSLOT_ENTITLEMENTS = 5,
+    CSSLOT_DER_ENTITLEMENTS = 7,
+    CSSLOT_ALTERNATE_CODEDIRECTORIES = 0x1000,
+	CSSLOT_ALTERNATE_CODEDIRECTORY_MAX = 5,
+	CSSLOT_ALTERNATE_CODEDIRECTORY_LIMIT = CSSLOT_ALTERNATE_CODEDIRECTORIES + CSSLOT_ALTERNATE_CODEDIRECTORY_MAX,
+    CSSLOT_SIGNATURESLOT = 0x10000
+} CS_SlotType;
 
 // Forward declaration
 struct lc_code_signature;

@@ -30,6 +30,29 @@ char *cs_blob_magic_to_string(int magic)
 	}
 }
 
+char *cs_slot_index_to_string(int magic)
+{
+	switch (magic)
+	{
+	case CSSLOT_CODEDIRECTORY:
+		return "Code directory slot";
+	case CSSLOT_INFOSLOT:
+		return "Info slot";
+	case CSSLOT_REQUIREMENTS:
+		return "Requirements slot";
+	case CSSLOT_RESOURCEDIR:
+		return "Resource Dir slot";
+	case CSSLOT_APPLICATION:
+		return "Application slot";
+	case CSSLOT_ENTITLEMENTS:
+		return "Entitlements slot";
+	case CSSLOT_SIGNATURESLOT:
+		return "Signature slot";
+	default:
+		return "Unknown blob type";
+	}
+}
+
 int macho_parse_signature_blob_to_der_encoded_data(MachO *macho, uint32_t signatureBlobOffset, uint32_t signatureBlobLength, void *outputDER)
 {
 	return macho_read_at_offset(macho, signatureBlobOffset + 8, signatureBlobLength - 8, outputDER);
@@ -37,42 +60,24 @@ int macho_parse_signature_blob_to_der_encoded_data(MachO *macho, uint32_t signat
 
 int cs_superblob_parse_blobs(MachO *macho, CS_SuperBlob *superblob, struct lc_code_signature csLoadCommand, bool printAllSlots, bool verifySlots)
 {
-	for (int blobCount = 0; blobCount < superblob->count; blobCount++)
+	for (int blobCount = 0; blobCount < BIG_TO_HOST(superblob->count); blobCount++)
 	{
-		CS_BlobIndex *blobIndex = malloc(sizeof(CS_BlobIndex));
-		memset(blobIndex, 0, sizeof(CS_BlobIndex));
-		uint32_t blobOffset = csLoadCommand.dataoff + (__offsetof(CS_SuperBlob, index) - 4) + (blobCount * sizeof(CS_BlobIndex));
+		uint32_t blobMagic = BIG_TO_HOST(superblob->index[blobCount].type);
+    	uint32_t bloboffset = BIG_TO_HOST(superblob->index[blobCount].offset);
+		printf("Slot %d: %s (offset 0x%x, magic: 0x%x).\n", blobCount + 1, cs_slot_index_to_string(blobMagic), bloboffset, blobMagic);
 
-		// Read the blob index
-		macho_read_at_offset(macho, blobOffset, sizeof(CS_BlobIndex), blobIndex);
-		BLOB_INDEX_APPLY_BYTE_ORDER(blobIndex, BIG_TO_HOST_APPLIER);
-
-		// Read the blob magic
-		uint32_t blobMagic = 0;
-		
-		macho_read_at_offset(macho, csLoadCommand.dataoff + blobIndex->offset, sizeof(blobMagic), &blobMagic);
-		blobMagic = BIG_TO_HOST(blobMagic);
-
-		printf("Blob %d: %s (offset 0x%x, magic: 0x%x).\n", blobCount + 1, cs_blob_magic_to_string(blobMagic), csLoadCommand.dataoff + blobIndex->offset, blobMagic);
-
-		if (blobMagic == CSBLOB_CODEDIRECTORY)
+		if (blobMagic == CSSLOT_CODEDIRECTORY)
 		{
-			CS_CodeDirectory *codeDirectory = malloc(sizeof(CS_CodeDirectory));
-			macho_parse_code_directory_blob(macho, csLoadCommand.dataoff + blobIndex->offset, codeDirectory, printAllSlots, verifySlots);
+			//CS_CodeDirectory *codeDirectory = (CS_CodeDirectory*)((uint8_t *)superblob + bloboffset);
+			//printf("This is the %s\n", cs_blob_magic_to_string(BIG_TO_HOST(codeDirectory->magic)));
+			//macho_parse_code_directory_blob(macho, bloboffset, codeDirectory, printAllSlots, verifySlots);
 		}
 
-		if (blobMagic == CSBLOB_SIGNATURE_BLOB) {
-			uint32_t blobOffset = 0;
-			macho_read_at_offset(macho, csLoadCommand.dataoff + blobIndex->offset, sizeof(blobOffset), &blobOffset);
-			blobOffset = BIG_TO_HOST(blobOffset);
-			uint32_t blobLength = 0;
-			macho_read_at_offset(macho, csLoadCommand.dataoff + blobIndex->offset + 4, sizeof(blobLength), &blobLength);
-			blobLength = BIG_TO_HOST(blobLength);
-			uint8_t *cmsData = malloc(blobLength);
-			memset (cmsData, 0, blobLength);
-			macho_read_at_offset(macho, csLoadCommand.dataoff + blobIndex->offset + 8, blobLength - 8, cmsData);
-			cms_data_decode(cmsData, blobLength - 8);
-			free(cmsData);
+		if (blobMagic == CSSLOT_SIGNATURESLOT) {
+			//CS_GenericBlob *cms_blob = (CS_GenericBlob*)((uint8_t *)superblob + bloboffset);
+			//printf("This is the %s\n", cs_blob_magic_to_string(BIG_TO_HOST(cms_blob->magic)));
+			//cms_data_decode((uint8_t*)cms_blob->data, cms_blob->length - 8);
+			//free(cms_blob);
 		}
 
 	}
@@ -107,15 +112,14 @@ int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblobOut, bool printAl
 
 			// Read the superblob data
 			macho_read_at_offset(macho, csLoadCommand.dataoff, sizeof(CS_SuperBlob), superblobOut);
-			SUPERBLOB_APPLY_BYTE_ORDER(superblobOut, BIG_TO_HOST_APPLIER);
-			if (superblobOut->magic != CSBLOB_EMBEDDED_SIGNATURE)
+			//SUPERBLOB_APPLY_BYTE_ORDER(superblobOut, BIG_TO_HOST_APPLIER);
+			if (BIG_TO_HOST(superblobOut->magic) != CSBLOB_EMBEDDED_SIGNATURE)
 			{
 				*stop = true;
 				return;
 			}
 
-			cs_superblob_parse_blobs(macho, superblobOut, csLoadCommand, printAllSlots, verifySlots);
-
+			//cs_superblob_parse_blobs(macho, superblobOut, csLoadCommand, printAllSlots, verifySlots);
 			ret = 0;
 			*stop = true;
 			return;
@@ -132,33 +136,8 @@ int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblobOut, bool printAl
 
 int macho_extract_cs_to_file(MachO *macho, CS_SuperBlob *superblob)
 {
-	// Get length of CodeSignature from superblob and allocate memory
-	size_t csLength = superblob->length;
-	void *csData = malloc(csLength);
-	memset(csData, 0, csLength);
-	__block uint32_t csBlobOffset = 0;
-
-	macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
-		if (loadCommand.cmd == LC_CODE_SIGNATURE) {
-			struct lc_code_signature csLoadCommand = *((struct lc_code_signature *)cmd);
-			LC_CODE_SIGNATURE_APPLY_BYTE_ORDER(&csLoadCommand, LITTLE_TO_HOST_APPLIER);
-			csBlobOffset = csLoadCommand.dataoff;
-			*stop = true;
-		}
-	});
-
-	if (csBlobOffset == 0)
-	{
-		printf("Error: could not find LC_CODE_SIGNATURE load command.\n");
-		return -1;
-	}
-
-	// Extract the Code Signature from the MachO and write to file
-	macho_read_at_offset(macho, csBlobOffset, csLength, csData);
 	FILE *csDataFile = fopen("Code_Signature-Data", "wb+");
-	fwrite(csData, csLength, 1, csDataFile);
+	fwrite(superblob, BIG_TO_HOST(superblob->length), 1, csDataFile);
 	fclose(csDataFile);
-	free(csData);
-
 	return 0;
 }
