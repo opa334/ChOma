@@ -5,10 +5,6 @@
 
 #include "SignatureBlob.h"
 
-static const DERItemSpec CMSSignatureBlobItemSpecs[] = {
-    { DER_OFFSET(CMSSignatureBlobDER, signatureBlob), ASN1_CONSTR_SEQUENCE, 0 }
-};
-
 static const DERItemSpec CMSContentInfoItemSpecs[] = {
     { DER_OFFSET(CMSContentInfoDER, contentType), ASN1_OBJECT_ID, 0 },
     { DER_OFFSET(CMSContentInfoDER, content), ASN1_CONSTRUCTED | ASN1_CONTEXT_SPECIFIC, 0 }
