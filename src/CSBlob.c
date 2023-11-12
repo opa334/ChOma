@@ -62,19 +62,22 @@ int cs_superblob_parse_blobs(MachO *macho, CS_SuperBlob *superblob, struct lc_co
 {
 	for (int blobCount = 0; blobCount < BIG_TO_HOST(superblob->count); blobCount++)
 	{
-		uint32_t blobMagic = BIG_TO_HOST(superblob->index[blobCount].type);
-    	uint32_t bloboffset = BIG_TO_HOST(superblob->index[blobCount].offset);
-		printf("Slot %d: %s (offset 0x%x, magic: 0x%x).\n", blobCount + 1, cs_slot_index_to_string(blobMagic), bloboffset, blobMagic);
+		uint32_t blobType = BIG_TO_HOST(superblob->index[blobCount].type);
+    	uint32_t blobOffset = BIG_TO_HOST(superblob->index[blobCount].offset);
+		uint32_t blobMagic;
+		macho_read_at_offset(macho, blobOffset + csLoadCommand.dataoff, sizeof(uint32_t), &blobMagic);
+		blobMagic = BIG_TO_HOST(blobMagic);
+		printf("Slot %d: %s (offset 0x%x, magic: 0x%x).\n", blobCount + 1, cs_slot_index_to_string(blobType), blobOffset + csLoadCommand.dataoff, blobMagic);
 
-		if (blobMagic == CSSLOT_CODEDIRECTORY)
+		if (blobType == CSSLOT_CODEDIRECTORY)
 		{
-			CS_CodeDirectory *codeDirectory = (CS_CodeDirectory*)((uint8_t *)superblob + bloboffset);
+			CS_CodeDirectory *codeDirectory = (CS_CodeDirectory*)((uint8_t *)superblob + blobOffset);
 			printf("This is the %s\n", cs_blob_magic_to_string(BIG_TO_HOST(codeDirectory->magic)));
-			macho_parse_code_directory_blob(macho, bloboffset + csLoadCommand.dataoff, codeDirectory, printAllSlots, verifySlots);
+			macho_parse_code_directory_blob(macho, blobOffset + csLoadCommand.dataoff, codeDirectory, printAllSlots, verifySlots);
 		}
 
-		if (blobMagic == CSSLOT_SIGNATURESLOT) {
-			CS_GenericBlob *cms_blob = (CS_GenericBlob*)((uint8_t *)superblob + bloboffset);
+		if (blobType == CSSLOT_SIGNATURESLOT) {
+			CS_GenericBlob *cms_blob = (CS_GenericBlob*)((uint8_t *)superblob + blobOffset);
 			printf("This is the %s\n", cs_blob_magic_to_string(BIG_TO_HOST(cms_blob->magic)));
 			cms_data_decode((uint8_t*)cms_blob->data, cms_blob->length - 8);
 		}
