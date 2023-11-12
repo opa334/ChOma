@@ -142,6 +142,8 @@ int macho_parse_code_directory_blob(MachO *macho, uint32_t codeDirectoryOffset, 
 	printf("\tTeam offset: 0x%x\n", codeDirectoryOut->teamOffset);
 
 	uint32_t slotZeroOffset = codeDirectoryOffset + codeDirectoryOut->hashOffset;
+	printf("Code directory offset: 0x%x\n", codeDirectoryOffset);
+	printf("Slot zero offset: 0x%x\n", slotZeroOffset);
 	uint8_t *specialSlots = malloc(codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize);
 	memset(specialSlots, 0, codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize);
 	size_t lastSpecialSlotOffset = slotZeroOffset - (codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize);

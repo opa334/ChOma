@@ -70,7 +70,7 @@ int cs_superblob_parse_blobs(MachO *macho, CS_SuperBlob *superblob, struct lc_co
 		{
 			CS_CodeDirectory *codeDirectory = (CS_CodeDirectory*)((uint8_t *)superblob + bloboffset);
 			printf("This is the %s\n", cs_blob_magic_to_string(BIG_TO_HOST(codeDirectory->magic)));
-			macho_parse_code_directory_blob(macho, bloboffset, codeDirectory, printAllSlots, verifySlots);
+			macho_parse_code_directory_blob(macho, bloboffset + csLoadCommand.dataoff, codeDirectory, printAllSlots, verifySlots);
 		}
 
 		if (blobMagic == CSSLOT_SIGNATURESLOT) {
