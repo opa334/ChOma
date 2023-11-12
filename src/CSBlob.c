@@ -68,16 +68,15 @@ int cs_superblob_parse_blobs(MachO *macho, CS_SuperBlob *superblob, struct lc_co
 
 		if (blobMagic == CSSLOT_CODEDIRECTORY)
 		{
-			//CS_CodeDirectory *codeDirectory = (CS_CodeDirectory*)((uint8_t *)superblob + bloboffset);
-			//printf("This is the %s\n", cs_blob_magic_to_string(BIG_TO_HOST(codeDirectory->magic)));
-			//macho_parse_code_directory_blob(macho, bloboffset, codeDirectory, printAllSlots, verifySlots);
+			CS_CodeDirectory *codeDirectory = (CS_CodeDirectory*)((uint8_t *)superblob + bloboffset);
+			printf("This is the %s\n", cs_blob_magic_to_string(BIG_TO_HOST(codeDirectory->magic)));
+			macho_parse_code_directory_blob(macho, bloboffset, codeDirectory, printAllSlots, verifySlots);
 		}
 
 		if (blobMagic == CSSLOT_SIGNATURESLOT) {
-			//CS_GenericBlob *cms_blob = (CS_GenericBlob*)((uint8_t *)superblob + bloboffset);
-			//printf("This is the %s\n", cs_blob_magic_to_string(BIG_TO_HOST(cms_blob->magic)));
-			//cms_data_decode((uint8_t*)cms_blob->data, cms_blob->length - 8);
-			//free(cms_blob);
+			CS_GenericBlob *cms_blob = (CS_GenericBlob*)((uint8_t *)superblob + bloboffset);
+			printf("This is the %s\n", cs_blob_magic_to_string(BIG_TO_HOST(cms_blob->magic)));
+			cms_data_decode((uint8_t*)cms_blob->data, cms_blob->length - 8);
 		}
 
 	}
@@ -85,15 +84,14 @@ int cs_superblob_parse_blobs(MachO *macho, CS_SuperBlob *superblob, struct lc_co
 }
 
 
-int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblobOut, bool printAllSlots, bool verifySlots)
+CS_SuperBlob *macho_parse_superblob(MachO *macho, bool printAllSlots, bool verifySlots)
 {
 	if (!macho->isSupported)
 	{
 		printf("Refusing to parse superblob for unsupported macho.\n");
-		return -1;
+		return NULL;
 	}
-
-	__block int ret = -1;
+	__block CS_SuperBlob *blobOut = NULL;
 	macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
 		// Find LC_CODE_SIGNATURE
 		if (loadCommand.cmd == LC_CODE_SIGNATURE)
@@ -107,20 +105,19 @@ int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblobOut, bool printAl
 
 			// Create and populate the code signature load command structure
 			struct lc_code_signature csLoadCommand = *((struct lc_code_signature *)cmd);
-			LC_CODE_SIGNATURE_APPLY_BYTE_ORDER(&csLoadCommand, LITTLE_TO_HOST_APPLIER); // TODO: Move this to macho_enumerate_load_commands impl
+			//LC_CODE_SIGNATURE_APPLY_BYTE_ORDER(&csLoadCommand, LITTLE_TO_HOST_APPLIER); // TODO: Move this to macho_enumerate_load_commands impl
 			printf("Code signature - offset: 0x%x, size: 0x%x.\n", csLoadCommand.dataoff, csLoadCommand.datasize);
-
 			// Read the superblob data
-			macho_read_at_offset(macho, csLoadCommand.dataoff, sizeof(CS_SuperBlob), superblobOut);
+			CS_SuperBlob *superblob = malloc(csLoadCommand.datasize);
+			macho_read_at_offset(macho, csLoadCommand.dataoff, csLoadCommand.datasize, superblob);
+			blobOut = superblob;
 			//SUPERBLOB_APPLY_BYTE_ORDER(superblobOut, BIG_TO_HOST_APPLIER);
-			if (BIG_TO_HOST(superblobOut->magic) != CSBLOB_EMBEDDED_SIGNATURE)
+			if (BIG_TO_HOST(superblob->magic) != CSBLOB_EMBEDDED_SIGNATURE)
 			{
 				*stop = true;
 				return;
 			}
-
-			//cs_superblob_parse_blobs(macho, superblobOut, csLoadCommand, printAllSlots, verifySlots);
-			ret = 0;
+			cs_superblob_parse_blobs(macho, superblob, csLoadCommand, printAllSlots, verifySlots);
 			*stop = true;
 			return;
 		}
@@ -131,7 +128,7 @@ int macho_parse_superblob(MachO *macho, CS_SuperBlob *superblobOut, bool printAl
 			printf("Found %s segment - offset: 0x%llx, size: 0x%llx.\n", segmentCommand.segname, segmentCommand.fileoff, segmentCommand.filesize);
 		}
 	});
-	return ret;
+	return blobOut;
 }
 
 int macho_extract_cs_to_file(MachO *macho, CS_SuperBlob *superblob)

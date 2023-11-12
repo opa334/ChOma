@@ -81,11 +81,11 @@ int main(int argc, char *argv[]) {
     if (!macho) return -1;
 
     if (getArgumentBool("-c")) {
-        CS_SuperBlob superblob;
+        CS_SuperBlob *superblob;
         for (int slicesCount = 0; slicesCount < fat.slicesCount; slicesCount++) {
-            macho_parse_superblob(&fat.slices[slicesCount], &superblob, getArgumentBool("-s"), getArgumentBool("-v"));
+            superblob = macho_parse_superblob(&fat.slices[slicesCount], getArgumentBool("-s"), getArgumentBool("-v"));
             if (getArgumentBool("-e")) {
-                macho_extract_cs_to_file(&fat.slices[slicesCount], &superblob);
+                macho_extract_cs_to_file(&fat.slices[slicesCount], superblob);
             }
         }
     }
