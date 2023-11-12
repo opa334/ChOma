@@ -46,6 +46,8 @@ char *cs_slot_index_to_string(int magic)
 		return "Application slot";
 	case CSSLOT_ENTITLEMENTS:
 		return "Entitlements slot";
+	case CSSLOT_DER_ENTITLEMENTS:
+		return "DER entitlements slot";
 	case CSSLOT_SIGNATURESLOT:
 		return "Signature slot";
 	default:
