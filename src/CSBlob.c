@@ -36,6 +36,8 @@ char *cs_slot_index_to_string(int magic)
 	{
 	case CSSLOT_CODEDIRECTORY:
 		return "Code directory slot";
+	case CSSLOT_ALTERNATE_CODEDIRECTORIES:
+		return "Alternate code directory slot";
 	case CSSLOT_INFOSLOT:
 		return "Info slot";
 	case CSSLOT_REQUIREMENTS:
@@ -68,7 +70,7 @@ int cs_superblob_parse_blobs(MachO *macho, CS_SuperBlob *superblob, struct lc_co
     	uint32_t blobOffset = BIG_TO_HOST(superblob->index[blobCount].offset);
 		printf("Slot %d: %s (offset 0x%x, type: 0x%x).\n", blobCount + 1, cs_slot_index_to_string(blobType), blobOffset + csLoadCommand.dataoff, blobType);
 
-		if (blobType == CSSLOT_CODEDIRECTORY)
+		if (blobType == CSSLOT_CODEDIRECTORY || blobType == CSSLOT_ALTERNATE_CODEDIRECTORIES)
 		{
 			CS_CodeDirectory *codeDirectory = (CS_CodeDirectory*)((uint8_t *)superblob + blobOffset);
 			printf("This is the %s, magic %#x\n", cs_blob_magic_to_string(BIG_TO_HOST(codeDirectory->magic)), BIG_TO_HOST(codeDirectory->magic));
