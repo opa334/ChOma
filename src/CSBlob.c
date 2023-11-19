@@ -1,6 +1,5 @@
 #include "CSBlob.h"
 
-#include "CMSDecoding.h"
 #include "CodeDirectory.h"
 #include "MachOByteOrder.h"
 #include "MachOLoadCommand.h"
@@ -79,7 +78,6 @@ int cs_superblob_parse_blobs(MachO *macho, CS_SuperBlob *superblob, struct lc_co
 		else if (blobType == CSSLOT_SIGNATURESLOT) {
 			CS_GenericBlob *cms_blob = (CS_GenericBlob*)((uint8_t *)superblob + blobOffset);
 			printf("This is the %s, magic %#x\n", cs_blob_magic_to_string(BIG_TO_HOST(cms_blob->magic)), BIG_TO_HOST(cms_blob->magic));
-			cms_data_decode((uint8_t*)cms_blob->data, cms_blob->length - 8);
 		}
 		else {
 			CS_GenericBlob *generic_blob = (CS_GenericBlob*)((uint8_t *)superblob + blobOffset);

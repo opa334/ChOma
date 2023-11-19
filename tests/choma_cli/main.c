@@ -1,5 +1,4 @@
 #include <choma/CSBlob.h>
-#include <choma/CMSDecoding.h>
 #include <choma/Host.h>
 
 typedef enum
@@ -112,40 +111,7 @@ int main(int argc, char *argv[]) {
             }
         }
     }
-    
 
-    // Extract CMS data to file
-    // printf("Extracting CMS data from first MachO slice to file.\n");
-    // CS_SuperBlob superblob;
-    // if (macho_parse_superblob(macho, &superblob) == 0) {
-    //     macho_extract_cms_to_file(macho, &superblob);
-
-    //     // TODO: Extract this from the CMS data
-    //     FILE *cmsDERFile = fopen("CMS-DER", "rb");
-    //     fseek(cmsDERFile, 0, SEEK_END);
-    //     size_t cmsDERLength = ftell(cmsDERFile);
-    //     fseek(cmsDERFile, 0, SEEK_SET);
-    //     uint8_t *cmsDERData = malloc(cmsDERLength);
-    //     memset(cmsDERData, 0, cmsDERLength);
-    //     fread(cmsDERData, cmsDERLength, 1, cmsDERFile);
-    //     fclose(cmsDERFile);
-
-    //     cms_data_decode(cmsDERData, cmsDERLength);
-
-    //     // Clean up
-    //     free(cmsDERData);
-    // } else {
-    //     if (fat.slicesCount > 1) {
-    //         if (fat.slices[0].isSupported) {
-    //             printf("First MachO slice does not contain a code signature.\n");
-    //         } else {
-    //             printf("Could not parse CMS data for ARMv7 MachO slice.\n");
-    //         }
-    //     } else {
-    //         printf("Binary does not contain a code signature.\n");
-    //         return -1; 
-    //     }
-    // }
     fat_free(&fat);
 
     return 0;

@@ -1,5 +1,5 @@
 CC := clang
-CFLAGS := -Wall -Werror -fPIC -DDER_TAG_SIZE=1 -Wno-pointer-to-int-cast
+CFLAGS := -Wall -Werror -fPIC -Wno-pointer-to-int-cast
 
 LIB_NAME := libchoma
 
@@ -25,13 +25,10 @@ TESTS_BINARIES := $(patsubst $(TESTS_SRC_DIR)/%,$(TESTS_OUTPUT_DIR)/%,$(TESTS_SU
 
 CHOMA_HEADERS_SRC_DIR := $(SRC_DIR)
 CHOMA_HEADERS_DST_DIR := $(HEADER_OUTPUT_DIR)/choma
-DER_HEADERS_SRC_DIR := $(SRC_DIR)/external/libDER
-DER_HEADERS_DST_DIR := $(HEADER_OUTPUT_DIR)/libDER
 
 CHOMA_HEADERS := $(shell find $(CHOMA_HEADERS_SRC_DIR) -type f -name "*.h")
-DER_HEADERS := $(shell find $(DER_HEADERS_SRC_DIR) -type f -name "*.h")
 
-all: $(STATIC_LIB) $(DYNAMIC_LIB) copy-headers clean-test $(TESTS_BINARIES)
+all: $(STATIC_LIB) $(DYNAMIC_LIB) copy-choma-headers clean-test $(TESTS_BINARIES)
 
 $(STATIC_LIB): $(OBJ_FILES)
 	@mkdir -p $(LIB_DIR)
@@ -50,17 +47,11 @@ $(TESTS_OUTPUT_DIR)/%: $(TESTS_SRC_DIR)/%
 	@rm -rf $@
 	$(CC) $(CFLAGS) -I$(OUTPUT_DIR)/include -o $@ $</*.c $(OUTPUT_DIR)/lib/libchoma.a
 
-copy-headers: copy-choma-headers copy-DER-headers
 
 copy-choma-headers: $(CHOMA_HEADERS)
 	@rm -rf $(CHOMA_HEADERS_DST_DIR)
 	@mkdir -p $(CHOMA_HEADERS_DST_DIR)
 	@cp $^ $(CHOMA_HEADERS_DST_DIR)
-
-copy-DER-headers: $(DER_HEADERS)
-	@rm -rf $(DER_HEADERS_DST_DIR)
-	@mkdir -p $(DER_HEADERS_DST_DIR)
-	@cp $^ $(DER_HEADERS_DST_DIR)
 
 clean-all: clean clean-output
 
