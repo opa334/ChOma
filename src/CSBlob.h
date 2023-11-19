@@ -55,9 +55,6 @@ enum {
     CSSLOT_SIGNATURESLOT = 0x10000
 } CS_SlotType;
 
-// Forward declaration
-struct lc_code_signature;
-
 // Convert blob magic to readable blob type string
 char *cs_blob_magic_to_string(int magic);
 

@@ -16,20 +16,21 @@
 
 // A generic memory IO interface that is used throughout this project
 // Can be backed by anything, just the functions have to be implemented
-typedef struct MemoryStream {
+typedef struct s_MemoryStream {
    void *context;
    uint32_t flags;
 
-   int (*read)(struct MemoryStream *stream, uint64_t offset, size_t size, void *outBuf);
-   int (*write)(struct MemoryStream *stream, uint64_t offset, size_t size, void *inBuf);
-   int (*getSize)(struct MemoryStream *stream, size_t *sizeOut);
+   int (*read)(struct s_MemoryStream *stream, uint64_t offset, size_t size, void *outBuf);
+   int (*write)(struct s_MemoryStream *stream, uint64_t offset, size_t size, void *inBuf);
+   int (*getSize)(struct s_MemoryStream *stream, size_t *sizeOut);
+   int (*getRawPtr)(struct s_MemoryStream *stream);
 
-   int (*trim)(struct MemoryStream *stream, size_t trimAtStart, size_t trimAtEnd);
-   int (*expand)(struct MemoryStream *stream, size_t expandAtStart, size_t expandAtEnd);
+   int (*trim)(struct s_MemoryStream *stream, size_t trimAtStart, size_t trimAtEnd);
+   int (*expand)(struct s_MemoryStream *stream, size_t expandAtStart, size_t expandAtEnd);
 
-   int (*hardclone)(struct MemoryStream *output, struct MemoryStream *input);
-   int (*softclone)(struct MemoryStream *output, struct MemoryStream *input);
-   void (*free)(struct MemoryStream *stream);
+   struct s_MemoryStream *(*hardclone)(struct s_MemoryStream *stream);
+   struct s_MemoryStream *(*softclone)(struct s_MemoryStream *stream);
+   void (*free)(struct s_MemoryStream *stream);
 } MemoryStream;
 
 int memory_stream_read(MemoryStream *stream, uint64_t offset, size_t size, void *outBuf);
@@ -37,8 +38,8 @@ int memory_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void
 size_t memory_stream_get_size(MemoryStream *stream);
 uint32_t memory_stream_get_flags(MemoryStream *stream);
 
-int memory_stream_softclone(MemoryStream *output, MemoryStream *input);
-int memory_stream_hardclone(MemoryStream *output, MemoryStream *input);
+MemoryStream *memory_stream_softclone(MemoryStream *stream);
+MemoryStream *memory_stream_hardclone(MemoryStream *stream);
 int memory_stream_trim(MemoryStream *stream, size_t trimAtStart, size_t trimAtEnd);
 int memory_stream_expand(MemoryStream *stream, size_t expandAtStart, size_t expandAtEnd);
 

@@ -10,12 +10,12 @@
 
 int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBuf)
 {
-    return memory_stream_read(&macho->stream, offset, size, outBuf);
+    return memory_stream_read(macho->stream, offset, size, outBuf);
 }
 
 int macho_write_at_offset(MachO *macho, uint64_t offset, size_t size, void *inBuf)
 {
-    return memory_stream_write(&macho->stream, offset, size, inBuf);
+    return memory_stream_write(macho->stream, offset, size, inBuf);
 }
 
 uint32_t macho_get_filetype(MachO *macho)
@@ -139,11 +139,11 @@ int macho_parse_fileset_machos(MachO *macho)
             filesetMacho->vmaddr = filesetCommand->vmaddr;
             filesetMacho->fileoff = filesetCommand->fileoff;
             
-            MemoryStream subStream;
-            memory_stream_softclone(&subStream, &macho->stream);
+            MemoryStream *subStream = memory_stream_softclone(macho->stream);
+            
             // TODO: Also cut trim to the end of the macho, but for that we would need to determine it's size
-            memory_stream_trim(&subStream, filesetCommand->fileoff, 0);
-            fat_init_from_memory_stream(&filesetMacho->underlyingMachO, &subStream);
+            memory_stream_trim(subStream, filesetCommand->fileoff, 0);
+            filesetMacho->underlyingMachO = fat_init_from_memory_stream(subStream);
         }
     });
 }
@@ -166,10 +166,13 @@ int _macho_parse(MachO *macho)
     return 0;
 }
 
-int macho_init(MachO *macho, MemoryStream *stream, struct fat_arch_64 archDescriptor)
+MachO *macho_init(MemoryStream *stream, struct fat_arch_64 archDescriptor)
 {
-    memset(macho, 0, sizeof(*macho));
-    macho->stream = *stream;
+    MachO *macho = malloc(sizeof(MachO));
+    if (!macho) return NULL;
+    memset(macho, 0, sizeof(MachO));
+
+    macho->stream = stream;
     macho->archDescriptor = archDescriptor;
     macho_read_at_offset(macho, 0, sizeof(macho->machHeader), &macho->machHeader);
     MACH_HEADER_APPLY_BYTE_ORDER(&macho->machHeader, HOST_TO_LITTLE_APPLIER);
@@ -177,24 +180,32 @@ int macho_init(MachO *macho, MemoryStream *stream, struct fat_arch_64 archDescri
     // Check the magic against the expected values
     if (macho->machHeader.magic != MH_MAGIC_64 && macho->machHeader.magic != MH_MAGIC) {
         printf("Error: invalid magic 0x%x for mach header at offset 0x%llx.\n", macho->machHeader.magic, archDescriptor.offset);
-        return -1;
+        goto fail;
     }
 
-    return _macho_parse(macho);
+    if (_macho_parse(macho) != 0) goto fail;
+
+    return macho;
+
+fail:
+    macho_free(macho);
+    return NULL;
 }
 
-int macho_init_for_writing(MachO *macho, char *filePath)
+MachO *macho_init_for_writing(char *filePath)
 {
-    memset(macho, 0, sizeof(*macho));
+    MachO *macho = malloc(sizeof(MachO));
+    if (!macho) return NULL;
+    memset(macho, 0, sizeof(MachO));
 
-    int r = file_stream_init_from_path(&macho->stream, filePath, 0, FILE_STREAM_SIZE_AUTO, FILE_STREAM_FLAG_WRITABLE | FILE_STREAM_FLAG_AUTO_EXPAND);
-    if (r != 0) return r;
+    macho->stream = file_stream_init_from_path(filePath, 0, FILE_STREAM_SIZE_AUTO, FILE_STREAM_FLAG_WRITABLE | FILE_STREAM_FLAG_AUTO_EXPAND);
+    if (!macho->stream) goto fail;
 
-    size_t fileSize = memory_stream_get_size(&macho->stream);
+    size_t fileSize = memory_stream_get_size(macho->stream);
     struct mach_header_64 machHeader;
-    memory_stream_read(&macho->stream, 0, sizeof(machHeader), &machHeader);
+    memory_stream_read(macho->stream, 0, sizeof(machHeader), &machHeader);
     MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, HOST_TO_LITTLE_APPLIER);
-    if (machHeader.magic != MH_MAGIC_64) return -1;
+    if (machHeader.magic != MH_MAGIC_64) goto fail;
 
     macho->archDescriptor.cpusubtype = machHeader.cpusubtype;
     macho->archDescriptor.cputype = machHeader.cputype;
@@ -202,14 +213,20 @@ int macho_init_for_writing(MachO *macho, char *filePath)
     macho->archDescriptor.size = fileSize;
     macho->archDescriptor.align = 0x4000;
 
-    return _macho_parse(macho);
+    if (_macho_parse(macho) != 0) goto fail;
+
+    return macho;
+
+fail:
+    macho_free(macho);
+    return NULL;
 }
 
 void macho_free(MachO *macho)
 {
     if (macho->filesetCount != 0 && macho->filesetMachos) {
         for (uint32_t i = 0; i < macho->filesetCount; i++) {
-            fat_free(&macho->filesetMachos[i].underlyingMachO);
+            fat_free(macho->filesetMachos[i].underlyingMachO);
             free(macho->filesetMachos[i].entry_id);
         }
         free(macho->filesetMachos);
@@ -220,5 +237,8 @@ void macho_free(MachO *macho)
         }
         free(macho->segments);
     }
-    memory_stream_free(&macho->stream);
+    if (macho->stream) {
+        memory_stream_free(macho->stream);
+    }
+    free(macho);
 }

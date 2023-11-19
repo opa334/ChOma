@@ -26,8 +26,8 @@ int file_stream_copy_data(MemoryStream *originStream, uint64_t originOffset, Mem
 
 void file_stream_free(MemoryStream *stream);
 
-int file_stream_init_from_file_descriptor_nodup(MemoryStream *stream, int fd, uint32_t bufferStart, size_t bufferSize, uint32_t flags);
-int file_stream_init_from_file_descriptor(MemoryStream *stream, int fd, uint32_t bufferStart, size_t bufferSize, uint32_t flags);
-int file_stream_init_from_path(MemoryStream *stream, const char *path, uint32_t bufferStart, size_t bufferSize, uint32_t flags);
+MemoryStream *file_stream_init_from_file_descriptor_nodup(int fd, uint32_t bufferStart, size_t bufferSize, uint32_t flags);
+MemoryStream *file_stream_init_from_file_descriptor(int fd, uint32_t bufferStart, size_t bufferSize, uint32_t flags);
+MemoryStream *file_stream_init_from_path(const char *path, uint32_t bufferStart, size_t bufferSize, uint32_t flags);
 
 #endif // FILE_STREAM_H

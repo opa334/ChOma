@@ -3,6 +3,7 @@
 #include "CodeDirectory.h"
 #include "MachOByteOrder.h"
 #include "MachOLoadCommand.h"
+#include "BufferedStream.h"
 
 char *cs_blob_magic_to_string(int magic)
 {

@@ -21,10 +21,10 @@ int main(int argc, char *argv[]) {
 
     char *filePath = argv[1];
 
-    FAT fat;
-    if (fat_init_from_path(&fat, filePath) != 0) { return -1; }
+    FAT *fat = fat_init_from_path(filePath);
+    if (!fat) { return -1; }
 
-    MachO *macho = fat_find_preferred_slice(&fat);
+    MachO *macho = fat_find_preferred_slice(fat);
     if (!macho) return -1;
 
     CS_SuperBlob *superblob = macho_parse_superblob(macho, false, false);
@@ -47,6 +47,6 @@ int main(int argc, char *argv[]) {
     fclose(fp);
 
 
-    fat_free(&fat);
+    fat_free(fat);
     return 0;
 }

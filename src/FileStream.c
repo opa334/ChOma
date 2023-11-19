@@ -44,23 +44,23 @@ int file_stream_get_size(MemoryStream *stream, size_t *sizeOut)
     return 0;
 }
 
-int file_stream_softclone(MemoryStream *output, MemoryStream *input)
+MemoryStream *file_stream_softclone(MemoryStream *stream)
 {
-    FileStreamContext *context = input->context;
-    return file_stream_init_from_file_descriptor_nodup(output, context->fd, context->bufferStart, context->bufferSize, 0);
+    FileStreamContext *context = stream->context;
+    return file_stream_init_from_file_descriptor_nodup(context->fd, context->bufferStart, context->bufferSize, 0);
 }
 
-int file_stream_hardclone(MemoryStream *output, MemoryStream *input)
+MemoryStream *file_stream_hardclone(MemoryStream *stream)
 {
-    FileStreamContext *context = input->context;
+    FileStreamContext *context = stream->context;
     int thisFlags = 0;
-    if (input->flags & MEMORY_STREAM_FLAG_MUTABLE) {
+    if (stream->flags & MEMORY_STREAM_FLAG_MUTABLE) {
         thisFlags |= FILE_STREAM_FLAG_WRITABLE;
     }
-    if (input->flags & MEMORY_STREAM_FLAG_AUTO_EXPAND) {
+    if (stream->flags & MEMORY_STREAM_FLAG_AUTO_EXPAND) {
         thisFlags |= FILE_STREAM_FLAG_AUTO_EXPAND;
     }
-    return file_stream_init_from_file_descriptor(output, context->fd, context->bufferStart, context->bufferSize, thisFlags);
+    return file_stream_init_from_file_descriptor(context->fd, context->bufferStart, context->bufferSize, thisFlags);
 }
 
 int file_stream_trim(MemoryStream *stream, size_t trimAtStart, size_t trimAtEnd)
@@ -104,13 +104,17 @@ void file_stream_free(MemoryStream *stream)
     free(context);
 }
 
-int file_stream_init_from_file_descriptor_nodup(MemoryStream *stream, int fd, uint32_t bufferStart, size_t bufferSize, uint32_t flags)
+MemoryStream *file_stream_init_from_file_descriptor_nodup(int fd, uint32_t bufferStart, size_t bufferSize, uint32_t flags)
 {
+    MemoryStream *stream = malloc(sizeof(MemoryStream));
+    if (!stream) return NULL;
+    memset(stream, 0, sizeof(MemoryStream));
+
     struct stat s;
     int statRes = fstat(fd, &s);
     if (statRes != 0) {
         printf("Error: stat returned %d for %d.\n", statRes, fd);
-        return -1;
+        goto fail;
     }
 
     FileStreamContext *context = malloc(sizeof(FileStreamContext));
@@ -145,19 +149,23 @@ int file_stream_init_from_file_descriptor_nodup(MemoryStream *stream, int fd, ui
     stream->hardclone = file_stream_hardclone;
     stream->free = file_stream_free;
 
-    return 0;
+    return stream;
+
+fail:
+    file_stream_free(stream);
+    return NULL;
 }
 
-int file_stream_init_from_file_descriptor(MemoryStream *stream, int fd, uint32_t bufferStart, size_t bufferSize, uint32_t flags)
+MemoryStream *file_stream_init_from_file_descriptor(int fd, uint32_t bufferStart, size_t bufferSize, uint32_t flags)
 {
-    int r = file_stream_init_from_file_descriptor_nodup(stream, dup(fd), bufferStart, bufferSize, flags);
-    if (r == 0) {
+    MemoryStream *stream = file_stream_init_from_file_descriptor_nodup(dup(fd), bufferStart, bufferSize, flags);
+    if (stream) {
         stream->flags |= MEMORY_STREAM_FLAG_OWNS_DATA;
     }
-    return r;
+    return stream;
 }
 
-int file_stream_init_from_path(MemoryStream *stream, const char *path, uint32_t bufferStart, size_t bufferSize, uint32_t flags)
+MemoryStream *file_stream_init_from_path(const char *path, uint32_t bufferStart, size_t bufferSize, uint32_t flags)
 {
     int openFlags = 0;
     if (flags & FILE_STREAM_FLAG_WRITABLE) {
@@ -169,11 +177,12 @@ int file_stream_init_from_path(MemoryStream *stream, const char *path, uint32_t 
     int fd = open(path, openFlags);
     if (fd < 0) {
         printf("Failed to open %s\n", path);
-        return -1;
+        return NULL;
     }
-    int r = file_stream_init_from_file_descriptor_nodup(stream, fd, bufferStart, bufferSize, flags);
-    if (r == 0) {
+
+    MemoryStream *stream = file_stream_init_from_file_descriptor_nodup(fd, bufferStart, bufferSize, flags);
+    if (stream) {
         stream->flags |= MEMORY_STREAM_FLAG_OWNS_DATA;
     }
-    return r;
+    return stream;
 }

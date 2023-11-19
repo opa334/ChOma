@@ -79,24 +79,30 @@ int buffered_stream_expand(MemoryStream *stream, size_t expandAtStart, size_t ex
     return 0;
 }
 
-int buffered_stream_softclone(MemoryStream *output, MemoryStream *input)
+MemoryStream *buffered_stream_softclone(MemoryStream *stream)
 {
-    BufferedStreamContext *context = input->context;
+    MemoryStream* clone = malloc(sizeof(MemoryStream));
+    if (!clone) return NULL;
+    memset(clone, 0, sizeof(MemoryStream));
+
+    BufferedStreamContext *context = stream->context;
     BufferedStreamContext *contextCopy = malloc(sizeof(BufferedStreamContext));
 
     contextCopy->subBufferStart = context->subBufferStart;
     contextCopy->subBufferSize = context->subBufferSize;
-    output->flags = input->flags & ~(MEMORY_STREAM_FLAG_OWNS_DATA);
+    clone->flags = stream->flags & ~(MEMORY_STREAM_FLAG_OWNS_DATA);
 
-    output->context = contextCopy;
-    return 0;
+    clone->context = contextCopy;
+    return clone;
 }
 
-int buffered_stream_hardclone(MemoryStream *output, MemoryStream *input)
+MemoryStream *buffered_stream_hardclone(MemoryStream *stream)
 {
-    int r = buffered_stream_softclone(output, input);
-    if (r != 0) return r;
-    return _buffered_stream_make_own_data(output);
+    MemoryStream* clone = buffered_stream_softclone(stream);
+    if (clone) {
+        _buffered_stream_make_own_data(clone);
+    }
+    return clone;
 }
 
 void buffered_stream_free(MemoryStream *stream)
@@ -127,8 +133,12 @@ int _buffered_stream_init(MemoryStream *stream)
     return 0;
 }
 
-int buffered_stream_init_from_buffer_nocopy(MemoryStream *stream, void *buffer, size_t bufferSize)
+MemoryStream *buffered_stream_init_from_buffer_nocopy(void *buffer, size_t bufferSize)
 {
+    MemoryStream *stream = malloc(sizeof(MemoryStream));
+    if (!stream) return NULL;
+    memset(stream, 0, sizeof(MemoryStream));
+
     BufferedStreamContext *context = malloc(sizeof(BufferedStreamContext));
     context->buffer = buffer;
     context->bufferSize = bufferSize;
@@ -136,11 +146,19 @@ int buffered_stream_init_from_buffer_nocopy(MemoryStream *stream, void *buffer, 
     context->subBufferSize = bufferSize;
 
     stream->context = context;
-    return _buffered_stream_init(stream);
+    if (_buffered_stream_init(stream) != 0) goto fail;
+
+fail:
+    buffered_stream_free(stream);
+    return NULL;
 }
 
-int buffered_stream_init_from_buffer(MemoryStream *stream, void *buffer, size_t bufferSize)
+MemoryStream *buffered_stream_init_from_buffer(void *buffer, size_t bufferSize)
 {
+    MemoryStream *stream = malloc(sizeof(MemoryStream));
+    if (!stream) return NULL;
+    memset(stream, 0, sizeof(MemoryStream));
+
     void *copy = malloc(bufferSize);
     memcpy(copy, buffer, bufferSize);
 
@@ -152,5 +170,9 @@ int buffered_stream_init_from_buffer(MemoryStream *stream, void *buffer, size_t 
     stream->flags |= MEMORY_STREAM_FLAG_OWNS_DATA;
 
     stream->context = context;
-    return _buffered_stream_init(stream);
+    if (_buffered_stream_init(stream) != 0) goto fail;
+
+fail:
+    buffered_stream_free(stream);
+    return NULL;
 }

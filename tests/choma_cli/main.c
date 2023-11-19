@@ -1,3 +1,4 @@
+#include "choma/FileStream.h"
 #include <choma/CSBlob.h>
 #include <choma/Host.h>
 
@@ -73,18 +74,19 @@ int main(int argc, char *argv[]) {
 
     // Initialise the FAT structure
     printf("Initialising FAT structure from %s.\n", argv[argc - 1]);
-    FAT fat;
-    if (fat_init_from_path(&fat, argv[argc - 1]) != 0) { return -1; }
+    FAT *fat = fat_init_from_path(argv[argc - 1]);
+    if (!fat) return -1;
 
-    MachO *macho = fat_find_preferred_slice(&fat);
+    MachO *macho = fat_find_preferred_slice(fat);
     if (!macho) return -1;
 
     if (getArgumentBool("-c")) {
         CS_SuperBlob *superblob;
-        for (int slicesCount = 0; slicesCount < fat.slicesCount; slicesCount++) {
-            superblob = macho_parse_superblob(&fat.slices[slicesCount], getArgumentBool("-s"), getArgumentBool("-v"));
+        for (int i = 0; i < fat->slicesCount; i++) {
+            MachO *slice = fat->slices[i];
+            superblob = macho_parse_superblob(slice, getArgumentBool("-s"), getArgumentBool("-v"));
             if (getArgumentBool("-e")) {
-                macho_extract_cs_to_file(&fat.slices[slicesCount], superblob);
+                macho_extract_cs_to_file(slice, superblob);
             }
         }
     }
@@ -99,7 +101,7 @@ int main(int argc, char *argv[]) {
             }
         }
         for (uint32_t i = 0; i < macho->filesetCount; i++) {
-            MachO *filesetMachoSlice = &macho->filesetMachos[i].underlyingMachO.slices[0];
+            MachO *filesetMachoSlice = macho->filesetMachos[i].underlyingMachO->slices[0];
             char *entry_id = macho->filesetMachos[i].entry_id;
             for (int j = 0; j < filesetMachoSlice->segmentCount; j++) {
                 MachOSegment *segment = filesetMachoSlice->segments[j];
@@ -112,7 +114,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    fat_free(&fat);
+    fat_free(fat);
 
     return 0;
     

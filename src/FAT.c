@@ -10,13 +10,13 @@
 
 int fat_read_at_offset(FAT *fat, uint64_t offset, size_t size, void *outBuf)
 {
-    return memory_stream_read(&fat->stream, offset, size, outBuf);
+    return memory_stream_read(fat->stream, offset, size, outBuf);
 }
 
 int fat_parse_slices(FAT *fat)
 {
     // Get size of file
-    size_t fileSize = memory_stream_get_size(&fat->stream);
+    size_t fileSize = memory_stream_get_size(fat->stream);
     if (fileSize == MEMORY_STREAM_SIZE_INVALID) return -1;
 
     // Read the FAT header
@@ -36,7 +36,7 @@ int fat_parse_slices(FAT *fat)
             return -1;
         }
 
-        fat->slices = malloc(sizeof(MachO) * fatHeader.nfat_arch);
+        fat->slices = malloc(sizeof(MachO*) * fatHeader.nfat_arch);
         fat->slicesCount = fatHeader.nfat_arch;
 
         // Iterate over all machOs
@@ -67,12 +67,11 @@ int fat_parse_slices(FAT *fat)
                 };
             }
 
-            MemoryStream machOStream;
-            memory_stream_softclone(&machOStream, &fat->stream);
-            int r = memory_stream_trim(&machOStream, arch64.offset, fileSize - (arch64.offset + arch64.size));
-            if (r != 0) return r;
-            r = macho_init(&fat->slices[i], &machOStream, arch64);
-            if (r != 0) return r;
+            MemoryStream *machOStream = memory_stream_softclone(fat->stream);
+            int r = memory_stream_trim(machOStream, arch64.offset, fileSize - (arch64.offset + arch64.size));
+            if (r == 0) {
+                fat->slices[i] = macho_init(machOStream, arch64);
+            }
         }
     } else {
         // Not FAT? Parse single slice
@@ -80,11 +79,10 @@ int fat_parse_slices(FAT *fat)
         fat->slices = malloc(sizeof(MachO));
         fat->slicesCount = 1;
 
-        MemoryStream machOStream;
-        memory_stream_softclone(&machOStream, &fat->stream);
+        MemoryStream *machOStream = memory_stream_softclone(fat->stream);
 
         struct mach_header_64 machHeader;
-        memory_stream_read(&machOStream, 0, sizeof(machHeader), &machHeader);
+        memory_stream_read(machOStream, 0, sizeof(machHeader), &machHeader);
 
         struct fat_arch_64 singleArch = {0};
         singleArch.cpusubtype = machHeader.cpusubtype;
@@ -93,7 +91,7 @@ int fat_parse_slices(FAT *fat)
         singleArch.size = fileSize;
         singleArch.align = 0x4000;
 
-        macho_init(&fat->slices[0], &machOStream, singleArch);
+        fat->slices[0] = macho_init(machOStream, singleArch);
     }
     printf("Found %u MachO slices.\n", fat->slicesCount);
     return 0;
@@ -102,9 +100,11 @@ int fat_parse_slices(FAT *fat)
 MachO *fat_find_slice(FAT *fat, cpu_type_t cputype, cpu_subtype_t cpusubtype)
 {
     for (uint32_t i = 0; i < fat->slicesCount; i++) {
-        MachO *curMacho = &fat->slices[i];
-        if (curMacho->machHeader.cputype == cputype && curMacho->machHeader.cpusubtype == cpusubtype) {
-            return curMacho;
+        MachO *curMacho = fat->slices[i];
+        if (curMacho) {
+            if (curMacho->machHeader.cputype == cputype && curMacho->machHeader.cpusubtype == cpusubtype) {
+                return curMacho;
+            }
         }
     }
     return NULL;
@@ -112,38 +112,42 @@ MachO *fat_find_slice(FAT *fat, cpu_type_t cputype, cpu_subtype_t cpusubtype)
 
 void fat_free(FAT *fat)
 {
-    memory_stream_free(&fat->stream);
     if (fat->slices != NULL) {
         for (int i = 0; i < fat->slicesCount; i++) {
-            macho_free(&fat->slices[i]);
+            if (fat->slices[i]) {
+                macho_free(fat->slices[i]);
+            }
         }
         free(fat->slices);
     }
+    memory_stream_free(fat->stream);
+    free(fat);
 }
 
-int fat_init_from_memory_stream(FAT *fat, MemoryStream *stream)
+FAT *fat_init_from_memory_stream(MemoryStream *stream)
 {
-    fat->stream = *stream;
+    FAT *fat = malloc(sizeof(FAT));
+    if (!fat) return NULL;
+    memset(fat, 0, sizeof(FAT));
 
-    if (fat_parse_slices(fat) != 0) {
-        return -1;
-    }
+    fat->stream = stream;
 
-    size_t size = 0;
-    if (file_stream_get_size(&fat->stream, &size) != 0) {
-        return -1;
-    }
+    if (fat_parse_slices(fat) != 0) goto fail;
 
+    size_t size = memory_stream_get_size(fat->stream);
     printf("File size 0x%zx bytes, MachO slice count %u.\n", size, fat->slicesCount);
-    return 0;
+    return fat;
+
+fail:
+    fat_free(fat);
+    return NULL;
 }
 
-int fat_init_from_path(FAT *fat, const char *filePath)
+FAT *fat_init_from_path(const char *filePath)
 {
-    memset(fat, 0, sizeof(*fat));
-
-    MemoryStream stream;
-    if (file_stream_init_from_path(&stream, filePath, 0, FILE_STREAM_SIZE_AUTO, 0) != 0) return -1;
-
-    return fat_init_from_memory_stream(fat, &stream);
+    MemoryStream *stream = file_stream_init_from_path(filePath, 0, FILE_STREAM_SIZE_AUTO, 0);
+    if (stream) {
+        return fat_init_from_memory_stream(stream);
+    }
+    return NULL;
 }

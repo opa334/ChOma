@@ -15,8 +15,8 @@ typedef struct MachO MachO;
 // Or a single slice MachO, in which case it serves as a compatibility layer and the single slice will also be loaded into the slices attribute
 typedef struct FAT
 {
-    MemoryStream stream;
-    MachO *slices;
+    MemoryStream *stream;
+    MachO **slices;
     uint32_t slicesCount;
     int fileDescriptor;
 } FAT;
@@ -24,10 +24,10 @@ typedef struct FAT
 int fat_read_at_offset(FAT *fat, uint64_t offset, size_t size, void *outBuf);
 
 // Initialise a FAT structure from a memory stream
-int fat_init_from_memory_stream(FAT *fat, MemoryStream *stream);
+FAT *fat_init_from_memory_stream(MemoryStream *stream);
 
 // Initialise a FAT structure using the path to the file
-int fat_init_from_path(FAT *fat, const char *filePath);
+FAT *fat_init_from_path(const char *filePath);
 
 // Find macho with cputype and cpusubtype in FAT, returns NULL if not found
 MachO *fat_find_slice(FAT *fat, cpu_type_t cputype, cpu_subtype_t cpusubtype);

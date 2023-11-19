@@ -17,11 +17,11 @@ typedef struct FilesetMachO {
     char *entry_id;
     uint64_t vmaddr;
     uint64_t fileoff;
-	FAT underlyingMachO;
+	FAT *underlyingMachO;
 } FilesetMachO;
 
 typedef struct MachO {
-    MemoryStream stream;
+    MemoryStream *stream;
     bool isSupported;
     struct mach_header_64 machHeader;
     struct fat_arch_64 archDescriptor;
@@ -49,10 +49,10 @@ int macho_read_at_vmaddr(MachO *macho, uint64_t vmaddr, size_t size, void *outBu
 int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop));
 
 // Initialise a MachO object from a MemoryStream and it's corresponding FAT arch descriptor
-int macho_init(MachO *macho, MemoryStream *stream, struct fat_arch_64 archDescriptor);
+MachO *macho_init(MemoryStream *stream, struct fat_arch_64 archDescriptor);
 
 // Initialize a single slice macho for writing to it
-int macho_init_for_writing(MachO *macho, char *filePath);
+MachO *macho_init_for_writing(char *filePath);
 
 void macho_free(MachO *macho);
 

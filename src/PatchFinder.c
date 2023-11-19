@@ -24,9 +24,9 @@ PFSection *macho_patchfinder_create_section(MachO *macho, const char *filesetEnt
         // try to find a fileset macho with this identifier
         for (uint32_t i = 0; i < macho->filesetCount; i++) {
             FilesetMachO *filesetMacho = &macho->filesetMachos[i];
-            if (filesetMacho->underlyingMachO.slicesCount == 1) {
+            if (filesetMacho->underlyingMachO->slicesCount == 1) {
                 if (!strcmp(filesetMacho->entry_id, filesetEntryId)) {
-                    machoToUse = &filesetMacho->underlyingMachO.slices[0];
+                    machoToUse = filesetMacho->underlyingMachO->slices[0];
                     break;
                 }
             }
@@ -91,7 +91,7 @@ int macho_patchfinder_section_find_memory(MachO *macho, PFSection *section, uint
         return r;
     }
     else {
-        return memory_stream_find_memory(&macho->stream, searchOffset, searchSize, bytes, mask, nbytes, alignment, foundOffsetOut);
+        return memory_stream_find_memory(macho->stream, searchOffset, searchSize, bytes, mask, nbytes, alignment, foundOffsetOut);
     }
 }
 

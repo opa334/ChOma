@@ -34,34 +34,40 @@ uint32_t memory_stream_get_flags(MemoryStream *stream)
     return stream->flags;
 }
 
-void _memory_stream_clone(MemoryStream *output, MemoryStream *input)
+void _memory_stream_clone(MemoryStream *clone, MemoryStream *stream)
 {
-    output->flags = input->flags;
-    output->read = input->read;
-    output->write = input->write;
-    output->trim = input->trim;
-    output->expand = input->expand;
-    output->softclone = input->softclone;
-    output->hardclone = input->hardclone;
-    output->free = input->free;
+    clone->flags = stream->flags;
+    clone->read = stream->read;
+    clone->write = stream->write;
+    clone->trim = stream->trim;
+    clone->expand = stream->expand;
+    clone->softclone = stream->softclone;
+    clone->hardclone = stream->hardclone;
+    clone->free = stream->free;
 }
 
-int memory_stream_softclone(MemoryStream *output, MemoryStream *input)
+MemoryStream *memory_stream_softclone(MemoryStream *stream)
 {
-    _memory_stream_clone(output, input);
-    if (input->softclone) {
-        return input->softclone(output, input);
+    if (stream->softclone) {
+        MemoryStream *clone = stream->softclone(stream);
+        if (clone) {
+            _memory_stream_clone(clone, stream);
+            return clone;
+        }
     }
-    return -1;
+    return NULL;
 }
 
-int memory_stream_hardclone(MemoryStream *output, MemoryStream *input)
+MemoryStream *memory_stream_hardclone(MemoryStream *stream)
 {
-    _memory_stream_clone(output, input);
-    if (input->hardclone) {
-        return input->hardclone(output, input);
+    if (stream->hardclone) {
+        MemoryStream *clone = stream->hardclone(stream);
+        if (clone) {
+            _memory_stream_clone(clone, stream);
+            return clone;
+        }
     }
-    return -1;
+    return NULL;
 }
 
 int memory_stream_trim(MemoryStream *stream, size_t trimAtStart, size_t trimAtEnd)
@@ -83,8 +89,9 @@ int memory_stream_expand(MemoryStream *stream, size_t expandAtStart, size_t expa
 void memory_stream_free(MemoryStream *stream)
 {
     if (stream->free) {
-        return stream->free(stream);
+        stream->free(stream);
     }
+    free(stream);
 }
 
 #define COPY_DATA_BUFFER_SIZE 0x4000
