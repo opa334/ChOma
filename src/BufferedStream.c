@@ -51,6 +51,12 @@ int buffered_stream_get_size(MemoryStream *stream, size_t *sizeOut)
     return 0;
 }
 
+uint8_t *buffered_stream_get_raw_pointer(MemoryStream *stream)
+{
+    BufferedStreamContext *context = stream->context;
+    return &context->buffer[context->subBufferStart];
+}
+
 int buffered_stream_trim(MemoryStream *stream, size_t trimAtStart, size_t trimAtEnd)
 {
     BufferedStreamContext *context = stream->context;
@@ -123,6 +129,7 @@ int _buffered_stream_init(MemoryStream *stream)
     stream->read = buffered_stream_read;
     stream->write = buffered_stream_write;
     stream->getSize = buffered_stream_get_size;
+    stream->getRawPtr = buffered_stream_get_raw_pointer;
 
     stream->trim = buffered_stream_trim;
     stream->expand = buffered_stream_expand;

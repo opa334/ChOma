@@ -29,6 +29,14 @@ size_t memory_stream_get_size(MemoryStream *stream)
     return MEMORY_STREAM_SIZE_INVALID;
 }
 
+uint8_t *memory_stream_get_raw_pointer(MemoryStream *stream)
+{
+    if (stream->getRawPtr) {
+        return stream->getRawPtr(stream);
+    }
+    return NULL;
+}
+
 uint32_t memory_stream_get_flags(MemoryStream *stream)
 {
     return stream->flags;
@@ -41,6 +49,7 @@ void _memory_stream_clone(MemoryStream *clone, MemoryStream *stream)
     clone->read = stream->read;
     clone->write = stream->write;
     clone->getSize = stream->getSize;
+    clone->getRawPtr = stream->getRawPtr;
 
     clone->trim = stream->trim;
     clone->expand = stream->expand;

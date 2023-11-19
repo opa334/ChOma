@@ -23,7 +23,7 @@ typedef struct s_MemoryStream {
    int (*read)(struct s_MemoryStream *stream, uint64_t offset, size_t size, void *outBuf);
    int (*write)(struct s_MemoryStream *stream, uint64_t offset, size_t size, void *inBuf);
    int (*getSize)(struct s_MemoryStream *stream, size_t *sizeOut);
-   int (*getRawPtr)(struct s_MemoryStream *stream);
+   uint8_t *(*getRawPtr)(struct s_MemoryStream *stream);
 
    int (*trim)(struct s_MemoryStream *stream, size_t trimAtStart, size_t trimAtEnd);
    int (*expand)(struct s_MemoryStream *stream, size_t expandAtStart, size_t expandAtEnd);
@@ -36,6 +36,7 @@ typedef struct s_MemoryStream {
 int memory_stream_read(MemoryStream *stream, uint64_t offset, size_t size, void *outBuf);
 int memory_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf);
 size_t memory_stream_get_size(MemoryStream *stream);
+uint8_t *memory_stream_get_raw_pointer(MemoryStream *stream);
 uint32_t memory_stream_get_flags(MemoryStream *stream);
 
 MemoryStream *memory_stream_softclone(MemoryStream *stream);

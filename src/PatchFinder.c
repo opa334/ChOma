@@ -1,5 +1,6 @@
 #include "PatchFinder.h"
 #include "MachO.h"
+#include "MemoryStream.h"
 
 extern int memcmp_masked(const void *str1, const void *str2, unsigned char* mask, size_t n);
 int raw_buffer_find_memory(uint8_t *buf, uint64_t searchOffset, size_t searchSize, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundOffsetOut)
@@ -77,8 +78,16 @@ PFSection *macho_patchfinder_create_section(MachO *macho, const char *filesetEnt
 
 int macho_patchfinder_cache_section(PFSection *section, MachO *fromMacho)
 {
-    section->cache = malloc(section->size);
-    return macho_read_at_offset(fromMacho, section->fileoff, section->size, &section->cache[0]);
+    uint8_t *rawPtr = memory_stream_get_raw_pointer(fromMacho->stream);
+    if (rawPtr) {
+        section->cache = &rawPtr[section->fileoff];
+        return 0;
+    }
+    else {
+        section->cache = malloc(section->size);
+        section->ownsCache = true;
+        return macho_read_at_offset(fromMacho, section->fileoff, section->size, &section->cache[0]);
+    }
 }
 
 int macho_patchfinder_section_find_memory(MachO *macho, PFSection *section, uint64_t searchOffset, size_t searchSize, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundOffsetOut)
@@ -98,7 +107,9 @@ int macho_patchfinder_section_find_memory(MachO *macho, PFSection *section, uint
 void macho_patchfinder_section_free(PFSection *section)
 {
     if (section->cache) {
-        free(section->cache);
+        if (section->ownsCache) {
+            free(section->cache);
+        }
     }
     free(section);
 }

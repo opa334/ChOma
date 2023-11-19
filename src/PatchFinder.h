@@ -10,6 +10,7 @@ typedef struct PFSection {
 	uint64_t vmaddr;
 	uint64_t size;
 	uint8_t *cache;
+	bool ownsCache;
 } PFSection;
 
 PFSection *macho_patchfinder_create_section(MachO *macho, const char *filesetEntryId, const char *segName, const char *sectName);
