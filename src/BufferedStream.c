@@ -148,6 +148,8 @@ MemoryStream *buffered_stream_init_from_buffer_nocopy(void *buffer, size_t buffe
     stream->context = context;
     if (_buffered_stream_init(stream) != 0) goto fail;
 
+    return stream;
+
 fail:
     buffered_stream_free(stream);
     return NULL;
@@ -171,6 +173,8 @@ MemoryStream *buffered_stream_init_from_buffer(void *buffer, size_t bufferSize)
 
     stream->context = context;
     if (_buffered_stream_init(stream) != 0) goto fail;
+
+    return stream;
 
 fail:
     buffered_stream_free(stream);
