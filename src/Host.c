@@ -7,7 +7,8 @@
 
 #define CPU_SUBTYPE_ARM64E_ABI_V2 0x80000000
 
-int host_get_cpu_information(cpu_type_t *cputype, cpu_subtype_t *cpusubtype) {
+int host_get_cpu_information(cpu_type_t *cputype, cpu_subtype_t *cpusubtype)
+{
     size_t len;
     
     // Query for cputype
@@ -21,7 +22,8 @@ int host_get_cpu_information(cpu_type_t *cputype, cpu_subtype_t *cpusubtype) {
     return 0;
 }
 
-MachO *fat_find_preferred_slice(FAT *fat) {
+MachO *fat_find_preferred_slice(FAT *fat)
+{
     cpu_type_t cputype;
     cpu_subtype_t cpusubtype;
     if (host_get_cpu_information(&cputype, &cpusubtype) != 0) { return NULL; }
