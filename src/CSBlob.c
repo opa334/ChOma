@@ -1,9 +1,12 @@
 #include "CSBlob.h"
 
 #include "CodeDirectory.h"
+#include "MachO.h"
 #include "MachOByteOrder.h"
 #include "MachOLoadCommand.h"
 #include "BufferedStream.h"
+#include "MemoryStream.h"
+#include <stddef.h>
 
 char *cs_blob_magic_to_string(int magic)
 {
@@ -113,7 +116,7 @@ CS_SuperBlob *macho_parse_superblob(MachO *macho, bool printAllSlots, bool verif
 			// Create and populate the code signature load command structure
 			struct linkedit_data_command *csLoadCommand = ((struct linkedit_data_command *)cmd);
 			// TODO: Maybe move this to macho_enumerate_load_commands impl?
-			LC_CODE_SIGNATURE_APPLY_BYTE_ORDER(csLoadCommand, LITTLE_TO_HOST_APPLIER);
+			LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(csLoadCommand, LITTLE_TO_HOST_APPLIER);
 			printf("Code signature - offset: 0x%x, size: 0x%x.\n", csLoadCommand->dataoff, csLoadCommand->datasize);
 
 			// Read the superblob data
@@ -145,10 +148,121 @@ CS_SuperBlob *macho_parse_superblob(MachO *macho, bool printAllSlots, bool verif
 	return blobOut;
 }
 
+uint8_t *macho_find_code_signature(MachO *macho)
+{
+	__block uint8_t *dataOut = NULL;
+	macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
+		if (loadCommand.cmd == LC_CODE_SIGNATURE) {
+			struct linkedit_data_command *csLoadCommand = ((struct linkedit_data_command *)cmd);
+			LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(csLoadCommand, LITTLE_TO_HOST_APPLIER);
+			dataOut = malloc(csLoadCommand->datasize);
+			macho_read_at_offset(macho, csLoadCommand->dataoff, csLoadCommand->datasize, dataOut);
+			*stop = true;
+		}
+	});
+	return dataOut;
+}
+
 int macho_extract_cs_to_file(MachO *macho, CS_SuperBlob *superblob)
 {
 	FILE *csDataFile = fopen("Code_Signature-Data", "wb+");
 	fwrite(superblob, BIG_TO_HOST(superblob->length), 1, csDataFile);
 	fclose(csDataFile);
 	return 0;
+}
+
+DecodedSuperBlob *superblob_decode(CS_SuperBlob *superblob)
+{
+	DecodedSuperBlob *decodedSuperblob = malloc(sizeof(DecodedSuperBlob));
+	if (!decodedSuperblob) return NULL;
+	memset(decodedSuperblob, 0, sizeof(DecodedSuperBlob));
+
+	DecodedBlob **nextBlob = &decodedSuperblob->firstBlob;
+	decodedSuperblob->magic = BIG_TO_HOST(superblob->magic);
+	printf("magic: %x\n", decodedSuperblob->magic);
+
+	for (uint32_t i = 0; i < BIG_TO_HOST(superblob->count); i++) {
+		CS_BlobIndex curIndex = superblob->index[i];
+		BLOB_INDEX_APPLY_BYTE_ORDER(&curIndex, BIG_TO_HOST_APPLIER);
+		printf("decoding %u (type: %x, offset: 0x%x)\n", i, curIndex.type, curIndex.offset);
+
+		CS_GenericBlob *start = (CS_GenericBlob *)(((uint8_t*)superblob) + curIndex.offset);
+
+		MemoryStream *stream = buffered_stream_init_from_buffer(start, BIG_TO_HOST(start->length));
+		if (!stream) {
+			decoded_superblob_free(decodedSuperblob);
+			return NULL;
+		}
+
+		*nextBlob = malloc(sizeof(DecodedBlob));
+		(*nextBlob)->stream = stream;
+		(*nextBlob)->next = NULL;
+		(*nextBlob)->type = curIndex.type;
+		nextBlob = &(*nextBlob)->next;
+	}
+
+	return decodedSuperblob;
+}
+
+CS_SuperBlob *superblob_encode(DecodedSuperBlob *decodedSuperblob)
+{
+	uint32_t blobCount = 0, blobSize = 0;
+
+	// Determine amount and size of contained blobs
+	DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
+	while (nextBlob) {
+		blobCount++;
+		blobSize += memory_stream_get_size(nextBlob->stream);
+		nextBlob = nextBlob->next;
+	}
+
+	uint32_t superblobLength = sizeof(CS_SuperBlob) + (sizeof(CS_BlobIndex) * blobCount) + blobSize;
+	CS_SuperBlob *superblob = malloc(superblobLength);
+
+	// Populate superblob fields
+	superblob->count = blobCount;
+	superblob->length = superblobLength;
+	superblob->magic = decodedSuperblob->magic;
+	SUPERBLOB_APPLY_BYTE_ORDER(superblob, HOST_TO_BIG_APPLIER)
+
+	// Populate indexes and write actual backing data
+	uint32_t idx = 0;
+	uint32_t dataStartOffset = sizeof(CS_SuperBlob) + (sizeof(CS_BlobIndex) * blobCount);
+	uint8_t *superblobData = ((uint8_t*)superblob) + dataStartOffset;
+	uint8_t *superblobDataCur = superblobData;
+	nextBlob = decodedSuperblob->firstBlob;
+	while (nextBlob) {
+		CS_BlobIndex *curIndex = &superblob->index[idx];
+		MemoryStream *curStream = nextBlob->stream;
+		uint32_t curSize = memory_stream_get_size(curStream);
+
+		memory_stream_read(curStream, 0, curSize, superblobDataCur);
+
+		// Automatically update the length of the blob based on the length of the stream backing it
+		((CS_GenericBlob *)superblobDataCur)->length = HOST_TO_BIG(curSize);
+
+		curIndex->offset = dataStartOffset + (superblobDataCur - superblobData);
+		curIndex->type = nextBlob->type;
+		BLOB_INDEX_APPLY_BYTE_ORDER(curIndex, HOST_TO_BIG_APPLIER);
+
+		superblobDataCur += curSize;
+		idx++;
+
+		nextBlob = nextBlob->next;
+	}
+	return superblob;
+}
+
+void decoded_superblob_free(DecodedSuperBlob *decodedSuperblob)
+{
+	DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
+	while (nextBlob) {
+		DecodedBlob *prevBlob = nextBlob;
+		nextBlob = nextBlob->next;
+		if (prevBlob->stream) {
+			memory_stream_free(prevBlob->stream);
+		}
+		free(prevBlob);
+	}
+	free(decodedSuperblob);
 }

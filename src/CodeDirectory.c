@@ -61,7 +61,7 @@ int code_directory_verify_code_slots(MachO *macho, CS_CodeDirectory *codeDirecto
                 if (loadCommand.cmd == LC_CODE_SIGNATURE) {
                     // Create and populate the code signature load command structure
                     struct linkedit_data_command *csLoadCommand = (struct linkedit_data_command *)cmd;
-                    LC_CODE_SIGNATURE_APPLY_BYTE_ORDER(csLoadCommand, LITTLE_TO_HOST_APPLIER); // TODO: Move this to macho_enumerate_load_commands impl
+                    LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(csLoadCommand, LITTLE_TO_HOST_APPLIER); // TODO: Move this to macho_enumerate_load_commands impl
                     dataSizeToRead = (csLoadCommand->dataoff) - (dataOffsetToRead);
                 }
             });

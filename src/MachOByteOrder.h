@@ -93,7 +93,7 @@
     applier(lc, cmd); \
     applier(lc, cmdsize);
 
-#define LC_CODE_SIGNATURE_APPLY_BYTE_ORDER(lc, applier) \
+#define LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(lc, applier) \
     applier(lc, cmd); \
     applier(lc, cmdsize); \
     applier(lc, dataoff); \

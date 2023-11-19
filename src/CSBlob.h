@@ -55,6 +55,23 @@ enum {
     CSSLOT_SIGNATURESLOT = 0x10000
 } CS_SlotType;
 
+typedef struct s_DecodedBlob {
+	struct s_DecodedBlob *next;
+	uint32_t type;
+	MemoryStream *stream;
+} DecodedBlob;
+
+typedef struct s_DecodedSuperBlob {
+	uint32_t magic;
+	struct s_DecodedBlob *firstBlob;
+} DecodedSuperBlob;
+
+DecodedSuperBlob *superblob_decode(CS_SuperBlob *superblob);
+CS_SuperBlob *superblob_encode(DecodedSuperBlob *decodedSuperblob);
+void decoded_superblob_free(DecodedSuperBlob *decodedSuperblob);
+
+uint8_t *macho_find_code_signature(MachO *macho);
+
 // Convert blob magic to readable blob type string
 char *cs_blob_magic_to_string(int magic);
 
