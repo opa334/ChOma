@@ -17,7 +17,10 @@ int fat_parse_slices(FAT *fat)
 {
     // Get size of file
     size_t fileSize = memory_stream_get_size(fat->stream);
-    if (fileSize == MEMORY_STREAM_SIZE_INVALID) return -1;
+    if (fileSize == MEMORY_STREAM_SIZE_INVALID) {
+        printf("Error: Failed to parse fat slices, memory_stream_get_size returned MEMORY_STREAM_SIZE_INVALID\n");
+        return -1;
+    }
 
     // Read the FAT header
     struct fat_header fatHeader;
