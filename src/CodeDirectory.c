@@ -60,9 +60,9 @@ int code_directory_verify_code_slots(MachO *macho, CS_CodeDirectory *codeDirecto
             macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
                 if (loadCommand.cmd == LC_CODE_SIGNATURE) {
                     // Create and populate the code signature load command structure
-                    struct lc_code_signature csLoadCommand = *((struct lc_code_signature *)cmd);
-                    LC_CODE_SIGNATURE_APPLY_BYTE_ORDER(&csLoadCommand, LITTLE_TO_HOST_APPLIER); // TODO: Move this to macho_enumerate_load_commands impl
-                    dataSizeToRead = (csLoadCommand.dataoff) - (dataOffsetToRead);
+                    struct linkedit_data_command *csLoadCommand = (struct linkedit_data_command *)cmd;
+                    LC_CODE_SIGNATURE_APPLY_BYTE_ORDER(csLoadCommand, LITTLE_TO_HOST_APPLIER); // TODO: Move this to macho_enumerate_load_commands impl
+                    dataSizeToRead = (csLoadCommand->dataoff) - (dataOffsetToRead);
                 }
             });
         }
