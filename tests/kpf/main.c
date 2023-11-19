@@ -5,6 +5,10 @@
 
 #include <time.h>
 
+// 1. Direct branch (b)
+// 2. Direct function call (bl)
+// 3. Indirect function call (adr / adrp, add)
+
 int main(int argc, char *argv[]) {
 
     if (argc == 2) {

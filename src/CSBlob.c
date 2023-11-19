@@ -61,19 +61,19 @@ int macho_parse_signature_blob_to_der_encoded_data(MachO *macho, uint32_t signat
 	return macho_read_at_offset(macho, signatureBlobOffset + 8, signatureBlobLength - 8, outputDER);
 }
 
-int cs_superblob_parse_blobs(MachO *macho, CS_SuperBlob *superblob, struct lc_code_signature csLoadCommand, bool printAllSlots, bool verifySlots)
+int cs_superblob_parse_blobs(MachO *macho, CS_SuperBlob *superblob, struct linkedit_data_command *csLoadCommand, bool printAllSlots, bool verifySlots)
 {
-	for (int blobCount = 0; blobCount < BIG_TO_HOST(superblob->count); blobCount++)
+	for (int blobCount = 0; blobCount < superblob->count; blobCount++)
 	{
-		uint32_t blobType = BIG_TO_HOST(superblob->index[blobCount].type);
-    	uint32_t blobOffset = BIG_TO_HOST(superblob->index[blobCount].offset);
-		printf("Slot %d: %s (offset 0x%x, type: 0x%x).\n", blobCount + 1, cs_slot_index_to_string(blobType), blobOffset + csLoadCommand.dataoff, blobType);
+		uint32_t blobType = superblob->index[blobCount].type;
+    	uint32_t blobOffset = superblob->index[blobCount].offset;
+		printf("Slot %d: %s (offset 0x%x, type: 0x%x).\n", blobCount + 1, cs_slot_index_to_string(blobType), blobOffset + csLoadCommand->dataoff, blobType);
 
 		if (blobType == CSSLOT_CODEDIRECTORY || blobType == CSSLOT_ALTERNATE_CODEDIRECTORIES)
 		{
 			CS_CodeDirectory *codeDirectory = (CS_CodeDirectory*)((uint8_t *)superblob + blobOffset);
 			printf("This is the %s, magic %#x\n", cs_blob_magic_to_string(BIG_TO_HOST(codeDirectory->magic)), BIG_TO_HOST(codeDirectory->magic));
-			macho_parse_code_directory_blob(macho, blobOffset + csLoadCommand.dataoff, codeDirectory, printAllSlots, verifySlots);
+			macho_parse_code_directory_blob(macho, blobOffset + csLoadCommand->dataoff, codeDirectory, printAllSlots, verifySlots);
 		}
 		else if (blobType == CSSLOT_SIGNATURESLOT) {
 			CS_GenericBlob *cms_blob = (CS_GenericBlob*)((uint8_t *)superblob + blobOffset);
@@ -102,22 +102,30 @@ CS_SuperBlob *macho_parse_superblob(MachO *macho, bool printAllSlots, bool verif
 		if (loadCommand.cmd == LC_CODE_SIGNATURE)
 		{
 			printf("Found code signature load command.\n");
-			if (loadCommand.cmdsize != sizeof(struct lc_code_signature)) {
-				printf("Code signature load command has invalid size: 0x%x (vs 0x%lx)\n", loadCommand.cmdsize, sizeof(struct lc_code_signature));
+			// TODO: Move this check into macho_enumerate_load_commands
+			if (loadCommand.cmdsize != sizeof(struct linkedit_data_command)) {
+				printf("Code signature load command has invalid size: 0x%x (vs 0x%lx)\n", loadCommand.cmdsize, sizeof(struct linkedit_data_command));
 				*stop = true;
 				return;
 			}
 
 			// Create and populate the code signature load command structure
-			struct lc_code_signature csLoadCommand = *((struct lc_code_signature *)cmd);
-			//LC_CODE_SIGNATURE_APPLY_BYTE_ORDER(&csLoadCommand, LITTLE_TO_HOST_APPLIER); // TODO: Move this to macho_enumerate_load_commands impl
-			printf("Code signature - offset: 0x%x, size: 0x%x.\n", csLoadCommand.dataoff, csLoadCommand.datasize);
+			struct linkedit_data_command *csLoadCommand = ((struct linkedit_data_command *)cmd);
+			// TODO: Maybe move this to macho_enumerate_load_commands impl?
+			LC_CODE_SIGNATURE_APPLY_BYTE_ORDER(csLoadCommand, LITTLE_TO_HOST_APPLIER);
+			printf("Code signature - offset: 0x%x, size: 0x%x.\n", csLoadCommand->dataoff, csLoadCommand->datasize);
+
 			// Read the superblob data
-			CS_SuperBlob *superblob = malloc(csLoadCommand.datasize);
-			macho_read_at_offset(macho, csLoadCommand.dataoff, csLoadCommand.datasize, superblob);
+			CS_SuperBlob *superblob = malloc(csLoadCommand->datasize);
+			macho_read_at_offset(macho, csLoadCommand->dataoff, csLoadCommand->datasize, superblob);
+			SUPERBLOB_APPLY_BYTE_ORDER(superblob, BIG_TO_HOST_APPLIER);
+			for (uint32_t i = 0; i < superblob->count; i++) {
+				BLOB_INDEX_APPLY_BYTE_ORDER(&superblob->index[i], BIG_TO_HOST_APPLIER);
+			}
+
 			blobOut = superblob;
-			//SUPERBLOB_APPLY_BYTE_ORDER(superblobOut, BIG_TO_HOST_APPLIER);
-			if (BIG_TO_HOST(superblob->magic) != CSBLOB_EMBEDDED_SIGNATURE)
+
+			if (superblob->magic != CSBLOB_EMBEDDED_SIGNATURE)
 			{
 				*stop = true;
 				return;
