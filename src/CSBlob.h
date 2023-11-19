@@ -75,9 +75,6 @@ uint8_t *macho_find_code_signature(MachO *macho);
 // Convert blob magic to readable blob type string
 char *cs_blob_magic_to_string(int magic);
 
-// Retrieve superblob from macho
-// int macho_parse_superblob(FAT *fat, CS_SuperBlob *superblob, int machoIndex);
-
 // Extract Code Signature to file
 int macho_extract_cs_to_file(MachO *macho, CS_SuperBlob *superblob);
 

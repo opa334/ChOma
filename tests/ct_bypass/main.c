@@ -3,6 +3,9 @@
 #include <choma/Host.h>
 #include <choma/MemoryStream.h>
 #include <choma/FileStream.h>
+#include <choma/BufferedStream.h>
+#include "AppStoreCodeDirectory.h"
+#include "TemplateSignatureBlob.h"
 #include <stdio.h>
 
 int main(int argc, char *argv[]) {
@@ -35,6 +38,29 @@ int main(int argc, char *argv[]) {
     fclose(fp);
 
     DecodedSuperBlob *decodedSuperblob = superblob_decode(superblob);
+
+    // Replace the first CodeDirectory with the one from the App Store
+    DecodedBlob *blob = decodedSuperblob->firstBlob;
+    if (blob->type != CSSLOT_CODEDIRECTORY) {
+        printf("The first blob is not a CodeDirectory!\n");
+        return -1;
+    }
+
+    memory_stream_free(blob->stream);
+    MemoryStream *newCDStream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len);
+    blob->stream = newCDStream;
+
+    DecodedBlob *signatureBlob = malloc(sizeof(DecodedBlob));
+    signatureBlob->type = CSSLOT_SIGNATURESLOT;
+    signatureBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
+    signatureBlob->next = NULL;
+
+    // Add the signature blob to the end of the superblob
+    DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
+    while (nextBlob->next) {
+        nextBlob = nextBlob->next;
+    }
+    nextBlob->next = signatureBlob;
 
     CS_SuperBlob *newSuperblob = superblob_encode(decodedSuperblob);
 
