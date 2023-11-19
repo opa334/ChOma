@@ -88,6 +88,8 @@ MemoryStream *buffered_stream_softclone(MemoryStream *stream)
     BufferedStreamContext *context = stream->context;
     BufferedStreamContext *contextCopy = malloc(sizeof(BufferedStreamContext));
 
+    contextCopy->buffer = context->buffer;
+    contextCopy->bufferSize = context->bufferSize;
     contextCopy->subBufferStart = context->subBufferStart;
     contextCopy->subBufferSize = context->subBufferSize;
     clone->flags = stream->flags & ~(MEMORY_STREAM_FLAG_OWNS_DATA);
