@@ -38,6 +38,8 @@ int main(int argc, char *argv[]) {
     fread(blobData, blobDataLength, 1, fp);
     fclose(fp);
 
+    SUPERBLOB_APPLY_BYTE_ORDER(superblob, BIG_TO_HOST_APPLIER);
+
     CS_SuperBlob *newSuperblob = create_new_superblob(blobData, blobDataLength, superblob->count, superblob->index);
 
     // Write the new superblob to the file
