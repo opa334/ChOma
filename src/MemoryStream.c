@@ -37,10 +37,14 @@ uint32_t memory_stream_get_flags(MemoryStream *stream)
 void _memory_stream_clone(MemoryStream *clone, MemoryStream *stream)
 {
     clone->flags = stream->flags;
+
     clone->read = stream->read;
     clone->write = stream->write;
+    clone->getSize = stream->getSize;
+
     clone->trim = stream->trim;
     clone->expand = stream->expand;
+
     clone->softclone = stream->softclone;
     clone->hardclone = stream->hardclone;
     clone->free = stream->free;
