@@ -5,6 +5,7 @@
 #include <choma/FileStream.h>
 #include <choma/BufferedStream.h>
 #include <choma/Signing.h>
+#include <choma/SignatureBlob.h>
 #include "AppStoreCodeDirectory.h"
 #include "TemplateSignatureBlob.h"
 #include <stdio.h>
@@ -51,17 +52,22 @@ int main(int argc, char *argv[]) {
     MemoryStream *newCDStream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len);
     blob->stream = newCDStream;
 
-    DecodedBlob *signatureBlob = malloc(sizeof(DecodedBlob));
-    signatureBlob->type = CSSLOT_SIGNATURESLOT;
-    signatureBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
-    signatureBlob->next = NULL;
-
     // Add the signature blob to the end of the superblob
     DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
     while (nextBlob->next) {
         nextBlob = nextBlob->next;
     }
-    nextBlob->next = signatureBlob;
+    if (nextBlob->type != CSSLOT_SIGNATURESLOT) {
+        DecodedBlob *signatureBlob = malloc(sizeof(DecodedBlob));
+        signatureBlob->type = CSSLOT_SIGNATURESLOT;
+        signatureBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
+        signatureBlob->next = NULL;
+    } else {
+        memory_stream_free(nextBlob->stream);
+        nextBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
+    }
+
+    update_signature_blob(decodedSuperblob);
 
     CS_SuperBlob *newSuperblob = superblob_encode(decodedSuperblob);
 
@@ -74,7 +80,7 @@ int main(int argc, char *argv[]) {
     free(superblob);
     free(newSuperblob);
 
-    signWithRSA("cert.p12", "DecryptedSignature", "NewSignature");
+    // signWithRSA("cert.p12", "DecryptedSignature", "NewSignature");
 
     fat_free(fat);
     return 0;
