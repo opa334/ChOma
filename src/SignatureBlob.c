@@ -1,12 +1,17 @@
 #include "SignatureBlob.h"
 #include "BufferedStream.h"
 #include "Base64.h"
+#include "SignOSSL.h"
+#include "DecryptedSignature.h"
 #include <sys/types.h>
 
 // We can use static offsets here because we use a template signature blob
+#define SIGNED_ATTRS_OFFSET 0x12DE // SignedAttributes sequence
 #define HASHHASH_OFFSET 0x1388 // SHA256 hash SignedAttribute
 #define BASEBASE_OFFSET 0x14C5 // Base64 hash SignedAttribute
 #define SIGNSIGN_OFFSET 0x151A // Signature
+
+#define DECRYPTED_SIGNATURE_HASH_OFFSET 0x13
 
 DecodedBlob *superblob_find_blob(DecodedSuperBlob *superblob, uint32_t type) {
     DecodedBlob *blob = superblob->firstBlob;
@@ -71,6 +76,38 @@ int update_signature_blob(DecodedSuperBlob *superblob) {
     }
 
     free(newBase64Hash);
+
+    unsigned char *newSignature = NULL;
+    size_t newSignatureSize = 0;
+
+    unsigned char *newDecryptedSignature = malloc(0x33);
+    memset(newDecryptedSignature, 0, 0x33);
+    memcpy(newDecryptedSignature, DecryptedSignature, 0x33);
+
+    // Get the signed attributes hash
+    unsigned char *signedAttrs = malloc(0x229);
+    memset(signedAttrs, 0, 0x229);
+    buffered_stream_read(signatureBlob->stream, SIGNED_ATTRS_OFFSET, 0x229, signedAttrs);
+    signedAttrs[0] = 0x31;
     
-    return 0;
+    // Hash
+    uint8_t fullAttributesHash[CC_SHA256_DIGEST_LENGTH];
+    CC_SHA256(signedAttrs, (CC_LONG)0x229, fullAttributesHash);
+    memcpy(newDecryptedSignature + DECRYPTED_SIGNATURE_HASH_OFFSET, fullAttributesHash, CC_SHA256_DIGEST_LENGTH);
+
+    newSignature = signWithRSA("ca.key", newDecryptedSignature, DecryptedSignature_len, &newSignatureSize);
+
+    if (!newSignature) {
+        printf("Failed to sign the decrypted signature!\n");
+        return -1;
+    }
+
+    if (newSignatureSize != 0x100) {
+        printf("The new signature is not the correct size!\n");
+        return -1;
+    }
+
+    ret = buffered_stream_write(signatureBlob->stream, SIGNSIGN_OFFSET, newSignatureSize, newSignature);
+    
+    return ret;
 }

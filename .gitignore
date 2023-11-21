@@ -24,3 +24,6 @@ data/
 
 # Ignore nocommit-* files and dirs
 nocommit-*
+
+# Miscellaneous
+ca.key
