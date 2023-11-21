@@ -6,6 +6,8 @@
 #include "MachOLoadCommand.h"
 #include "BufferedStream.h"
 #include "MemoryStream.h"
+#include "FileStream.h"
+#include <mach-o/loader.h>
 #include <stddef.h>
 
 char *cs_blob_magic_to_string(int magic)
@@ -265,4 +267,39 @@ void decoded_superblob_free(DecodedSuperBlob *decodedSuperblob)
 		free(prevBlob);
 	}
 	free(decodedSuperblob);
+}
+
+uint64_t alignToSize(int size, int alignment)
+{
+	printf("alignToSize(%x, %x) = %x\n", size, alignment, (size + alignment - 1) & ~(alignment - 1));
+	return (size + alignment - 1) & ~(alignment - 1);
+}
+
+int update_load_commands(MachO *macho, CS_SuperBlob *superblob, uint64_t originalSize) {
+	macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
+		bool foundOne = false;
+		if (loadCommand.cmd == LC_SEGMENT_64) {
+			struct segment_command_64 *segmentCommand = ((struct segment_command_64 *)cmd);
+			SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(segmentCommand, LITTLE_TO_HOST_APPLIER); // TODO: Move this to macho_enumerate_load_commands impl
+			if (strcmp(segmentCommand->segname, "__LINKEDIT") != 0) return;
+			uint64_t difference = segmentCommand->filesize - originalSize;
+			uint64_t newFileSize = (uint64_t)(superblob->length >> 0x10) + difference;
+			printf("New filesize: %llx\n", newFileSize);
+			uint64_t newVMSize = alignToSize(newFileSize, 0x4000);
+			printf("New vmsize: %llx\n", newVMSize);
+			printf("Updating %s segment - offset: 0x%llx, filesize: 0x%llx, vmsize: 0x%llx.\n", segmentCommand->segname, segmentCommand->fileoff, newFileSize, newVMSize);
+			*stop = foundOne;
+			foundOne = true;
+		}
+		if (loadCommand.cmd == LC_CODE_SIGNATURE) {
+			struct linkedit_data_command *csLoadCommand = ((struct linkedit_data_command *)cmd);
+			LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(csLoadCommand, LITTLE_TO_HOST_APPLIER);
+			csLoadCommand->datasize = superblob->length;
+			// LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(csLoadCommand, HOST_TO_LITTLE_APPLIER);
+			printf("Updating code signature load command - offset: 0x%x, size: 0x%x.\n", csLoadCommand->dataoff, csLoadCommand->datasize);
+			*stop = foundOne;
+			foundOne = true;
+		}
+	});
+	return 0;
 }

@@ -80,4 +80,6 @@ int macho_extract_cs_to_file(MachO *macho, CS_SuperBlob *superblob);
 
 CS_SuperBlob *macho_parse_superblob(MachO *macho, bool printAllSlots, bool verifySlots);
 
+int update_load_commands(MachO *macho, CS_SuperBlob *superblob, uint64_t originalSize);
+
 #endif // CS_BLOB_H

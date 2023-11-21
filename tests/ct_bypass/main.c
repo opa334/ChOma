@@ -9,6 +9,7 @@
 #include <choma/SignOSSL.h>
 #include "AppStoreCodeDirectory.h"
 #include "TemplateSignatureBlob.h"
+#include <stdint.h>
 #include <stdio.h>
 
 int main(int argc, char *argv[]) {
@@ -35,6 +36,7 @@ int main(int argc, char *argv[]) {
     if (!macho) return -1;
 
     CS_SuperBlob *superblob = (CS_SuperBlob *)macho_find_code_signature(macho);
+    uint64_t sizeOfCodeSignature = BIG_TO_HOST(superblob->length);
 
     FILE *fp = fopen("data/blob.orig", "wb");
     fwrite(superblob, BIG_TO_HOST(superblob->length), 1, fp);
@@ -67,6 +69,12 @@ int main(int argc, char *argv[]) {
         memory_stream_free(nextBlob->stream);
         nextBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
     }
+
+    CS_SuperBlob *encodedSuperblobUnsigned = superblob_encode(decodedSuperblob);
+
+    update_load_commands(macho, encodedSuperblobUnsigned, sizeOfCodeSignature);
+
+    // update_code_directory(macho, decodedSuperblob);
 
     update_signature_blob(decodedSuperblob);
 
