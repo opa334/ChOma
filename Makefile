@@ -1,5 +1,5 @@
 CC := clang
-CFLAGS := -Wall -Werror -fPIC -Wno-pointer-to-int-cast
+CFLAGS := -Wall -Werror -fPIC -Wno-pointer-to-int-cast -Wno-unused-command-line-argument -framework Security -framework CoreFoundation
 
 LIB_NAME := libchoma
 

@@ -4,6 +4,7 @@
 #include <choma/MemoryStream.h>
 #include <choma/FileStream.h>
 #include <choma/BufferedStream.h>
+#include <choma/Signing.h>
 #include "AppStoreCodeDirectory.h"
 #include "TemplateSignatureBlob.h"
 #include <stdio.h>
@@ -72,6 +73,8 @@ int main(int argc, char *argv[]) {
     decoded_superblob_free(decodedSuperblob);
     free(superblob);
     free(newSuperblob);
+
+    signWithRSA("cert.p12", "DecryptedSignature", "NewSignature");
 
     fat_free(fat);
     return 0;

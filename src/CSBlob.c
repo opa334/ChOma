@@ -142,7 +142,7 @@ CS_SuperBlob *macho_parse_superblob(MachO *macho, bool printAllSlots, bool verif
 		if (loadCommand.cmd == LC_SEGMENT_64) {
 			struct segment_command_64 segmentCommand = *((struct segment_command_64*)cmd);
 			SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(&segmentCommand, LITTLE_TO_HOST_APPLIER); // TODO: Move this to macho_enumerate_load_commands impl
-			printf("Found %s segment - offset: 0x%llx, size: 0x%llx.\n", segmentCommand.segname, segmentCommand.fileoff, segmentCommand.filesize);
+			printf("Found %s segment - offset: 0x%llx, filesize: 0x%llx, vmsize: 0x%llx.\n", segmentCommand.segname, segmentCommand.fileoff, segmentCommand.filesize, segmentCommand.vmsize);
 		}
 	});
 	return blobOut;
