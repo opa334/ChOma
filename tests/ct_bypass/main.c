@@ -58,19 +58,32 @@ int main(int argc, char *argv[]) {
     // Add the signature blob to the end of the superblob
     DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
     while (nextBlob->next) {
-        nextBlob = nextBlob->next;
+        if (nextBlob->type == CSSLOT_SIGNATURESLOT) {
+            break;
+        }
+        if (nextBlob->next) {
+            nextBlob = nextBlob->next;
+        } else {
+            break;
+        }
     }
+    printf("nextBlob->type: %d\n", nextBlob->type);
     if (nextBlob->type != CSSLOT_SIGNATURESLOT) {
         DecodedBlob *signatureBlob = malloc(sizeof(DecodedBlob));
         signatureBlob->type = CSSLOT_SIGNATURESLOT;
         signatureBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
         signatureBlob->next = NULL;
+        nextBlob->next = signatureBlob;
     } else {
         memory_stream_free(nextBlob->stream);
         nextBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
     }
 
+    printf("Encoding superblob...\n");
+
     CS_SuperBlob *encodedSuperblobUnsigned = superblob_encode(decodedSuperblob);
+
+    printf("Signing superblob...\n");
 
     update_load_commands(macho, encodedSuperblobUnsigned, sizeOfCodeSignature);
 
