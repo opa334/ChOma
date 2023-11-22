@@ -10,6 +10,7 @@
 #include "FAT.h"
 #include "MachOByteOrder.h"
 #include "MachOLoadCommand.h"
+#include "BufferedStream.h"
 
 
 // Code directory blob header

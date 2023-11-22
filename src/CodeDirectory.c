@@ -221,4 +221,41 @@ void update_code_directory(MachO *macho, DecodedSuperBlob *decodedSuperblob) {
     int numberOfPagesToHash = finalPageBoundary / 0x1000;
 
     printf("Number of pages to hash: %d\n", numberOfPagesToHash);
+
+	for (int pageNumber = 0; pageNumber < numberOfPagesToHash; pageNumber++) {
+		uint64_t pageOffset = pageNumber * 0x1000;
+		uint64_t pageEndOffset = pageOffset + 0x1000;
+		uint64_t pageLength = 0x1000;
+		if (pageEndOffset > finalPageBoundary) {
+			pageLength = finalPageBoundary - pageOffset;
+		}
+		uint8_t *pageData = malloc(pageLength);
+		memset(pageData, 0, pageLength);
+		macho_read_at_offset(macho, pageOffset, pageLength, pageData);
+		uint8_t pageHash[CC_SHA256_DIGEST_LENGTH];
+		CC_SHA256(pageData, (CC_LONG)pageLength, pageHash);
+		free(pageData);
+		DecodedBlob *blob = decodedSuperblob->firstBlob;
+		while (blob) {
+			if (blob->type == CSSLOT_ALTERNATE_CODEDIRECTORIES) {
+				printf("New page %d hash: ", pageNumber);
+				for (int i = 0; i < CC_SHA256_DIGEST_LENGTH; i++) {
+					printf("%02x", pageHash[i]);
+				}
+				printf("\n");
+				CS_CodeDirectory *codeDirectory = malloc(sizeof(CS_CodeDirectory));
+				memset(codeDirectory, 0, sizeof(CS_CodeDirectory));
+				buffered_stream_read(blob->stream, 0, sizeof(CS_CodeDirectory), codeDirectory);
+				CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, BIG_TO_HOST_APPLIER);
+				printf("CD magic: 0x%X\n", codeDirectory->magic);
+				uint32_t slotZeroOffset = codeDirectory->hashOffset;
+				printf("Slot zero offset: 0x%x\n", slotZeroOffset);
+				uint32_t offsetOfBlobToReplace = slotZeroOffset + (pageNumber * codeDirectory->hashSize);
+				buffered_stream_write(blob->stream, offsetOfBlobToReplace, codeDirectory->hashSize, pageHash);
+				CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, HOST_TO_BIG_APPLIER);
+				break;
+			}
+			blob = blob->next;
+		}
+	}
 }
