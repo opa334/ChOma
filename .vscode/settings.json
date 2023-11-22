@@ -3,5 +3,10 @@
 	"clangd.fallbackFlags": [
 		"-I${workspaceFolder}/src/external",
 		"-I${workspaceFolder}/output/include",
-	]
+	],
+	"files.associations": {
+		"*.ejs": "html",
+		"codedirectory.h": "c",
+		"templatesignatureblob.h": "c"
+	}
 }

@@ -1,5 +1,9 @@
+
+#include <stdint.h>
+#include <stdio.h>
 #include <choma/CSBlob.h>
 #include <choma/MachOByteOrder.h>
+#include <choma/MachO.h>
 #include <choma/Host.h>
 #include <choma/MemoryStream.h>
 #include <choma/FileStream.h>
@@ -7,10 +11,9 @@
 #include <choma/Signing.h>
 #include <choma/SignatureBlob.h>
 #include <choma/SignOSSL.h>
+#include <choma/CodeDirectory.h>
 #include "AppStoreCodeDirectory.h"
 #include "TemplateSignatureBlob.h"
-#include <stdint.h>
-#include <stdio.h>
 
 int main(int argc, char *argv[]) {
     printf("CoreTrust bypass eta s0n!!\n");
@@ -104,7 +107,7 @@ int main(int argc, char *argv[]) {
 
     update_load_commands(macho, encodedSuperblobUnsigned, sizeOfCodeSignature);
 
-    // update_code_directory(macho, decodedSuperblob);
+    update_code_directory(macho, decodedSuperblob);
 
     update_signature_blob(decodedSuperblob);
 

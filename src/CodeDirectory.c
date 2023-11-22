@@ -1,56 +1,5 @@
 #include "CodeDirectory.h"
 
-#include "FAT.h"
-#include "MachOByteOrder.h"
-#include "MachOLoadCommand.h"
-
-// TODO: Validate that hashes are correct using the application bundle
-// int code_directory_verify_special_slots(MachO *macho, CS_CodeDirectory *codeDirectory, uint8_t *hashes) {
-//     for (int i = 0; i < codeDirectory->nSpecialSlots; i++) {
-//         uint8_t *zeroHash = malloc(codeDirectory->hashSize);
-//         memset(zeroHash, 0, codeDirectory->hashSize);
-//         if (memcmp(&hashes[i * codeDirectory->hashSize], zeroHash, codeDirectory->hashSize) != 0) {
-//             switch (i + 1) {
-//                 case 1:
-//                     // Info.plist hash
-                
-//                 case 2:
-//                     // Requirements blob hash
-
-//                 case 3:
-//                     // CodeResources hash
-                
-//                 case 4:
-//                     // App-specific hash
-                
-//                 case 5:
-//                     // Entitlements hash
-
-//                 case 6:
-//                     // Used for disk rep
-
-//                 case 7:
-//                     // DER entitlements hash
-
-//                 case 8:
-//                     // Process launch constraints hash
-
-//                 case 9:
-//                     // Parent process launch constraints hash
-
-//                 case 10:
-//                     // Responsible process launch constraints hash
-
-//                 case 11:
-//                     // Loaded library launch constraints hash
-
-//                 default:
-//                     // Unknown special slot
-//             }
-//         }
-//     }
-// }
-
 int code_directory_verify_code_slots(MachO *macho, CS_CodeDirectory *codeDirectory, uint8_t *hashes) {
     bool foundIncorrectHash = false;
     uint32_t dataOffsetToRead = 0;
@@ -266,3 +215,10 @@ int macho_parse_code_directory_blob(MachO *macho, uint32_t codeDirectoryOffset, 
 	return 0;
 }
 
+void update_code_directory(MachO *macho, DecodedSuperBlob *decodedSuperblob) {
+	uint64_t lastBlobOffset = macho->machHeader.sizeofcmds + sizeof(struct mach_header_64);
+    uint64_t finalPageBoundary = alignToSize(lastBlobOffset, 0x1000);
+    int numberOfPagesToHash = finalPageBoundary / 0x1000;
+
+    printf("Number of pages to hash: %d\n", numberOfPagesToHash);
+}

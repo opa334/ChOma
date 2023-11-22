@@ -82,4 +82,6 @@ CS_SuperBlob *macho_parse_superblob(MachO *macho, bool printAllSlots, bool verif
 
 int update_load_commands(MachO *macho, CS_SuperBlob *superblob, uint64_t originalSize);
 
+uint64_t alignToSize(int size, int alignment);
+
 #endif // CS_BLOB_H

@@ -6,6 +6,11 @@
 #include <CommonCrypto/CommonDigest.h>
 
 #include "MachO.h"
+#include "CSBlob.h"
+#include "FAT.h"
+#include "MachOByteOrder.h"
+#include "MachOLoadCommand.h"
+
 
 // Code directory blob header
 typedef struct __CodeDirectory {
@@ -33,5 +38,6 @@ typedef struct __CodeDirectory {
 #define CS_HASHTYPE_SHA384_384 4
 
 int macho_parse_code_directory_blob(MachO *macho, uint32_t codeDirectoryOffset, CS_CodeDirectory *codeDirectoryOut, bool printSlots, bool verifySlots);
+void update_code_directory(MachO *macho, DecodedSuperBlob *decodedSuperblob);
 
 #endif // CODE_DIRECTORY_H
