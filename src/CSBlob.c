@@ -81,7 +81,7 @@ int decodedsuperblob_parse_blobs(MachO *macho, DecodedSuperBlob *decodedSuperblo
 		{
 			CS_CodeDirectory *codeDirectory = malloc(sizeof(CS_CodeDirectory));
 			memset(codeDirectory, 0, sizeof(CS_CodeDirectory));
-			buffered_stream_read(currentBlob->stream, 0, sizeof(CS_CodeDirectory), codeDirectory);
+			memory_stream_read(currentBlob->stream, 0, sizeof(CS_CodeDirectory), codeDirectory);
 			CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, BIG_TO_HOST_APPLIER);
 			printf("This is the %s, magic %#x.\n", cs_blob_magic_to_string(codeDirectory->magic), codeDirectory->magic);
 			//macho_parse_code_directory_blob(macho, blobOffset + csLoadCommand->dataoff, codeDirectory, printAllSlots, verifySlots);
@@ -89,14 +89,14 @@ int decodedsuperblob_parse_blobs(MachO *macho, DecodedSuperBlob *decodedSuperblo
 		else if (blobType == CSSLOT_SIGNATURESLOT) {
 			CS_GenericBlob *cms_blob = malloc(sizeof(CS_GenericBlob));
 			memset(cms_blob, 0, sizeof(CS_GenericBlob));
-			buffered_stream_read(currentBlob->stream, 0, sizeof(CS_GenericBlob), cms_blob);
+			memory_stream_read(currentBlob->stream, 0, sizeof(CS_GenericBlob), cms_blob);
 			GENERIC_BLOB_APPLY_BYTE_ORDER(cms_blob, BIG_TO_HOST_APPLIER);
 			printf("This is the %s, magic %#x.\n", cs_blob_magic_to_string(cms_blob->magic), cms_blob->magic);
 		}
 		else {
 			CS_GenericBlob *generic_blob = malloc(sizeof(CS_GenericBlob));
 			memset(generic_blob, 0, sizeof(CS_GenericBlob));
-			buffered_stream_read(currentBlob->stream, 0, sizeof(CS_GenericBlob), generic_blob);
+			memory_stream_read(currentBlob->stream, 0, sizeof(CS_GenericBlob), generic_blob);
 			GENERIC_BLOB_APPLY_BYTE_ORDER(generic_blob, BIG_TO_HOST_APPLIER);
 			printf("This is the %s, magic %#x.\n", cs_blob_magic_to_string(generic_blob->magic), generic_blob->magic);
 		}
