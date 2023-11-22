@@ -23,12 +23,14 @@ typedef struct FAT
 
 int fat_read_at_offset(FAT *fat, uint64_t offset, size_t size, void *outBuf);
 
+MemoryStream *fat_get_stream(FAT *fat);
+
 // Initialise a FAT structure from a memory stream
 FAT *fat_init_from_memory_stream(MemoryStream *stream);
 
 // Initialise a FAT structure using the path to the file
 FAT *fat_init_from_path(const char *filePath);
-FAT *fat_init_from_path_for_writing(const char *filePath);
+//FAT *fat_init_from_path_for_writing(const char *filePath);
 
 // Find macho with cputype and cpusubtype in FAT, returns NULL if not found
 MachO *fat_find_slice(FAT *fat, cpu_type_t cputype, cpu_subtype_t cpusubtype);

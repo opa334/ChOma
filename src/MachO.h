@@ -39,6 +39,8 @@ int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBu
 // Write data from a MachO at a specified offset, auto expands, only works if opened via macho_init_for_writing
 int macho_write_at_offset(MachO *macho, uint64_t offset, size_t size, void *inBuf);
 
+MemoryStream *macho_get_stream(MachO *macho);
+
 // Perform translation between file offsets and virtual addresses
 int macho_translate_fileoff_to_vmaddr(MachO *macho, uint64_t fileoff, uint64_t *vmaddrOut, MachOSegment **segmentOut);
 int macho_translate_vmaddr_to_fileoff(MachO *macho, uint64_t vmaddr, uint64_t *fileoffOut, MachOSegment **segmentOut);

@@ -13,6 +13,11 @@ int fat_read_at_offset(FAT *fat, uint64_t offset, size_t size, void *outBuf)
     return memory_stream_read(fat->stream, offset, size, outBuf);
 }
 
+MemoryStream *fat_get_stream(FAT *fat)
+{
+    return fat->stream;
+}
+
 int fat_parse_slices(FAT *fat)
 {
     // Get size of file
@@ -155,11 +160,12 @@ FAT *fat_init_from_path(const char *filePath)
     return NULL;
 }
 
-FAT *fat_init_from_path_for_writing(const char *filePath)
+// this is not supported for the time being, as we would need to dynamically update the arch info when a macho is expanded (pain)
+/*FAT *fat_init_from_path_for_writing(const char *filePath)
 {
     MemoryStream *stream = file_stream_init_from_path(filePath, 0, FILE_STREAM_SIZE_AUTO, FILE_STREAM_FLAG_WRITABLE | FILE_STREAM_FLAG_AUTO_EXPAND);
     if (stream) {
         return fat_init_from_memory_stream(stream);
     }
     return NULL;
-}
+}*/

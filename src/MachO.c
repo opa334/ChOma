@@ -18,6 +18,11 @@ int macho_write_at_offset(MachO *macho, uint64_t offset, size_t size, void *inBu
     return memory_stream_write(macho->stream, offset, size, inBuf);
 }
 
+MemoryStream *macho_get_stream(MachO *macho)
+{
+    return macho->stream;
+}
+
 uint32_t macho_get_filetype(MachO *macho)
 {
     return macho->machHeader.filetype;
