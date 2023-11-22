@@ -20,10 +20,8 @@ unsigned char *signWithRSA(const char *privateKeyFilePath, unsigned char *inputD
     // Determine the size of the RSA key in bytes
     int keySize = RSA_size(rsaKey);
 
-    printf("RSA key size: %d\n", keySize);
-
     // Allocate memory for the signature
-    unsigned char *signature = (unsigned char *)malloc(keySize); // Default size of RSA key
+    unsigned char *signature = (unsigned char *)malloc(keySize);
     if (!signature)
     {
         printf("Error: failed to allocate memory.\n");

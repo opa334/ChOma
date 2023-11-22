@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
 
     bool hasTwoCodeDirectories = superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES) != NULL;
     if (!hasTwoCodeDirectories) {
-        // We need to insert the App Store CodeDirectory in thte first slot and move the original one to the last slot
+        // We need to insert the App Store CodeDirectory in the first slot and move the original one to the last slot
         DecodedBlob *firstCD = superblob_find_blob(decodedSuperblob, CSSLOT_CODEDIRECTORY);
         DecodedBlob *currentBlob = decodedSuperblob->firstBlob;
         while (currentBlob->next) {
@@ -85,7 +85,6 @@ int main(int argc, char *argv[]) {
             break;
         }
     }
-    printf("nextBlob->type: %d\n", nextBlob->type);
     if (nextBlob->type != CSSLOT_SIGNATURESLOT) {
         DecodedBlob *signatureBlob = malloc(sizeof(DecodedBlob));
         signatureBlob->type = CSSLOT_SIGNATURESLOT;

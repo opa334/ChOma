@@ -270,7 +270,6 @@ void decoded_superblob_free(DecodedSuperBlob *decodedSuperblob)
 
 uint64_t alignToSize(int size, int alignment)
 {
-	printf("alignToSize(%x, %x) = %x\n", size, alignment, (size + alignment - 1) & ~(alignment - 1));
 	return (size + alignment - 1) & ~(alignment - 1);
 }
 
@@ -283,9 +282,7 @@ int update_load_commands(MachO *macho, CS_SuperBlob *superblob, uint64_t origina
 			if (strcmp(segmentCommand->segname, "__LINKEDIT") != 0) return;
 			uint64_t difference = segmentCommand->filesize - originalSize;
 			uint64_t newFileSize = (uint64_t)(superblob->length >> 0x10) + difference;
-			printf("New filesize: %llx\n", newFileSize);
 			uint64_t newVMSize = alignToSize(newFileSize, 0x4000);
-			printf("New vmsize: %llx\n", newVMSize);
 			printf("Updating %s segment - offset: 0x%llx, filesize: 0x%llx, vmsize: 0x%llx.\n", segmentCommand->segname, segmentCommand->fileoff, newFileSize, newVMSize);
 			*stop = foundOne;
 			foundOne = true;
@@ -295,7 +292,7 @@ int update_load_commands(MachO *macho, CS_SuperBlob *superblob, uint64_t origina
 			LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(csLoadCommand, LITTLE_TO_HOST_APPLIER);
 			csLoadCommand->datasize = superblob->length;
 			// LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(csLoadCommand, HOST_TO_LITTLE_APPLIER);
-			printf("Updating code signature load command - offset: 0x%x, size: 0x%x.\n", csLoadCommand->dataoff, csLoadCommand->datasize);
+			printf("Updating code signature load command - offset: 0x%x, size: 0x%x.\n", csLoadCommand->dataoff, HOST_TO_BIG(csLoadCommand->datasize));
 			*stop = foundOne;
 			foundOne = true;
 		}
