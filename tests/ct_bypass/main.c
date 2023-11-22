@@ -184,13 +184,11 @@ int main(int argc, char *argv[]) {
     uint64_t freeSpace = entireFileSize - offsetOfCodeSignature;
     uint64_t paddingSize = freeSpace - sizeOfCodeSignature;
     uint64_t newCodeSignatureSize = BIG_TO_HOST(newSuperblob->length);
-    printf("New code signature size: 0x%llx\n", newCodeSignatureSize);
-    printf("Free space: 0x%llx\n", freeSpace);
     if (newCodeSignatureSize >= freeSpace) {
         macho_write_at_offset(macho, offsetOfCodeSignature, newCodeSignatureSize, newSuperblob);
         uint8_t padding[paddingSize];
         memset(padding, 0, paddingSize);
-        macho_write_at_offset(macho, offsetOfCodeSignature + freeSpace, paddingSize, padding);
+        macho_write_at_offset(macho, offsetOfCodeSignature + newCodeSignatureSize, paddingSize, padding);
     } else if (newCodeSignatureSize < freeSpace) {
         memory_stream_trim(macho_get_stream(macho), 0, offsetOfCodeSignature);
         macho_write_at_offset(macho, offsetOfCodeSignature, newCodeSignatureSize, newSuperblob);

@@ -64,13 +64,13 @@ int update_signature_blob(DecodedSuperBlob *superblob) {
     printf("Base64 hash: %s\n", newBase64Hash);
 
     int ret = memory_stream_write(signatureBlob->stream, HASHHASH_OFFSET, CC_SHA256_DIGEST_LENGTH, secondCDSHA256Hash);
-    if (ret != 0) {
+    if (ret == 0) {
         printf("Failed to write SHA256 hash to signature blob!\n");
         return -1;
     }
     
     ret = memory_stream_write(signatureBlob->stream, BASEBASE_OFFSET, base64OutLength, newBase64Hash);
-    if (ret != 0) {
+    if (ret == 0) {
         printf("Failed to write base64 hash to signature blob!\n");
         return -1;
     }
