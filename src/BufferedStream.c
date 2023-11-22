@@ -35,6 +35,7 @@ static int buffered_stream_write(MemoryStream *stream, uint64_t offset, size_t s
 
     bool expandAllowed = (stream->flags & MEMORY_STREAM_FLAG_AUTO_EXPAND);
     bool needsExpand = (offset + size) > context->bufferSize;
+    printf("expandAllowed: %d, needsExpand: %d\n", expandAllowed, needsExpand);
 
     if (needsExpand && !expandAllowed) {
         printf("Error: cannot write %zx bytes at %llx, maximum is %zx.\n", size, offset, context->bufferSize);
@@ -158,10 +159,6 @@ MemoryStream *buffered_stream_init_from_buffer_nocopy(void *buffer, size_t buffe
     if (!stream) return NULL;
     memset(stream, 0, sizeof(MemoryStream));
 
-    if (flags & BUFFERED_STREAM_FLAG_AUTO_EXPAND) {
-        stream->flags |= MEMORY_STREAM_FLAG_AUTO_EXPAND;
-    }
-
     BufferedStreamContext *context = malloc(sizeof(BufferedStreamContext));
     context->buffer = buffer;
     context->bufferSize = bufferSize;
@@ -170,6 +167,10 @@ MemoryStream *buffered_stream_init_from_buffer_nocopy(void *buffer, size_t buffe
 
     stream->context = context;
     if (_buffered_stream_init(stream) != 0) goto fail;
+
+    if (flags & BUFFERED_STREAM_FLAG_AUTO_EXPAND) {
+        stream->flags |= MEMORY_STREAM_FLAG_AUTO_EXPAND;
+    }
 
     return stream;
 
