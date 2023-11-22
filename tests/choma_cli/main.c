@@ -81,10 +81,11 @@ int main(int argc, char *argv[]) {
     if (!macho) return -1;
 
     if (getArgumentBool("-c")) {
-        CS_SuperBlob *superblob;
         for (int i = 0; i < fat->slicesCount; i++) {
+            CS_SuperBlob *superblob = (CS_SuperBlob *)macho_find_code_signature(macho);
             MachO *slice = fat->slices[i];
-            superblob = macho_parse_superblob(slice, getArgumentBool("-s"), getArgumentBool("-v"));
+            DecodedSuperBlob *decodedSuperBlob = superblob_decode(superblob);
+            decodedsuperblob_parse_blobs(macho, decodedSuperBlob, getArgumentBool("-s"), getArgumentBool("-v"));
             if (getArgumentBool("-e")) {
                 macho_extract_cs_to_file(slice, superblob);
             }

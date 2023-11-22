@@ -108,6 +108,10 @@
     applier(sb, length); \
     applier(sb, count);
 
+#define GENERIC_BLOB_APPLY_BYTE_ORDER(gb, applier) \
+    applier(gb, magic); \
+    applier(gb, length);
+
 #define CODE_DIRECTORY_APPLY_BYTE_ORDER(cd, applier) \
     applier(cd, magic); \
     applier(cd, length); \

@@ -67,87 +67,41 @@ int macho_parse_signature_blob_to_der_encoded_data(MachO *macho, uint32_t signat
 	return macho_read_at_offset(macho, signatureBlobOffset + 8, signatureBlobLength - 8, outputDER);
 }
 
-int cs_superblob_parse_blobs(MachO *macho, CS_SuperBlob *superblob, struct linkedit_data_command *csLoadCommand, bool printAllSlots, bool verifySlots)
+int decodedsuperblob_parse_blobs(MachO *macho, DecodedSuperBlob *decodedSuperblob, bool printAllSlots, bool verifySlots)
 {
-	for (int blobCount = 0; blobCount < superblob->count; blobCount++)
-	{
-		uint32_t blobType = superblob->index[blobCount].type;
-    	uint32_t blobOffset = superblob->index[blobCount].offset;
-		printf("Slot %d: %s (offset 0x%x, type: 0x%x).\n", blobCount + 1, cs_slot_index_to_string(blobType), blobOffset + csLoadCommand->dataoff, blobType);
+	DecodedBlob *currentBlob = decodedSuperblob->firstBlob;
+	int count = 0;
+    while (currentBlob->next) {
+        currentBlob = currentBlob->next;
+		uint32_t blobType = currentBlob->type;
+		printf("Slot %d: %s (type: 0x%x).\n", count++, cs_slot_index_to_string(blobType), blobType);
+		//printf("Slot %d: %s (offset 0x%x, type: 0x%x).\n", blobCount + 1, cs_slot_index_to_string(blobType), blobOffset + csLoadCommand->dataoff, blobType);
 
 		if (blobType == CSSLOT_CODEDIRECTORY || blobType == CSSLOT_ALTERNATE_CODEDIRECTORIES)
 		{
-			CS_CodeDirectory *codeDirectory = (CS_CodeDirectory*)((uint8_t *)superblob + blobOffset);
-			printf("This is the %s, magic %#x\n", cs_blob_magic_to_string(BIG_TO_HOST(codeDirectory->magic)), BIG_TO_HOST(codeDirectory->magic));
-			macho_parse_code_directory_blob(macho, blobOffset + csLoadCommand->dataoff, codeDirectory, printAllSlots, verifySlots);
+			CS_CodeDirectory *codeDirectory = malloc(sizeof(CS_CodeDirectory));
+			memset(codeDirectory, 0, sizeof(CS_CodeDirectory));
+			buffered_stream_read(currentBlob->stream, 0, sizeof(CS_CodeDirectory), codeDirectory);
+			CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, BIG_TO_HOST_APPLIER);
+			printf("This is the %s, magic %#x.\n", cs_blob_magic_to_string(codeDirectory->magic), codeDirectory->magic);
+			//macho_parse_code_directory_blob(macho, blobOffset + csLoadCommand->dataoff, codeDirectory, printAllSlots, verifySlots);
 		}
 		else if (blobType == CSSLOT_SIGNATURESLOT) {
-			CS_GenericBlob *cms_blob = (CS_GenericBlob*)((uint8_t *)superblob + blobOffset);
-			printf("This is the %s, magic %#x\n", cs_blob_magic_to_string(BIG_TO_HOST(cms_blob->magic)), BIG_TO_HOST(cms_blob->magic));
+			CS_GenericBlob *cms_blob = malloc(sizeof(CS_GenericBlob));
+			memset(cms_blob, 0, sizeof(CS_GenericBlob));
+			buffered_stream_read(currentBlob->stream, 0, sizeof(CS_GenericBlob), cms_blob);
+			GENERIC_BLOB_APPLY_BYTE_ORDER(cms_blob, BIG_TO_HOST_APPLIER);
+			printf("This is the %s, magic %#x.\n", cs_blob_magic_to_string(cms_blob->magic), cms_blob->magic);
 		}
 		else {
-			CS_GenericBlob *generic_blob = (CS_GenericBlob*)((uint8_t *)superblob + blobOffset);
-			printf("This is the %s, magic %#x\n", cs_blob_magic_to_string(BIG_TO_HOST(generic_blob->magic)), BIG_TO_HOST(generic_blob->magic));
+			CS_GenericBlob *generic_blob = malloc(sizeof(CS_GenericBlob));
+			memset(generic_blob, 0, sizeof(CS_GenericBlob));
+			buffered_stream_read(currentBlob->stream, 0, sizeof(CS_GenericBlob), generic_blob);
+			GENERIC_BLOB_APPLY_BYTE_ORDER(generic_blob, BIG_TO_HOST_APPLIER);
+			printf("This is the %s, magic %#x.\n", cs_blob_magic_to_string(generic_blob->magic), generic_blob->magic);
 		}
-
 	}
 	return 0;
-}
-
-
-CS_SuperBlob *macho_parse_superblob(MachO *macho, bool printAllSlots, bool verifySlots)
-{
-	if (!macho->isSupported)
-	{
-		printf("Refusing to parse superblob for unsupported macho.\n");
-		return NULL;
-	}
-	__block CS_SuperBlob *blobOut = NULL;
-	macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
-		// Find LC_CODE_SIGNATURE
-		if (loadCommand.cmd == LC_CODE_SIGNATURE)
-		{
-			printf("Found code signature load command.\n");
-			// TODO: Move this check into macho_enumerate_load_commands
-			if (loadCommand.cmdsize != sizeof(struct linkedit_data_command)) {
-				printf("Code signature load command has invalid size: 0x%x (vs 0x%lx)\n", loadCommand.cmdsize, sizeof(struct linkedit_data_command));
-				*stop = true;
-				return;
-			}
-
-			// Create and populate the code signature load command structure
-			struct linkedit_data_command *csLoadCommand = ((struct linkedit_data_command *)cmd);
-			// TODO: Maybe move this to macho_enumerate_load_commands impl?
-			LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(csLoadCommand, LITTLE_TO_HOST_APPLIER);
-			printf("Code signature - offset: 0x%x, size: 0x%x.\n", csLoadCommand->dataoff, csLoadCommand->datasize);
-
-			// Read the superblob data
-			CS_SuperBlob *superblob = malloc(csLoadCommand->datasize);
-			macho_read_at_offset(macho, csLoadCommand->dataoff, csLoadCommand->datasize, superblob);
-			SUPERBLOB_APPLY_BYTE_ORDER(superblob, BIG_TO_HOST_APPLIER);
-			for (uint32_t i = 0; i < superblob->count; i++) {
-				BLOB_INDEX_APPLY_BYTE_ORDER(&superblob->index[i], BIG_TO_HOST_APPLIER);
-			}
-
-			blobOut = superblob;
-
-			if (superblob->magic != CSBLOB_EMBEDDED_SIGNATURE)
-			{
-				*stop = true;
-				return;
-			}
-			cs_superblob_parse_blobs(macho, superblob, csLoadCommand, printAllSlots, verifySlots);
-			*stop = true;
-			return;
-		}
-
-		if (loadCommand.cmd == LC_SEGMENT_64) {
-			struct segment_command_64 segmentCommand = *((struct segment_command_64*)cmd);
-			SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(&segmentCommand, LITTLE_TO_HOST_APPLIER); // TODO: Move this to macho_enumerate_load_commands impl
-			printf("Found %s segment - offset: 0x%llx, filesize: 0x%llx, vmsize: 0x%llx.\n", segmentCommand.segname, segmentCommand.fileoff, segmentCommand.filesize, segmentCommand.vmsize);
-		}
-	});
-	return blobOut;
 }
 
 uint8_t *macho_find_code_signature(MachO *macho)

@@ -79,7 +79,7 @@ char *cs_blob_magic_to_string(int magic);
 // Extract Code Signature to file
 int macho_extract_cs_to_file(MachO *macho, CS_SuperBlob *superblob);
 
-CS_SuperBlob *macho_parse_superblob(MachO *macho, bool printAllSlots, bool verifySlots);
+int decodedsuperblob_parse_blobs(MachO *macho, DecodedSuperBlob *decodedSuperblob, bool printAllSlots, bool verifySlots);
 
 int update_load_commands(MachO *macho, CS_SuperBlob *superblob, uint64_t originalSize);
 
