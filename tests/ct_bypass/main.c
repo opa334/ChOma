@@ -77,27 +77,6 @@ int main(int argc, char *argv[]) {
 
     // DecodedSuperblob *newDecodedSuperblob = malloc(sizeof(DecodedSuperBlob));
     DecodedSuperBlob *newDecodedSuperblob = superblob_decode(superblob);
-    
-    // // Add the signature blob to the end of the superblob
-    // DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
-    // while (nextBlob->next) {
-    //     if (nextBlob->type == CSSLOT_SIGNATURESLOT) {
-    //         break;
-    //     }
-    //     if (nextBlob->next) {
-    //         nextBlob = nextBlob->next;
-    //     }
-    // }
-    // if (nextBlob->type != CSSLOT_SIGNATURESLOT) {
-    //     DecodedBlob *signatureBlob = malloc(sizeof(DecodedBlob));
-    //     signatureBlob->type = CSSLOT_SIGNATURESLOT;
-    //     signatureBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
-    //     signatureBlob->next = NULL;
-    //     nextBlob->next = signatureBlob;
-    // } else {
-    //     memory_stream_free(nextBlob->stream);
-    //     nextBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
-    // }
 
     /*
         App Store CodeDirectory
@@ -126,7 +105,7 @@ int main(int argc, char *argv[]) {
         memory_stream_free(superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT)->stream);
         superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT)->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
     } else {
-        DecodedBlob *signatureBlob = malloc(sizeof(DecodedBlob));
+        signatureBlob = malloc(sizeof(DecodedBlob));
         signatureBlob->type = CSSLOT_SIGNATURESLOT;
         signatureBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
         signatureBlob->next = NULL;
