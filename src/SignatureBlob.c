@@ -1,6 +1,7 @@
 #include "SignatureBlob.h"
 #include "BufferedStream.h"
 #include "Base64.h"
+#include "MemoryStream.h"
 #include "SignOSSL.h"
 #include "DecryptedSignature.h"
 #include <sys/types.h>
@@ -37,11 +38,10 @@ int update_signature_blob(DecodedSuperBlob *superblob) {
     }
 
     uint8_t fullHash[CC_SHA256_DIGEST_LENGTH];
-    size_t dataSizeToRead = 0;
-    buffered_stream_get_size(sha256CD->stream, &dataSizeToRead);
+    size_t dataSizeToRead = memory_stream_get_size(sha256CD->stream);
     uint8_t *data = malloc(dataSizeToRead);
     memset(data, 0, dataSizeToRead);
-    buffered_stream_read(sha256CD->stream, 0, dataSizeToRead, data);
+    memory_stream_read(sha256CD->stream, 0, dataSizeToRead, data);
     CC_SHA256(data, (CC_LONG)dataSizeToRead, fullHash);
     free(data);
     uint8_t secondCDSHA256Hash[CC_SHA256_DIGEST_LENGTH];
@@ -63,13 +63,13 @@ int update_signature_blob(DecodedSuperBlob *superblob) {
     // Print the base64 hash
     printf("Base64 hash: %s\n", newBase64Hash);
 
-    int ret = buffered_stream_write(signatureBlob->stream, HASHHASH_OFFSET, CC_SHA256_DIGEST_LENGTH, secondCDSHA256Hash);
+    int ret = memory_stream_write(signatureBlob->stream, HASHHASH_OFFSET, CC_SHA256_DIGEST_LENGTH, secondCDSHA256Hash);
     if (ret != 0) {
         printf("Failed to write SHA256 hash to signature blob!\n");
         return -1;
     }
     
-    ret = buffered_stream_write(signatureBlob->stream, BASEBASE_OFFSET, base64OutLength, newBase64Hash);
+    ret = memory_stream_write(signatureBlob->stream, BASEBASE_OFFSET, base64OutLength, newBase64Hash);
     if (ret != 0) {
         printf("Failed to write base64 hash to signature blob!\n");
         return -1;
@@ -87,7 +87,7 @@ int update_signature_blob(DecodedSuperBlob *superblob) {
     // Get the signed attributes hash
     unsigned char *signedAttrs = malloc(0x229);
     memset(signedAttrs, 0, 0x229);
-    buffered_stream_read(signatureBlob->stream, SIGNED_ATTRS_OFFSET, 0x229, signedAttrs);
+    memory_stream_read(signatureBlob->stream, SIGNED_ATTRS_OFFSET, 0x229, signedAttrs);
     signedAttrs[0] = 0x31;
     
     // Hash
@@ -107,7 +107,7 @@ int update_signature_blob(DecodedSuperBlob *superblob) {
         return -1;
     }
 
-    ret = buffered_stream_write(signatureBlob->stream, SIGNSIGN_OFFSET, newSignatureSize, newSignature);
+    ret = memory_stream_write(signatureBlob->stream, SIGNSIGN_OFFSET, newSignatureSize, newSignature);
     
     return ret;
 }

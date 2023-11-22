@@ -1,19 +1,19 @@
 #include "FileStream.h"
 #include <sys/fcntl.h>
 
-int _file_stream_context_is_trimmed(FileStreamContext *context)
+static int _file_stream_context_is_trimmed(FileStreamContext *context)
 {
     return (context->bufferStart != 0 || context->bufferSize != context->fileSize);
 }
 
-int file_stream_read(MemoryStream *stream, uint64_t offset, size_t size, void *outBuf)
+static int file_stream_read(MemoryStream *stream, uint64_t offset, size_t size, void *outBuf)
 {
     FileStreamContext *context = stream->context;
     lseek(context->fd, context->bufferStart + offset, SEEK_SET);
     return read(context->fd, outBuf, size);
 }
 
-int file_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf)
+static int file_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf)
 {
     FileStreamContext *context = stream->context;
 
@@ -43,20 +43,20 @@ int file_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *
     return write(context->fd, inBuf, size);
 }
 
-int file_stream_get_size(MemoryStream *stream, size_t *sizeOut)
+static int file_stream_get_size(MemoryStream *stream, size_t *sizeOut)
 {
     FileStreamContext *context = stream->context;
     *sizeOut = context->bufferSize;
     return 0;
 }
 
-MemoryStream *file_stream_softclone(MemoryStream *stream)
+static MemoryStream *file_stream_softclone(MemoryStream *stream)
 {
     FileStreamContext *context = stream->context;
     return file_stream_init_from_file_descriptor_nodup(context->fd, context->bufferStart, context->bufferSize, 0);
 }
 
-MemoryStream *file_stream_hardclone(MemoryStream *stream)
+static MemoryStream *file_stream_hardclone(MemoryStream *stream)
 {
     FileStreamContext *context = stream->context;
     int thisFlags = 0;
@@ -69,7 +69,7 @@ MemoryStream *file_stream_hardclone(MemoryStream *stream)
     return file_stream_init_from_file_descriptor(context->fd, context->bufferStart, context->bufferSize, thisFlags);
 }
 
-int file_stream_trim(MemoryStream *stream, size_t trimAtStart, size_t trimAtEnd)
+static int file_stream_trim(MemoryStream *stream, size_t trimAtStart, size_t trimAtEnd)
 {
     FileStreamContext *context = stream->context;
     if ((int64_t)context->bufferSize - (trimAtStart + trimAtEnd) < 0) {
@@ -81,7 +81,7 @@ int file_stream_trim(MemoryStream *stream, size_t trimAtStart, size_t trimAtEnd)
     return 0;
 }
 
-int file_stream_expand(MemoryStream *stream, size_t expandAtStart, size_t expandAtEnd)
+static int file_stream_expand(MemoryStream *stream, size_t expandAtStart, size_t expandAtEnd)
 {
     FileStreamContext *context = stream->context;
 
@@ -99,7 +99,7 @@ int file_stream_expand(MemoryStream *stream, size_t expandAtStart, size_t expand
     return 0;
 }
 
-void file_stream_free(MemoryStream *stream)
+static void file_stream_free(MemoryStream *stream)
 {
     FileStreamContext *context = stream->context;
     if (context->fd != -1) {

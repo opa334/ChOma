@@ -127,7 +127,7 @@ void update_segment_command_64(MachO *macho, const char *segmentName, uint64_t v
                 segmentCommand->fileoff = fileoff;
                 segmentCommand->filesize = filesize;
                 SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(segmentCommand, HOST_TO_LITTLE_APPLIER);
-                file_stream_write(macho->stream, offset, sizeof(struct segment_command_64), segmentCommand);
+                memory_stream_write(macho->stream, offset, sizeof(struct segment_command_64), segmentCommand);
                 *stop = true;
             }
         }
@@ -141,7 +141,7 @@ void update_lc_code_signature(MachO *macho, uint64_t size) {
             LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(csLoadCommand, LITTLE_TO_HOST_APPLIER);
             csLoadCommand->datasize = size;
             LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(csLoadCommand, HOST_TO_LITTLE_APPLIER);
-            printf("RET=%d.\n", file_stream_write(macho->stream, offset, sizeof(struct linkedit_data_command), csLoadCommand));
+            printf("RET=%d.\n", memory_stream_write(macho->stream, offset, sizeof(struct linkedit_data_command), csLoadCommand));
             *stop = true;
         }
     });

@@ -245,13 +245,13 @@ void update_code_directory(MachO *macho, DecodedSuperBlob *decodedSuperblob) {
 				printf("\n");
 				CS_CodeDirectory *codeDirectory = malloc(sizeof(CS_CodeDirectory));
 				memset(codeDirectory, 0, sizeof(CS_CodeDirectory));
-				buffered_stream_read(blob->stream, 0, sizeof(CS_CodeDirectory), codeDirectory);
+				memory_stream_read(blob->stream, 0, sizeof(CS_CodeDirectory), codeDirectory);
 				CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, BIG_TO_HOST_APPLIER);
 				printf("CD magic: 0x%X\n", codeDirectory->magic);
 				uint32_t slotZeroOffset = codeDirectory->hashOffset;
 				printf("Slot zero offset: 0x%x\n", slotZeroOffset);
 				uint32_t offsetOfBlobToReplace = slotZeroOffset + (pageNumber * codeDirectory->hashSize);
-				buffered_stream_write(blob->stream, offsetOfBlobToReplace, codeDirectory->hashSize, pageHash);
+				memory_stream_read(blob->stream, offsetOfBlobToReplace, codeDirectory->hashSize, pageHash);
 				CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, HOST_TO_BIG_APPLIER);
 				break;
 			}

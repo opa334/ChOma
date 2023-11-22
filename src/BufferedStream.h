@@ -11,12 +11,6 @@ typedef struct BufferedStreamContext {
     size_t subBufferSize;
 } BufferedStreamContext;
 
-
-int buffered_stream_read(MemoryStream *stream, uint64_t offset, size_t size, void *outBuf);
-int buffered_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf);
-int buffered_stream_get_size(MemoryStream *stream, size_t *sizeOut);
-int buffered_stream_clone(MemoryStream *stream, MemoryStream *streamClone);
-void buffered_stream_free(MemoryStream *stream);
 MemoryStream *buffered_stream_init_from_buffer_nocopy(void *buffer, size_t bufferSize);
 MemoryStream *buffered_stream_init_from_buffer(void *buffer, size_t bufferSize);
 

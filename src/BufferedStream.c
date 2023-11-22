@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 
-int _buffered_stream_make_own_data(MemoryStream *stream)
+static int _buffered_stream_make_own_data(MemoryStream *stream)
 {
     BufferedStreamContext *context = stream->context;
     if ((stream->flags & MEMORY_STREAM_FLAG_OWNS_DATA) == 0) {
@@ -15,7 +15,7 @@ int _buffered_stream_make_own_data(MemoryStream *stream)
     return 0;
 }
 
-int buffered_stream_read(MemoryStream *stream, uint64_t offset, size_t size, void *outBuf)
+static int buffered_stream_read(MemoryStream *stream, uint64_t offset, size_t size, void *outBuf)
 {
     BufferedStreamContext *context = stream->context;
     if ((offset + size) > context->subBufferSize) {
@@ -27,7 +27,7 @@ int buffered_stream_read(MemoryStream *stream, uint64_t offset, size_t size, voi
     return 0;
 }
 
-int buffered_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf)
+static int buffered_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf)
 {
     BufferedStreamContext *context = stream->context;
     if ((offset + size) > context->bufferSize) {
@@ -44,20 +44,20 @@ int buffered_stream_write(MemoryStream *stream, uint64_t offset, size_t size, vo
     return 0;
 }
 
-int buffered_stream_get_size(MemoryStream *stream, size_t *sizeOut)
+static int buffered_stream_get_size(MemoryStream *stream, size_t *sizeOut)
 {
     BufferedStreamContext *context = stream->context;
     *sizeOut = context->bufferSize;
     return 0;
 }
 
-uint8_t *buffered_stream_get_raw_pointer(MemoryStream *stream)
+static uint8_t *buffered_stream_get_raw_pointer(MemoryStream *stream)
 {
     BufferedStreamContext *context = stream->context;
     return &context->buffer[context->subBufferStart];
 }
 
-int buffered_stream_trim(MemoryStream *stream, size_t trimAtStart, size_t trimAtEnd)
+static int buffered_stream_trim(MemoryStream *stream, size_t trimAtStart, size_t trimAtEnd)
 {
     BufferedStreamContext *context = stream->context;
 
@@ -68,7 +68,7 @@ int buffered_stream_trim(MemoryStream *stream, size_t trimAtStart, size_t trimAt
     return 0;
 }
 
-int buffered_stream_expand(MemoryStream *stream, size_t expandAtStart, size_t expandAtEnd)
+static int buffered_stream_expand(MemoryStream *stream, size_t expandAtStart, size_t expandAtEnd)
 {
     BufferedStreamContext *context = stream->context;
 
@@ -85,7 +85,7 @@ int buffered_stream_expand(MemoryStream *stream, size_t expandAtStart, size_t ex
     return 0;
 }
 
-MemoryStream *buffered_stream_softclone(MemoryStream *stream)
+static MemoryStream *buffered_stream_softclone(MemoryStream *stream)
 {
     MemoryStream* clone = malloc(sizeof(MemoryStream));
     if (!clone) return NULL;
@@ -104,7 +104,7 @@ MemoryStream *buffered_stream_softclone(MemoryStream *stream)
     return clone;
 }
 
-MemoryStream *buffered_stream_hardclone(MemoryStream *stream)
+static MemoryStream *buffered_stream_hardclone(MemoryStream *stream)
 {
     MemoryStream* clone = buffered_stream_softclone(stream);
     if (clone) {
@@ -113,7 +113,7 @@ MemoryStream *buffered_stream_hardclone(MemoryStream *stream)
     return clone;
 }
 
-void buffered_stream_free(MemoryStream *stream)
+static void buffered_stream_free(MemoryStream *stream)
 {
     BufferedStreamContext *context = stream->context;
     if (context->buffer) {
@@ -124,7 +124,7 @@ void buffered_stream_free(MemoryStream *stream)
     free(context);
 }
 
-int _buffered_stream_init(MemoryStream *stream)
+static int _buffered_stream_init(MemoryStream *stream)
 {
     stream->read = buffered_stream_read;
     stream->write = buffered_stream_write;
