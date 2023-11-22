@@ -207,13 +207,12 @@ MachO *macho_init_for_writing(char *filePath)
     if (!macho->stream) goto fail;
 
     size_t fileSize = memory_stream_get_size(macho->stream);
-    struct mach_header_64 machHeader;
-    memory_stream_read(macho->stream, 0, sizeof(machHeader), &machHeader);
-    MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, HOST_TO_LITTLE_APPLIER);
-    if (machHeader.magic != MH_MAGIC_64) goto fail;
+    memory_stream_read(macho->stream, 0, sizeof(struct mach_header_64), &macho->machHeader);
+    MACH_HEADER_APPLY_BYTE_ORDER(&macho->machHeader, HOST_TO_LITTLE_APPLIER);
+    if (macho->machHeader.magic != MH_MAGIC_64) goto fail;
 
-    macho->archDescriptor.cpusubtype = machHeader.cpusubtype;
-    macho->archDescriptor.cputype = machHeader.cputype;
+    macho->archDescriptor.cpusubtype = macho->machHeader.cpusubtype;
+    macho->archDescriptor.cputype = macho->machHeader.cputype;
     macho->archDescriptor.offset = 0;
     macho->archDescriptor.size = fileSize;
     macho->archDescriptor.align = 0x4000;
