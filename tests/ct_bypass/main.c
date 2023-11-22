@@ -15,6 +15,23 @@
 #include "AppStoreCodeDirectory.h"
 #include "TemplateSignatureBlob.h"
 
+char *extract_preferred_slice(const char *fatPath)
+{
+    FAT *fat = fat_init_from_path(fatPath);
+    MachO *macho = fat_find_preferred_slice(fat);
+    
+    char *temp = strdup("/tmp/XXXXXX");
+    mkstemp(temp);
+
+    MemoryStream *outStream = file_stream_init_from_path(temp, 0, 0, FILE_STREAM_FLAG_WRITABLE | FILE_STREAM_FLAG_AUTO_EXPAND);
+    MemoryStream *machoStream = macho_get_stream(macho);
+    memory_stream_copy_data(machoStream, 0, outStream, 0, memory_stream_get_size(machoStream));
+
+    fat_free(fat);
+    memory_stream_free(outStream);
+    return temp;
+}
+
 int main(int argc, char *argv[]) {
     printf("CoreTrust bypass eta s0n!!\n");
 
@@ -31,11 +48,10 @@ int main(int argc, char *argv[]) {
     }
 
     char *filePath = argv[1];
+    char *machoPath = extract_preferred_slice(filePath);
+    printf("extracted best slice to %s\n", machoPath);
 
-    FAT *fat = fat_init_from_path_for_writing(filePath);
-    if (!fat) { return -1; }
-
-    MachO *macho = fat_find_preferred_slice(fat);
+    MachO *macho = macho_init_for_writing(machoPath);
     if (!macho) return -1;
 
     CS_SuperBlob *superblob = (CS_SuperBlob *)macho_find_code_signature(macho);
@@ -169,6 +185,8 @@ int main(int argc, char *argv[]) {
     free(superblob);
     free(newSuperblob);
     
-    fat_free(fat);
+    macho_free(macho);
+    printf("Signed file is at %s! CoreTrust bypass eta now!!", machoPath);
+    free(machoPath);
     return 0;
 }
