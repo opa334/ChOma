@@ -55,6 +55,10 @@ int main(int argc, char *argv[]) {
     if (!macho) return -1;
 
     CS_SuperBlob *superblob = (CS_SuperBlob *)macho_find_code_signature(macho);
+    if (!superblob) {
+        printf("Error: no code signature found, please fake-sign the binary at minimum before running the bypass.\n");
+        return -1;
+    }
     uint64_t sizeOfCodeSignature = BIG_TO_HOST(superblob->length);
 
     FILE *fp = fopen("data/blob.orig", "wb");
@@ -147,8 +151,19 @@ int main(int argc, char *argv[]) {
 
     printf("Signing superblob...\n");
 
-    uint64_t paddingSize = 0;
-    update_load_commands_for_coretrust_bypass(macho, encodedSuperblobUnsigned, sizeOfCodeSignature, memory_stream_get_size(macho->stream), &paddingSize);
+    __block uint64_t linkeditSizeBeforeUpdate = 0;
+    macho_enumerate_load_commands(macho,  ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
+        if (loadCommand.cmd == LC_SEGMENT_64) {
+            struct segment_command_64 *segmentCommand = (struct segment_command_64 *)cmd;
+            SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(segmentCommand, LITTLE_TO_HOST_APPLIER);
+            if (strcmp(segmentCommand->segname, "__LINKEDIT") == 0) {
+                linkeditSizeBeforeUpdate = segmentCommand->filesize;
+                printf("Linkedit size before update: 0x%llx\n", linkeditSizeBeforeUpdate);
+            }
+        }
+    });
+
+    update_load_commands_for_coretrust_bypass(macho, encodedSuperblobUnsigned, sizeOfCodeSignature, memory_stream_get_size(macho->stream));
 
     update_code_directory(macho, newDecodedSuperblob);
 
@@ -167,7 +182,10 @@ int main(int argc, char *argv[]) {
     // See how much space we have to write the new code signature
     uint64_t entireFileSize = memory_stream_get_size(macho->stream);
     uint64_t freeSpace = entireFileSize - offsetOfCodeSignature;
+    uint64_t paddingSize = freeSpace - sizeOfCodeSignature;
     uint64_t newCodeSignatureSize = BIG_TO_HOST(newSuperblob->length);
+    printf("New code signature size: 0x%llx\n", newCodeSignatureSize);
+    printf("Free space: 0x%llx\n", freeSpace);
     if (newCodeSignatureSize >= freeSpace) {
         macho_write_at_offset(macho, offsetOfCodeSignature, newCodeSignatureSize, newSuperblob);
         uint8_t padding[paddingSize];

@@ -147,7 +147,7 @@ void update_lc_code_signature(MachO *macho, uint64_t size) {
     });
 }
 
-void update_load_commands_for_coretrust_bypass(MachO *macho, CS_SuperBlob *superblob, uint64_t originalCodeSignatureSize, uint64_t originalMachOSize, uint64_t *paddingSize) {
+void update_load_commands_for_coretrust_bypass(MachO *macho, CS_SuperBlob *superblob, uint64_t originalCodeSignatureSize, uint64_t originalMachOSize) {
 
     uint64_t sizeOfCodeSignature = BIG_TO_HOST(superblob->length);
 
@@ -173,8 +173,7 @@ void update_load_commands_for_coretrust_bypass(MachO *macho, CS_SuperBlob *super
         exit(1);
     }
 
-    *paddingSize = blockPaddingSize;
-    uint64_t newSegmentSize = sizeOfCodeSignature + *paddingSize;
+    uint64_t newSegmentSize = sizeOfCodeSignature + blockPaddingSize;
     uint64_t newVMSize = alignToSize(newSegmentSize, 0x4000);
 
     // Update the segment command
