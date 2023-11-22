@@ -1,5 +1,7 @@
+OPENSSL_FLAGS := $(shell pkg-config --cflags --libs libcrypto)
+
 CC := clang
-CFLAGS := -Wall -Werror -fPIC -Wno-pointer-to-int-cast -Wno-unused-command-line-argument -Wno-deprecated-declarations -framework Security -framework CoreFoundation -lcrypto
+CFLAGS := -Wall -Werror -fPIC $(OPENSSL_FLAGS) -Wno-pointer-to-int-cast -Wno-unused-command-line-argument -Wno-deprecated-declarations -framework Security -framework CoreFoundation
 
 LIB_NAME := libchoma
 
