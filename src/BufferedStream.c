@@ -3,6 +3,8 @@
 
 #include <stdlib.h>
 
+static int buffered_stream_expand(MemoryStream *stream, size_t expandAtStart, size_t expandAtEnd);
+
 static int _buffered_stream_make_own_data(MemoryStream *stream)
 {
     BufferedStreamContext *context = stream->context;
@@ -30,7 +32,11 @@ static int buffered_stream_read(MemoryStream *stream, uint64_t offset, size_t si
 static int buffered_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf)
 {
     BufferedStreamContext *context = stream->context;
-    if ((offset + size) > context->bufferSize) {
+
+    bool expandAllowed = (stream->flags & MEMORY_STREAM_FLAG_AUTO_EXPAND);
+    bool needsExpand = (offset + size) > context->bufferSize;
+
+    if (needsExpand && !expandAllowed) {
         printf("Error: cannot write %zx bytes at %llx, maximum is %zx.\n", size, offset, context->bufferSize);
         return -1;
     }
@@ -38,6 +44,10 @@ static int buffered_stream_write(MemoryStream *stream, uint64_t offset, size_t s
     if ((stream->flags & MEMORY_STREAM_FLAG_OWNS_DATA) == 0) {
         int r = _buffered_stream_make_own_data(stream);
         if (r != 0) return r;
+    }
+
+    if (needsExpand) {
+        buffered_stream_expand(stream, 0, (offset + size) - context->bufferSize);
     }
 
     memcpy(context->buffer + context->subBufferStart + offset, inBuf, size);
@@ -142,11 +152,15 @@ static int _buffered_stream_init(MemoryStream *stream)
     return 0;
 }
 
-MemoryStream *buffered_stream_init_from_buffer_nocopy(void *buffer, size_t bufferSize)
+MemoryStream *buffered_stream_init_from_buffer_nocopy(void *buffer, size_t bufferSize, uint32_t flags)
 {
     MemoryStream *stream = malloc(sizeof(MemoryStream));
     if (!stream) return NULL;
     memset(stream, 0, sizeof(MemoryStream));
+
+    if (flags & BUFFERED_STREAM_FLAG_AUTO_EXPAND) {
+        stream->flags |= MEMORY_STREAM_FLAG_AUTO_EXPAND;
+    }
 
     BufferedStreamContext *context = malloc(sizeof(BufferedStreamContext));
     context->buffer = buffer;
@@ -164,28 +178,13 @@ fail:
     return NULL;
 }
 
-MemoryStream *buffered_stream_init_from_buffer(void *buffer, size_t bufferSize)
+MemoryStream *buffered_stream_init_from_buffer(void *buffer, size_t bufferSize, uint32_t flags)
 {
-    MemoryStream *stream = malloc(sizeof(MemoryStream));
-    if (!stream) return NULL;
-    memset(stream, 0, sizeof(MemoryStream));
-
     void *copy = malloc(bufferSize);
     memcpy(copy, buffer, bufferSize);
-
-    BufferedStreamContext *context = malloc(sizeof(BufferedStreamContext));
-    context->buffer = copy;
-    context->bufferSize = bufferSize;
-    context->subBufferStart = 0;
-    context->subBufferSize = bufferSize;
-    stream->flags |= MEMORY_STREAM_FLAG_OWNS_DATA;
-
-    stream->context = context;
-    if (_buffered_stream_init(stream) != 0) goto fail;
-
+    MemoryStream *stream = buffered_stream_init_from_buffer_nocopy(copy, bufferSize, flags);
+    if (stream) {
+        stream->flags |= MEMORY_STREAM_FLAG_OWNS_DATA;
+    }
     return stream;
-
-fail:
-    buffered_stream_free(stream);
-    return NULL;
 }

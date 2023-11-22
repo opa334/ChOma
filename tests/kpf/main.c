@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
     void *mapping = mmap(NULL, stat_buf.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (mapping == MAP_FAILED) return -1;
 
-    MemoryStream *stream = buffered_stream_init_from_buffer(mapping, stat_buf.st_size);
+    MemoryStream *stream = buffered_stream_init_from_buffer(mapping, stat_buf.st_size, 0);
     if (!stream) return -1;
 
     FAT *fat = fat_init_from_memory_stream(stream);

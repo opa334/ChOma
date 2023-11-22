@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
         memory_stream_free(blob->stream);
     }
 
-    MemoryStream *newCDStream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len);
+    MemoryStream *newCDStream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len, 0);
     blob->stream = newCDStream;
 
     // DecodedSuperblob *newDecodedSuperblob = malloc(sizeof(DecodedSuperBlob));
@@ -110,7 +110,7 @@ int main(int argc, char *argv[]) {
    printf("Adding App Store CodeDirectory...\n");
     DecodedBlob *appStoreCDBlob = malloc(sizeof(DecodedBlob));
     appStoreCDBlob->type = CSSLOT_CODEDIRECTORY;
-    appStoreCDBlob->stream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len);
+    appStoreCDBlob->stream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len, 0);
 
     DecodedBlob *requirementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_REQUIREMENTS);
 
@@ -125,11 +125,11 @@ int main(int argc, char *argv[]) {
     printf("Adding new signature blob...\n");
     if (signatureBlob != NULL) {
         memory_stream_free(superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT)->stream);
-        superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT)->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
+        superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT)->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len, 0);
     } else {
         signatureBlob = malloc(sizeof(DecodedBlob));
         signatureBlob->type = CSSLOT_SIGNATURESLOT;
-        signatureBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
+        signatureBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len, 0);
         signatureBlob->next = NULL;
         DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
         while (nextBlob->next) {

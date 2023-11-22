@@ -157,7 +157,7 @@ DecodedSuperBlob *superblob_decode(CS_SuperBlob *superblob)
 
 		CS_GenericBlob *start = (CS_GenericBlob *)(((uint8_t*)superblob) + curIndex.offset);
 
-		MemoryStream *stream = buffered_stream_init_from_buffer(start, BIG_TO_HOST(start->length));
+		MemoryStream *stream = buffered_stream_init_from_buffer(start, BIG_TO_HOST(start->length), BUFFERED_STREAM_FLAG_AUTO_EXPAND);
 		if (!stream) {
 			decoded_superblob_free(decodedSuperblob);
 			return NULL;
