@@ -115,3 +115,75 @@ char *load_command_to_string(int loadCommand) {
             return "LC_UNKNOWN";
     }
 }
+
+void update_segment_command_64(MachO *macho, const char *segmentName, uint64_t vmaddr, uint64_t vmsize, uint64_t fileoff, uint64_t filesize) {
+    macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
+        if (loadCommand.cmd == LC_SEGMENT_64) {
+            struct segment_command_64 *segmentCommand = (struct segment_command_64 *)cmd;
+            SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(segmentCommand, LITTLE_TO_HOST_APPLIER);
+            if (strcmp(segmentCommand->segname, segmentName) == 0) {
+                segmentCommand->vmaddr = vmaddr;
+                segmentCommand->vmsize = vmsize;
+                segmentCommand->fileoff = fileoff;
+                segmentCommand->filesize = filesize;
+                SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(segmentCommand, HOST_TO_LITTLE_APPLIER);
+                file_stream_write(macho->stream, offset, sizeof(struct segment_command_64), segmentCommand);
+                *stop = true;
+            }
+        }
+    });
+}
+
+void update_lc_code_signature(MachO *macho, uint64_t size) {
+    macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
+        if (loadCommand.cmd == LC_CODE_SIGNATURE) {
+            struct linkedit_data_command *csLoadCommand = (struct linkedit_data_command *)cmd;
+            LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(csLoadCommand, LITTLE_TO_HOST_APPLIER);
+            csLoadCommand->datasize = size;
+            LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(csLoadCommand, HOST_TO_LITTLE_APPLIER);
+            printf("RET=%d.\n", file_stream_write(macho->stream, offset, sizeof(struct linkedit_data_command), csLoadCommand));
+            *stop = true;
+        }
+    });
+}
+
+void update_load_commands_for_coretrust_bypass(MachO *macho, CS_SuperBlob *superblob, uint64_t originalCodeSignatureSize, uint64_t originalMachOSize, uint64_t *paddingSize) {
+
+    uint64_t sizeOfCodeSignature = BIG_TO_HOST(superblob->length);
+
+    // Calculate how much padding we currently have
+    __block uint64_t blockPaddingSize = 0;
+    __block uint64_t vmAddress = 0;
+    __block uint64_t fileOffset = 0;
+    macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
+        if (loadCommand.cmd == LC_SEGMENT_64) {
+            struct segment_command_64 *segmentCommand = (struct segment_command_64 *)cmd;
+            SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(segmentCommand, LITTLE_TO_HOST_APPLIER);
+            if (strcmp(segmentCommand->segname, "__LINKEDIT") == 0) {
+                blockPaddingSize = segmentCommand->filesize - originalCodeSignatureSize;
+                vmAddress = segmentCommand->vmaddr;
+                fileOffset = segmentCommand->fileoff;
+                *stop = true;
+            }
+        }
+    });
+
+    if (blockPaddingSize == 0 || vmAddress == 0 || fileOffset == 0) {
+        printf("Error: failed to get existing values for __LINKEDIT segment.\n");
+        exit(1);
+    }
+
+    *paddingSize = blockPaddingSize;
+    uint64_t newSegmentSize = sizeOfCodeSignature + *paddingSize;
+    uint64_t newVMSize = alignToSize(newSegmentSize, 0x4000);
+
+    // Update the segment command
+    printf("Updating __LINKEDIT segment...\n");
+    update_segment_command_64(macho, "__LINKEDIT", vmAddress, newVMSize, fileOffset, newSegmentSize);
+
+    // Update the code signature load command
+    printf("Updating LC_CODE_SIGNATURE load command...\n");
+    update_lc_code_signature(macho, sizeOfCodeSignature);
+
+    return;
+}

@@ -15,7 +15,7 @@ typedef struct FileStreamContext {
 } FileStreamContext;
 
 int file_stream_read(MemoryStream *stream, uint64_t offset, size_t size, void *outBuf);
-//int file_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf);
+int file_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf);
 int file_stream_get_size(MemoryStream *stream, size_t *sizeOut);
 
 int file_stream_clone(MemoryStream *stream, MemoryStream *streamClone);

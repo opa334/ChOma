@@ -165,6 +165,20 @@ uint8_t *macho_find_code_signature(MachO *macho)
 	return dataOut;
 }
 
+uint64_t macho_find_code_signature_offset(MachO *macho)
+{
+	__block uint64_t offsetOut = 0;
+	macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
+		if (loadCommand.cmd == LC_CODE_SIGNATURE) {
+			struct linkedit_data_command *csLoadCommand = ((struct linkedit_data_command *)cmd);
+			LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(csLoadCommand, LITTLE_TO_HOST_APPLIER);
+			offsetOut = csLoadCommand->dataoff;
+			*stop = true;
+		}
+	});
+	return offsetOut;
+}
+
 int macho_extract_cs_to_file(MachO *macho, CS_SuperBlob *superblob)
 {
 	FILE *csDataFile = fopen("Code_Signature-Data", "wb+");
@@ -181,7 +195,6 @@ DecodedSuperBlob *superblob_decode(CS_SuperBlob *superblob)
 
 	DecodedBlob **nextBlob = &decodedSuperblob->firstBlob;
 	decodedSuperblob->magic = BIG_TO_HOST(superblob->magic);
-	printf("magic: %x\n", decodedSuperblob->magic);
 
 	for (uint32_t i = 0; i < BIG_TO_HOST(superblob->count); i++) {
 		CS_BlobIndex curIndex = superblob->index[i];

@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
 
     char *filePath = argv[1];
 
-    FAT *fat = fat_init_from_path(filePath);
+    FAT *fat = fat_init_from_path_for_writing(filePath);
     if (!fat) { return -1; }
 
     MachO *macho = fat_find_preferred_slice(fat);
@@ -74,51 +74,119 @@ int main(int argc, char *argv[]) {
 
     MemoryStream *newCDStream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len);
     blob->stream = newCDStream;
-    
 
-    // Add the signature blob to the end of the superblob
-    DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
-    while (nextBlob->next) {
-        if (nextBlob->type == CSSLOT_SIGNATURESLOT) {
-            break;
-        }
-        if (nextBlob->next) {
-            nextBlob = nextBlob->next;
-        } else {
-            break;
-        }
-    }
-    if (nextBlob->type != CSSLOT_SIGNATURESLOT) {
+    // DecodedSuperblob *newDecodedSuperblob = malloc(sizeof(DecodedSuperBlob));
+    DecodedSuperBlob *newDecodedSuperblob = superblob_decode(superblob);
+    
+    // // Add the signature blob to the end of the superblob
+    // DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
+    // while (nextBlob->next) {
+    //     if (nextBlob->type == CSSLOT_SIGNATURESLOT) {
+    //         break;
+    //     }
+    //     if (nextBlob->next) {
+    //         nextBlob = nextBlob->next;
+    //     }
+    // }
+    // if (nextBlob->type != CSSLOT_SIGNATURESLOT) {
+    //     DecodedBlob *signatureBlob = malloc(sizeof(DecodedBlob));
+    //     signatureBlob->type = CSSLOT_SIGNATURESLOT;
+    //     signatureBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
+    //     signatureBlob->next = NULL;
+    //     nextBlob->next = signatureBlob;
+    // } else {
+    //     memory_stream_free(nextBlob->stream);
+    //     nextBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
+    // }
+
+    /*
+        App Store CodeDirectory
+        Requirements
+        Entitlements
+        DER entitlements
+        Actual CodeDirectory
+        Signature blob
+    */
+
+    DecodedBlob *appStoreCDBlob = malloc(sizeof(DecodedBlob));
+    appStoreCDBlob->type = CSSLOT_CODEDIRECTORY;
+    appStoreCDBlob->stream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len);
+
+    DecodedBlob *requirementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_REQUIREMENTS);
+
+    DecodedBlob *entitlementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ENTITLEMENTS);
+
+    DecodedBlob *derEntitlementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_DER_ENTITLEMENTS);
+
+    DecodedBlob *actualCDBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
+
+    DecodedBlob *signatureBlob = superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT);
+
+    if (signatureBlob != NULL) {
+        memory_stream_free(superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT)->stream);
+        superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT)->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
+    } else {
         DecodedBlob *signatureBlob = malloc(sizeof(DecodedBlob));
         signatureBlob->type = CSSLOT_SIGNATURESLOT;
         signatureBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
         signatureBlob->next = NULL;
+        DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
+        while (nextBlob->next) {
+            nextBlob = nextBlob->next;
+        }
         nextBlob->next = signatureBlob;
-    } else {
-        memory_stream_free(nextBlob->stream);
-        nextBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
     }
+
+    appStoreCDBlob->next = requirementsBlob;
+    requirementsBlob->next = entitlementsBlob;
+    entitlementsBlob->next = derEntitlementsBlob;
+    derEntitlementsBlob->next = actualCDBlob;
+    actualCDBlob->next = signatureBlob;
+    signatureBlob->next = NULL;
+
+    newDecodedSuperblob->firstBlob = appStoreCDBlob;
 
     printf("Encoding superblob...\n");
 
-    CS_SuperBlob *encodedSuperblobUnsigned = superblob_encode(decodedSuperblob);
+    CS_SuperBlob *encodedSuperblobUnsigned = superblob_encode(newDecodedSuperblob);
 
     printf("Signing superblob...\n");
 
-    update_load_commands(macho, encodedSuperblobUnsigned, sizeOfCodeSignature);
+    uint64_t paddingSize = 0;
+    update_load_commands_for_coretrust_bypass(macho, encodedSuperblobUnsigned, sizeOfCodeSignature, memory_stream_get_size(macho->stream), &paddingSize);
 
-    update_code_directory(macho, decodedSuperblob);
+    update_code_directory(macho, newDecodedSuperblob);
 
-    update_signature_blob(decodedSuperblob);
+    update_signature_blob(newDecodedSuperblob);
 
-    CS_SuperBlob *newSuperblob = superblob_encode(decodedSuperblob);
+    CS_SuperBlob *newSuperblob = superblob_encode(newDecodedSuperblob);
 
     // Write the new superblob to the file
     fp = fopen("data/blob.generated", "wb");
     fwrite(newSuperblob, BIG_TO_HOST(newSuperblob->length), 1, fp);
     fclose(fp);
 
-    decoded_superblob_free(decodedSuperblob);
+    // Write the new MachO to the file
+    // Calculate offset to write the new code signature
+    uint64_t offsetOfCodeSignature = macho_find_code_signature_offset(macho);
+    // See how much space we have to write the new code signature
+    uint64_t entireFileSize = memory_stream_get_size(macho->stream);
+    uint64_t freeSpace = entireFileSize - offsetOfCodeSignature;
+    uint64_t newCodeSignatureSize = BIG_TO_HOST(newSuperblob->length);
+    if (newCodeSignatureSize >= freeSpace) {
+        file_stream_write(macho->stream, offsetOfCodeSignature, newCodeSignatureSize, newSuperblob);
+        uint8_t padding[paddingSize];
+        memset(padding, 0, paddingSize);
+        file_stream_write(macho->stream, offsetOfCodeSignature + freeSpace, paddingSize, padding);
+    } else if (newCodeSignatureSize < freeSpace) {
+        file_stream_trim(macho->stream, 0, offsetOfCodeSignature);
+        file_stream_write(macho->stream, offsetOfCodeSignature, newCodeSignatureSize, newSuperblob);
+        uint8_t padding[paddingSize];
+        memset(padding, 0, paddingSize);
+        file_stream_write(macho->stream, offsetOfCodeSignature + newCodeSignatureSize, paddingSize, padding);
+    }
+
+    decoded_superblob_free(newDecodedSuperblob);
     free(superblob);
     free(newSuperblob);
     

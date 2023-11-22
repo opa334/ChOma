@@ -26,6 +26,7 @@ int file_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *
     // only expand when possible
     if ((context->bufferStart + offset + size) > context->fileSize) {
         if (((stream->flags | MEMORY_STREAM_FLAG_AUTO_EXPAND) == 0) || _file_stream_context_is_trimmed(context)) {
+            printf("Error: file_stream_write failed, file is not auto expandable.\n");
             return -1;
         }
     }

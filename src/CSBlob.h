@@ -71,6 +71,7 @@ CS_SuperBlob *superblob_encode(DecodedSuperBlob *decodedSuperblob);
 void decoded_superblob_free(DecodedSuperBlob *decodedSuperblob);
 
 uint8_t *macho_find_code_signature(MachO *macho);
+uint64_t macho_find_code_signature_offset(MachO *macho);
 
 // Convert blob magic to readable blob type string
 char *cs_blob_magic_to_string(int magic);
