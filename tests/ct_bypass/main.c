@@ -186,7 +186,7 @@ int main(int argc, char *argv[]) {
     free(newSuperblob);
     
     macho_free(macho);
-    printf("Signed file is at %s! CoreTrust bypass eta now!!", machoPath);
+    printf("Signed file is at %s! CoreTrust bypass eta now!!\n", machoPath);
     free(machoPath);
     return 0;
 }
