@@ -72,7 +72,6 @@ int decodedsuperblob_parse_blobs(MachO *macho, DecodedSuperBlob *decodedSuperblo
 	DecodedBlob *currentBlob = decodedSuperblob->firstBlob;
 	int count = 0;
     while (currentBlob->next) {
-        currentBlob = currentBlob->next;
 		uint32_t blobType = currentBlob->type;
 		printf("Slot %d: %s (type: 0x%x).\n", count++, cs_slot_index_to_string(blobType), blobType);
 		//printf("Slot %d: %s (offset 0x%x, type: 0x%x).\n", blobCount + 1, cs_slot_index_to_string(blobType), blobOffset + csLoadCommand->dataoff, blobType);
@@ -84,7 +83,7 @@ int decodedsuperblob_parse_blobs(MachO *macho, DecodedSuperBlob *decodedSuperblo
 			memory_stream_read(currentBlob->stream, 0, sizeof(CS_CodeDirectory), codeDirectory);
 			CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, BIG_TO_HOST_APPLIER);
 			printf("This is the %s, magic %#x.\n", cs_blob_magic_to_string(codeDirectory->magic), codeDirectory->magic);
-			//macho_parse_code_directory_blob(macho, blobOffset + csLoadCommand->dataoff, codeDirectory, printAllSlots, verifySlots);
+			macho_parse_code_directory_blob(macho, codeDirectory, printAllSlots, verifySlots);
 		}
 		else if (blobType == CSSLOT_SIGNATURESLOT) {
 			CS_GenericBlob *cms_blob = malloc(sizeof(CS_GenericBlob));
@@ -100,6 +99,7 @@ int decodedsuperblob_parse_blobs(MachO *macho, DecodedSuperBlob *decodedSuperblo
 			GENERIC_BLOB_APPLY_BYTE_ORDER(generic_blob, BIG_TO_HOST_APPLIER);
 			printf("This is the %s, magic %#x.\n", cs_blob_magic_to_string(generic_blob->magic), generic_blob->magic);
 		}
+		currentBlob = currentBlob->next;
 	}
 	return 0;
 }
