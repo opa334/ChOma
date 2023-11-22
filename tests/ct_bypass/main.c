@@ -51,9 +51,27 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    memory_stream_free(blob->stream);
+    bool hasTwoCodeDirectories = superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES) != NULL;
+    if (!hasTwoCodeDirectories) {
+        // We need to insert the App Store CodeDirectory in thte first slot and move the original one to the last slot
+        DecodedBlob *firstCD = superblob_find_blob(decodedSuperblob, CSSLOT_CODEDIRECTORY);
+        DecodedBlob *currentBlob = decodedSuperblob->firstBlob;
+        while (currentBlob->next) {
+            currentBlob = currentBlob->next;
+        }
+        currentBlob->next = malloc(sizeof(DecodedBlob));
+        currentBlob->next->stream = firstCD->stream;
+        currentBlob->next->type = CSSLOT_ALTERNATE_CODEDIRECTORIES;
+        currentBlob->next->next = NULL;
+
+    } else {
+        // Don't free if we've moved the original CodeDirectory to the last slot
+        memory_stream_free(blob->stream);
+    }
+
     MemoryStream *newCDStream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len);
     blob->stream = newCDStream;
+    
 
     // Add the signature blob to the end of the superblob
     DecodedBlob *nextBlob = decodedSuperblob->firstBlob;

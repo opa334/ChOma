@@ -202,7 +202,6 @@ DecodedSuperBlob *superblob_decode(CS_SuperBlob *superblob)
 		(*nextBlob)->type = curIndex.type;
 		nextBlob = &(*nextBlob)->next;
 	}
-
 	return decodedSuperblob;
 }
 
