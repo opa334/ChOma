@@ -117,7 +117,7 @@ int memory_stream_copy_data(MemoryStream *originStream, uint64_t originOffset, M
     if (originOffset + size > originSize) {
         return -1;
     }
-    if (targetOffset + size > targetSize) {
+    if (targetOffset + size > targetSize && !(memory_stream_get_flags(targetStream) | MEMORY_STREAM_FLAG_AUTO_EXPAND)) {
         return -1;
     }
 

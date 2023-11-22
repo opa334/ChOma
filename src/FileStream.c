@@ -23,16 +23,21 @@ int file_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *
     // we can't write to files we don't own
     if ((stream->flags & MEMORY_STREAM_FLAG_OWNS_DATA) == 0) return -1;
 
+    size_t sizeToExpand = 0;
     // only expand when possible
     if ((context->bufferStart + offset + size) > context->fileSize) {
         if (((stream->flags | MEMORY_STREAM_FLAG_AUTO_EXPAND) == 0) || _file_stream_context_is_trimmed(context)) {
             printf("Error: file_stream_write failed, file is not auto expandable.\n");
             return -1;
         }
+        sizeToExpand = (context->bufferStart + offset + size) - context->fileSize;
     }
 
     // this is not supported for now: TODO fill with 0's then append the rest
     if (context->bufferStart + offset > context->fileSize) return -1;
+
+    context->fileSize += sizeToExpand;
+    context->bufferSize += sizeToExpand;
 
     lseek(context->fd, context->bufferStart + offset, SEEK_SET);
     return write(context->fd, inBuf, size);
