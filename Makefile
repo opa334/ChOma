@@ -19,7 +19,7 @@ TESTS_DIR := build/tests
 STATIC_LIB := $(LIB_DIR)/$(LIB_NAME).a
 DYNAMIC_LIB := $(LIB_DIR)/$(LIB_NAME).dylib
 
-SRC_FILES := $(wildcard $(SRC_DIR)/*.c) $(wildcard $(SRC_DIR)/external/libDER/*.c)
+SRC_FILES := $(wildcard $(SRC_DIR)/*.c)
 OBJ_FILES := $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRC_FILES))
 
 TESTS_SUBDIRS := $(wildcard $(TESTS_SRC_DIR)/*)
@@ -42,7 +42,7 @@ $(DYNAMIC_LIB): $(OBJ_FILES)
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -Isrc/external -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(TESTS_OUTPUT_DIR)/%: $(TESTS_SRC_DIR)/%
 	@mkdir -p $(dir $@)
