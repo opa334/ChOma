@@ -169,16 +169,16 @@ int main(int argc, char *argv[]) {
     uint64_t freeSpace = entireFileSize - offsetOfCodeSignature;
     uint64_t newCodeSignatureSize = BIG_TO_HOST(newSuperblob->length);
     if (newCodeSignatureSize >= freeSpace) {
-        file_stream_write(macho->stream, offsetOfCodeSignature, newCodeSignatureSize, newSuperblob);
+        memory_stream_write(macho->stream, offsetOfCodeSignature, newCodeSignatureSize, newSuperblob);
         uint8_t padding[paddingSize];
         memset(padding, 0, paddingSize);
-        file_stream_write(macho->stream, offsetOfCodeSignature + freeSpace, paddingSize, padding);
+        memory_stream_write(macho->stream, offsetOfCodeSignature + freeSpace, paddingSize, padding);
     } else if (newCodeSignatureSize < freeSpace) {
-        file_stream_trim(macho->stream, 0, offsetOfCodeSignature);
-        file_stream_write(macho->stream, offsetOfCodeSignature, newCodeSignatureSize, newSuperblob);
+        memory_stream_trim(macho->stream, 0, offsetOfCodeSignature);
+        memory_stream_write(macho->stream, offsetOfCodeSignature, newCodeSignatureSize, newSuperblob);
         uint8_t padding[paddingSize];
         memset(padding, 0, paddingSize);
-        file_stream_write(macho->stream, offsetOfCodeSignature + newCodeSignatureSize, paddingSize, padding);
+        memory_stream_write(macho->stream, offsetOfCodeSignature + newCodeSignatureSize, paddingSize, padding);
     }
 
     decoded_superblob_free(newDecodedSuperblob);
