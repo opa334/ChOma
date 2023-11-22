@@ -107,6 +107,7 @@ int main(int argc, char *argv[]) {
         Signature blob
     */
 
+   printf("Adding App Store CodeDirectory...\n");
     DecodedBlob *appStoreCDBlob = malloc(sizeof(DecodedBlob));
     appStoreCDBlob->type = CSSLOT_CODEDIRECTORY;
     appStoreCDBlob->stream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len);
@@ -121,6 +122,7 @@ int main(int argc, char *argv[]) {
 
     DecodedBlob *signatureBlob = superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT);
 
+    printf("Adding new signature blob...\n");
     if (signatureBlob != NULL) {
         memory_stream_free(superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT)->stream);
         superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT)->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len);
@@ -136,6 +138,7 @@ int main(int argc, char *argv[]) {
         nextBlob->next = signatureBlob;
     }
 
+    printf("Creating new superblob...\n");
     appStoreCDBlob->next = requirementsBlob;
     requirementsBlob->next = entitlementsBlob;
     entitlementsBlob->next = derEntitlementsBlob;
@@ -145,30 +148,19 @@ int main(int argc, char *argv[]) {
 
     newDecodedSuperblob->firstBlob = appStoreCDBlob;
 
-    printf("Encoding superblob...\n");
 
     CS_SuperBlob *encodedSuperblobUnsigned = superblob_encode(newDecodedSuperblob);
 
-    printf("Signing superblob...\n");
-
-    __block uint64_t linkeditSizeBeforeUpdate = 0;
-    macho_enumerate_load_commands(macho,  ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
-        if (loadCommand.cmd == LC_SEGMENT_64) {
-            struct segment_command_64 *segmentCommand = (struct segment_command_64 *)cmd;
-            SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(segmentCommand, LITTLE_TO_HOST_APPLIER);
-            if (strcmp(segmentCommand->segname, "__LINKEDIT") == 0) {
-                linkeditSizeBeforeUpdate = segmentCommand->filesize;
-                printf("Linkedit size before update: 0x%llx\n", linkeditSizeBeforeUpdate);
-            }
-        }
-    });
-
+    printf("Updating load commands...\n");
     update_load_commands_for_coretrust_bypass(macho, encodedSuperblobUnsigned, sizeOfCodeSignature, memory_stream_get_size(macho->stream));
 
+    printf("Updating code slot hashes...\n");
     update_code_directory(macho, newDecodedSuperblob);
 
+    printf("Signing binary...\n");
     update_signature_blob(newDecodedSuperblob);
 
+    printf("Encoding superblob...\n");
     CS_SuperBlob *newSuperblob = superblob_encode(newDecodedSuperblob);
 
     // Write the new superblob to the file

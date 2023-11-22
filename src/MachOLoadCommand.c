@@ -141,7 +141,7 @@ void update_lc_code_signature(MachO *macho, uint64_t size) {
             LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(csLoadCommand, LITTLE_TO_HOST_APPLIER);
             csLoadCommand->datasize = size;
             LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(csLoadCommand, HOST_TO_LITTLE_APPLIER);
-            printf("RET=%d.\n", memory_stream_write(macho->stream, offset, sizeof(struct linkedit_data_command), csLoadCommand));
+            memory_stream_write(macho->stream, offset, sizeof(struct linkedit_data_command), csLoadCommand);
             *stop = true;
         }
     });
