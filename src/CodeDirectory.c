@@ -54,7 +54,7 @@ int code_directory_verify_code_slots(MachO *macho, CS_CodeDirectory *codeDirecto
                 printf("Slot %d has incorrect hash, should be ", i);
                 for (int j = 0; j < codeDirectory->hashSize; j++)
                 {
-                    printf("%02x", currentHash[j]);
+                    printf("%02x", actualHash[j]);
                 }
                 printf("\n");
                 foundIncorrectHash = true;
