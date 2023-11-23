@@ -21,7 +21,7 @@ static int buffered_stream_read(MemoryStream *stream, uint64_t offset, size_t si
 {
     BufferedStreamContext *context = stream->context;
     if ((offset + size) > context->subBufferSize) {
-        printf("Error: cannot read %zx bytes at %llx, maximum is %zx.\n", size, offset, context->bufferSize);
+        printf("Error: cannot read %zx bytes at %llx, maximum is %zx.\n", size, offset, context->subBufferSize);
         return -1;
     }
 
