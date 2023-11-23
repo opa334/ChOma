@@ -1,7 +1,5 @@
-OPENSSL_FLAGS := $(shell pkg-config --cflags --libs libcrypto)
-
 CC := clang
-CFLAGS := -Wall -Werror -fPIC $(OPENSSL_FLAGS) -Wno-pointer-to-int-cast -Wno-unused-command-line-argument -Wno-deprecated-declarations -framework Security -framework CoreFoundation
+CFLAGS := -Wall -Werror $(shell pkg-config --cflags libcrypto) -fPIC -Wno-pointer-to-int-cast -Wno-unused-command-line-argument -Wno-deprecated-declarations -framework Security -framework CoreFoundation
 DEBUG ?= 0
 ifeq ($(DEBUG), 1)
 	CFLAGS += -fsanitize=address -static-libsan
@@ -9,9 +7,18 @@ endif
 
 LIB_NAME := libchoma
 
-SRC_DIR := src
+ifeq ($(TARGET), ios)
+BUILD_DIR := build/ios
+OUTPUT_DIR := output/ios
+CFLAGS += -arch arm64 -isysroot $(shell xcrun --sdk iphoneos --show-sdk-path) external/ios/libcrypto.a
+else
 BUILD_DIR := build
 OUTPUT_DIR := output
+CFLAGS += $(shell pkg-config --libs libcrypto)
+endif
+
+SRC_DIR := src
+
 HEADER_OUTPUT_DIR := $(OUTPUT_DIR)/include
 TESTS_SRC_DIR := tests
 TESTS_BUILD_DIR := $(BUILD_DIR)/tests
@@ -52,7 +59,6 @@ $(TESTS_OUTPUT_DIR)/%: $(TESTS_SRC_DIR)/%
 	@mkdir -p $(dir $@)
 	@rm -rf $@
 	$(CC) $(CFLAGS) -I$(OUTPUT_DIR)/include -o $@ $</*.c $(OUTPUT_DIR)/lib/libchoma.a
-
 
 copy-choma-headers: $(CHOMA_HEADERS)
 	@rm -rf $(CHOMA_HEADERS_DST_DIR)
