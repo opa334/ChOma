@@ -135,19 +135,12 @@ int macho_replace_code_signature(MachO *macho, CS_SuperBlob *superblob)
 	memory_stream_read(macho->stream, csSegmentOffset + offsetof(CS_SuperBlob, length), sizeof(sizeOfCodeSignature), &sizeOfCodeSignature);
 	sizeOfCodeSignature = BIG_TO_HOST(sizeOfCodeSignature);
 
-	printf("csSegmentOffset=0x%x\n", csSegmentOffset);
-	printf("sizeOfCodeSignature=0x%x\n", sizeOfCodeSignature);
-
 	uint64_t newCodeSignatureSize = BIG_TO_HOST(superblob->length);
 
     // See how much space we have to write the new code signature
     uint64_t entireFileSize = memory_stream_get_size(macho->stream);
     uint64_t freeSpace = entireFileSize - csSegmentOffset;
     uint64_t paddingSize = freeSpace - sizeOfCodeSignature;
-
-	printf("entireFileSize=0x%llx\n", entireFileSize);
-	printf("freeSpace=0x%llx\n", freeSpace);
-	printf("paddingSize=0x%llx\n", paddingSize);
 
     if (newCodeSignatureSize >= freeSpace) {
         macho_write_at_offset(macho, csSegmentOffset, newCodeSignatureSize, superblob);
