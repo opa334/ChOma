@@ -54,7 +54,7 @@ int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct l
 MachO *macho_init(MemoryStream *stream, struct fat_arch_64 archDescriptor);
 
 // Initialize a single slice macho for writing to it
-MachO *macho_init_for_writing(char *filePath);
+MachO *macho_init_for_writing(const char *filePath);
 
 void macho_free(MachO *macho);
 

@@ -197,7 +197,7 @@ fail:
     return NULL;
 }
 
-MachO *macho_init_for_writing(char *filePath)
+MachO *macho_init_for_writing(const char *filePath)
 {
     MachO *macho = malloc(sizeof(MachO));
     if (!macho) return NULL;
