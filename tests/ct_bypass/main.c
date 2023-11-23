@@ -22,7 +22,9 @@
 char *extract_preferred_slice(const char *fatPath)
 {
     FAT *fat = fat_init_from_path(fatPath);
+    if (!fat) return NULL;
     MachO *macho = fat_find_preferred_slice(fat);
+    if (!macho) return NULL;
     
     char *temp = strdup("/tmp/XXXXXX");
     mkstemp(temp);
@@ -65,47 +67,36 @@ int extract_blobs(CS_SuperBlob *superBlob, const char *dir)
     return 0;
 }
 
-int main(int argc, char *argv[]) {
-    printf("CoreTrust bypass eta s0n!!\n");
-
-    /*uint8_t *testData = malloc(0x300);
-    memset(testData, 0x41, 0x300);
-    MemoryStream *testStream = buffered_stream_init_from_buffer(testData, 0x300, BUFFERED_STREAM_FLAG_AUTO_EXPAND);
-
-    memory_stream_expand(testStream, 0x100, 0x100);
-    //memory_stream_trim(testStream, 0x100, 0x0);
-
-    printf("size after trim: 0x%lx\n", memory_stream_get_size(testStream));
-
-    uint8_t append[0x100];
-    memset(append, 0x42, 0x100);
-    memory_stream_write(testStream, memory_stream_get_size(testStream), 0x100, &append[0]);
-
-    uint32_t dumpSize = memory_stream_get_size(testStream);
-    char fullData[dumpSize];
-    memory_stream_read(testStream, 0, dumpSize, fullData);
-    FILE *fx = fopen("data/test.bin", "wb");
-    fwrite(fullData, dumpSize, 1, fx);
-    fclose(fx);
-    return 0;*/
-
-
-    if (argc < 2) {
-        printf("Usage: %s <path to MachO file>\n", argv[0]);
-        return -1;
+char *get_argument_value(int argc, char *argv[], const char *flag)
+{
+    for (int i = 0; i < argc; i++) {
+        if (!strcmp(argv[i], flag)) {
+            if (i+1 < argc) {
+                return argv[i+1];
+            }
+        }
     }
+    return NULL;
+}
 
-    // Make sure the last argument is the path to the FAT/MachO file
-    struct stat fileStat;
-    if (stat(argv[argc - 1], &fileStat) != 0 && argc > 1) {
-        printf("Please ensure the last argument is the path to a FAT/MachO file.\n");
-        return -1;
+bool argument_exists(int argc, char *argv[], const char *flag)
+{
+    for (int i = 0; i < argc; i++) {
+        if (!strcmp(argv[i], flag)) {
+            return true;
+        }
     }
+    return false;
+}
 
-    char *filePath = argv[1];
-    char *machoPath = extract_preferred_slice(filePath);
-    printf("extracted best slice to %s\n", machoPath);
+void print_usage(const char *self)
+{
+    printf("Usage: %s -i <path to input MachO/FAT file> (-r) (-o <path to output MachO file>)\n", self);
+    exit(-1);
+}
 
+int apply_coretrust_bypass(const char *machoPath)
+{
     MachO *macho = macho_init_for_writing(machoPath);
     if (!macho) return -1;
 
@@ -145,27 +136,23 @@ int main(int argc, char *argv[]) {
         // Don't free if we've moved the original CodeDirectory to the last slot
         memory_stream_free(blob->stream);
     }
-    
-    // App Store CodeDirectory
-    // Requirements
-    // Entitlements
-    // DER entitlements
-    // Actual CodeDirectory
-    // Signature blob
 
     printf("Adding App Store CodeDirectory...\n");
     MemoryStream *appstoreCDStream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len, 0);
     blob->stream = appstoreCDStream;
-
     DecodedBlob *requirementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_REQUIREMENTS);
-
     DecodedBlob *entitlementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ENTITLEMENTS);
-
     DecodedBlob *derEntitlementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_DER_ENTITLEMENTS);
-
     DecodedBlob *actualCDBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
-
     DecodedBlob *signatureBlob = superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT);
+
+    // After Modification:
+    // 1. App Store CodeDirectory
+    // 2. Requirements
+    // 3. Entitlements
+    // 4. DER entitlements
+    // 5. Actual CodeDirectory
+    // 6. Signature blob
 
     printf("Adding new signature blob...\n");
     if (signatureBlob != NULL) {
@@ -280,10 +267,23 @@ int main(int argc, char *argv[]) {
     free(newSuperblob);
     
     macho_free(macho);
+    return 0;
+}
 
-    int r = copyfile(machoPath, filePath, 0, COPYFILE_ALL | COPYFILE_MOVE | COPYFILE_UNLINK);
-    if(r == 0) {
-        chmod(filePath, 0755);
+int apply_coretrust_bypass_wrapper(const char *inputPath, const char *outputPath)
+{
+    char *machoPath = extract_preferred_slice(inputPath);
+    printf("extracted best slice to %s\n", machoPath);
+
+    int r = apply_coretrust_bypass(machoPath);
+    if (r != 0) {
+        free(machoPath);
+        return r;
+    }
+
+    r = copyfile(machoPath, outputPath, 0, COPYFILE_ALL | COPYFILE_MOVE | COPYFILE_UNLINK);
+    if (r == 0) {
+        chmod(outputPath, 0755);
         printf("Signed file! CoreTrust bypass eta now!!\n");
     }
     else {
@@ -291,6 +291,38 @@ int main(int argc, char *argv[]) {
     }
 
     free(machoPath);
+    return r;
+}
 
-    return 0;
+int main(int argc, char *argv[]) {
+    printf("CoreTrust bypass eta s0n!!\n");
+
+    if (argc < 2) {
+        print_usage(argv[0]);
+    }
+
+    char *input = get_argument_value(argc, argv, "-i");
+    char *output = get_argument_value(argc, argv, "-o");
+    bool replace = argument_exists(argc, argv, "-r");
+    if (!output && !replace) {
+        print_usage(argv[0]);
+    }
+    if (!output && replace) {
+        output = input;
+    }
+
+    struct stat s;
+    bool inputExists = stat(input, &s) == 0;
+    bool outputExists = stat(output, &s) == 0;
+
+    if (!inputExists) {
+        print_usage(argv[0]);
+    }
+
+    if (outputExists && !replace) {
+        printf("Error: Output file already exists, for overwriting use the -r argument\n");
+        return -1;
+    }
+
+    return apply_coretrust_bypass_wrapper(input, output);
 }
