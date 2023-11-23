@@ -91,6 +91,7 @@ static int buffered_stream_expand(MemoryStream *stream, size_t expandAtStart, si
         free(context->buffer);
     }
     context->buffer = newBuffer;
+    context->bufferSize = newSize;
     stream->flags |= MEMORY_STREAM_FLAG_OWNS_DATA;
 
     return 0;
