@@ -1,4 +1,5 @@
 #include "CodeDirectory.h"
+#include "MemoryStream.h"
 
 int code_directory_verify_code_slots(MachO *macho, CS_CodeDirectory *codeDirectory, uint8_t *hashes) {
     bool foundIncorrectHash = false;
@@ -230,7 +231,13 @@ int macho_parse_code_directory_blob(MachO *macho, CS_CodeDirectory *codeDirector
 	return 0;
 }
 
-void update_code_directory(MachO *macho, DecodedSuperBlob *decodedSuperblob) {
+void update_code_directory(MachO *macho, MemoryStream *codeDirStream)
+{
+	CS_CodeDirectory codeDirectory;
+	memory_stream_read(codeDirStream, 0, sizeof(CS_CodeDirectory), &codeDirectory);
+	CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDirectory, BIG_TO_HOST_APPLIER);
+	uint32_t slotZeroOffset = codeDirectory.hashOffset;
+
 	uint64_t lastBlobOffset = macho->machHeader.sizeofcmds + sizeof(struct mach_header_64);
     uint64_t finalPageBoundary = alignToSize(lastBlobOffset, 0x1000);
     int numberOfPagesToHash = finalPageBoundary / 0x1000;
@@ -242,26 +249,18 @@ void update_code_directory(MachO *macho, DecodedSuperBlob *decodedSuperblob) {
 		if (pageEndOffset > finalPageBoundary) {
 			pageLength = finalPageBoundary - pageOffset;
 		}
-		uint8_t *pageData = malloc(pageLength);
+
+		// Read page
+		uint8_t pageData[pageLength];
 		memset(pageData, 0, pageLength);
 		macho_read_at_offset(macho, pageOffset, pageLength, pageData);
+
+		// Calculate hash
 		uint8_t pageHash[CC_SHA256_DIGEST_LENGTH];
 		CC_SHA256(pageData, (CC_LONG)pageLength, pageHash);
-		free(pageData);
-		DecodedBlob *blob = decodedSuperblob->firstBlob;
-		while (blob) {
-			if (blob->type == CSSLOT_ALTERNATE_CODEDIRECTORIES) {
-				CS_CodeDirectory *codeDirectory = malloc(sizeof(CS_CodeDirectory));
-				memset(codeDirectory, 0, sizeof(CS_CodeDirectory));
-				memory_stream_read(blob->stream, 0, sizeof(CS_CodeDirectory), codeDirectory);
-				CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, BIG_TO_HOST_APPLIER);
-				uint32_t slotZeroOffset = codeDirectory->hashOffset;
-				uint32_t offsetOfBlobToReplace = slotZeroOffset + (pageNumber * codeDirectory->hashSize);
-				memory_stream_read(blob->stream, offsetOfBlobToReplace, codeDirectory->hashSize, pageHash);
-				CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, HOST_TO_BIG_APPLIER);
-				break;
-			}
-			blob = blob->next;
-		}
+	
+		// Write hash to CodeDirectory
+		uint32_t offsetOfBlobToReplace = slotZeroOffset + (pageNumber * codeDirectory.hashSize);
+		memory_stream_write(codeDirStream, offsetOfBlobToReplace, codeDirectory.hashSize, pageHash);
 	}
 }

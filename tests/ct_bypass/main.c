@@ -235,7 +235,8 @@ int main(int argc, char *argv[]) {
     update_load_commands_for_coretrust_bypass(macho, encodedSuperblobUnsigned, sizeOfCodeSignature, memory_stream_get_size(macho->stream));
 
     printf("Updating code slot hashes...\n");
-    update_code_directory(macho, newDecodedSuperblob);
+    DecodedBlob *codeDirectoryBlob = superblob_find_blob(newDecodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
+    update_code_directory(macho, codeDirectoryBlob->stream);
 
     printf("Signing binary...\n");
     ret = update_signature_blob(newDecodedSuperblob);
