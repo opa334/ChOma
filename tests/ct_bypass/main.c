@@ -192,7 +192,7 @@ int main(int argc, char *argv[]) {
 
     newDecodedSuperblob->firstBlob = appStoreCDBlob;
 
-
+    int ret = 0;
     CS_SuperBlob *encodedSuperblobUnsigned = superblob_encode(newDecodedSuperblob);
 
     printf("Updating load commands...\n");
@@ -202,7 +202,11 @@ int main(int argc, char *argv[]) {
     update_code_directory(macho, newDecodedSuperblob);
 
     printf("Signing binary...\n");
-    update_signature_blob(newDecodedSuperblob);
+    ret = update_signature_blob(newDecodedSuperblob);
+    if(ret == -1) {
+        printf("Signature blob update FAILED!\n");
+        return -1;
+    }
 
     printf("Encoding superblob...\n");
     CS_SuperBlob *newSuperblob = superblob_encode(newDecodedSuperblob);

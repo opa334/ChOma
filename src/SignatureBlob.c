@@ -95,6 +95,11 @@ int update_signature_blob(DecodedSuperBlob *superblob) {
     CC_SHA256(signedAttrs, (CC_LONG)0x229, fullAttributesHash);
     memcpy(newDecryptedSignature + DECRYPTED_SIGNATURE_HASH_OFFSET, fullAttributesHash, CC_SHA256_DIGEST_LENGTH);
 
+    struct stat fileStat;
+    if (stat("ca.key", &fileStat) != 0) {
+        printf("ca.key not found in path!\n");
+        return -1;
+    }
     newSignature = signWithRSA("ca.key", newDecryptedSignature, DecryptedSignature_len, &newSignatureSize);
 
     if (!newSignature) {
