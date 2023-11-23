@@ -141,20 +141,24 @@ int apply_coretrust_bypass(const char *machoPath)
     MemoryStream *appstoreCDStream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len, 0);
     blob->stream = appstoreCDStream;
     DecodedBlob *requirementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_REQUIREMENTS);
-    if(requirementsBlob == NULL) {
+    if (requirementsBlob == NULL) {
         printf("Failed to find Requirements slot!");
         return -1;
     }
     // these aren't always present
     DecodedBlob *entitlementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ENTITLEMENTS);
+    if (entitlementsBlob == NULL) {
+        printf("Error: No entitlements found!\n");
+        return -1;
+    }
     DecodedBlob *derEntitlementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_DER_ENTITLEMENTS);
     DecodedBlob *actualCDBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
-    if(actualCDBlob == NULL) {
+    if (actualCDBlob == NULL) {
         printf("Failed to find Alternate Code Directories slot!");
         return -1;
     }
     DecodedBlob *signatureBlob = superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT);
-    if(requirementsBlob == NULL) {
+    if (requirementsBlob == NULL) {
         printf("Failed to find Code Signature slot!");
         return -1;
     }
@@ -237,12 +241,12 @@ int apply_coretrust_bypass(const char *machoPath)
     }
 
     printf("Creating new superblob...\n");
-    if (entitlementsBlob) {
-        requirementsBlob->next = entitlementsBlob;
+    requirementsBlob->next = entitlementsBlob;
+    if (derEntitlementsBlob) {
         entitlementsBlob->next = derEntitlementsBlob;
         derEntitlementsBlob->next = actualCDBlob;
     } else {
-        requirementsBlob->next = actualCDBlob;
+        entitlementsBlob->next = actualCDBlob;
     }
     actualCDBlob->next = signatureBlob;
     signatureBlob->next = NULL;
