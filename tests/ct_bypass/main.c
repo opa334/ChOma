@@ -15,6 +15,7 @@
 #include <choma/CodeDirectory.h>
 #include "AppStoreCodeDirectory.h"
 #include "TemplateSignatureBlob.h"
+#include <copyfile.h>
 
 #define APPSTORE_CERT_TEAM_ID "T8ALTGMVXN"
 
@@ -279,7 +280,17 @@ int main(int argc, char *argv[]) {
     free(newSuperblob);
     
     macho_free(macho);
-    printf("Signed file is at %s! CoreTrust bypass eta now!!\n", machoPath);
+
+    int r = copyfile(machoPath, filePath, 0, COPYFILE_ALL | COPYFILE_MOVE | COPYFILE_UNLINK);
+    if(r == 0) {
+        chmod(filePath, 0755);
+        printf("Signed file! CoreTrust bypass eta now!!\n");
+    }
+    else {
+        perror("copyfile");
+    }
+
     free(machoPath);
+
     return 0;
 }
