@@ -120,9 +120,6 @@ int main(int argc, char *argv[]) {
     MemoryStream *newCDStream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len, 0);
     blob->stream = newCDStream;
 
-    // DecodedSuperblob *newDecodedSuperblob = malloc(sizeof(DecodedSuperBlob));
-    DecodedSuperBlob *newDecodedSuperblob = superblob_decode(superblob);
-
     /*
         App Store CodeDirectory
         Requirements
@@ -132,7 +129,7 @@ int main(int argc, char *argv[]) {
         Signature blob
     */
 
-   printf("Adding App Store CodeDirectory...\n");
+    printf("Adding App Store CodeDirectory...\n");
     DecodedBlob *appStoreCDBlob = malloc(sizeof(DecodedBlob));
     appStoreCDBlob->type = CSSLOT_CODEDIRECTORY;
     appStoreCDBlob->stream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len, 0);
@@ -226,27 +223,25 @@ int main(int argc, char *argv[]) {
     actualCDBlob->next = signatureBlob;
     signatureBlob->next = NULL;
 
-    newDecodedSuperblob->firstBlob = appStoreCDBlob;
-
     int ret = 0;
-    CS_SuperBlob *encodedSuperblobUnsigned = superblob_encode(newDecodedSuperblob);
-
+    CS_SuperBlob *encodedSuperblobUnsigned = superblob_encode(decodedSuperblob);
     printf("Updating load commands...\n");
     update_load_commands_for_coretrust_bypass(macho, encodedSuperblobUnsigned, sizeOfCodeSignature, memory_stream_get_size(macho->stream));
+    free(encodedSuperblobUnsigned);
 
     printf("Updating code slot hashes...\n");
-    DecodedBlob *codeDirectoryBlob = superblob_find_blob(newDecodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
+    DecodedBlob *codeDirectoryBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
     update_code_directory(macho, codeDirectoryBlob->stream);
 
     printf("Signing binary...\n");
-    ret = update_signature_blob(newDecodedSuperblob);
+    ret = update_signature_blob(decodedSuperblob);
     if(ret == -1) {
         printf("Signature blob update FAILED!\n");
         return -1;
     }
 
     printf("Encoding superblob...\n");
-    CS_SuperBlob *newSuperblob = superblob_encode(newDecodedSuperblob);
+    CS_SuperBlob *newSuperblob = superblob_encode(decodedSuperblob);
 
     // Write the new superblob to the file
     fp = fopen("data/blob.generated", "wb");
@@ -256,7 +251,7 @@ int main(int argc, char *argv[]) {
     // Write the new signed superblob to the MachO
     macho_replace_code_signature(macho, newSuperblob);
 
-    decoded_superblob_free(newDecodedSuperblob);
+    decoded_superblob_free(decodedSuperblob);
     free(superblob);
     free(newSuperblob);
     
