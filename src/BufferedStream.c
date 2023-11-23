@@ -35,7 +35,6 @@ static int buffered_stream_write(MemoryStream *stream, uint64_t offset, size_t s
 
     bool expandAllowed = (stream->flags & MEMORY_STREAM_FLAG_AUTO_EXPAND);
     bool needsExpand = (offset + size) > context->subBufferSize;
-    printf("expandAllowed: %d, needsExpand: %d\n", expandAllowed, needsExpand);
 
     if (needsExpand && !expandAllowed) {
         printf("Error: cannot write %zx bytes at %llx, maximum is %zx.\n", size, offset, context->subBufferSize);
