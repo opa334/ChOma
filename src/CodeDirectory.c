@@ -17,6 +17,7 @@ int code_directory_verify_code_slots(MachO *macho, CS_CodeDirectory *codeDirecto
                 }
             });
         }
+		printf("Data offset: 0x%x\n", dataOffsetToRead);
         uint8_t *data = malloc(dataSizeToRead);
         memset(data, 0, dataSizeToRead);
         macho_read_at_offset(macho, dataOffsetToRead, dataSizeToRead, data);
@@ -199,10 +200,10 @@ int macho_parse_code_directory_blob(MachO *macho, CS_CodeDirectory *codeDirector
 	// Clean up
 	free(specialSlots);
 
+	uint8_t *hashes = malloc(codeDirectoryOut->nCodeSlots * codeDirectoryOut->hashSize);
+	memset(hashes, 0, codeDirectoryOut->nCodeSlots * codeDirectoryOut->hashSize);
+	macho_read_at_offset(macho, csOffset + cdOffset + slotZeroOffset, codeDirectoryOut->nCodeSlots * codeDirectoryOut->hashSize, hashes);
 	if (printSlots) {
-		uint8_t *hashes = malloc(codeDirectoryOut->nCodeSlots * codeDirectoryOut->hashSize);
-		memset(hashes, 0, codeDirectoryOut->nCodeSlots * codeDirectoryOut->hashSize);
-		macho_read_at_offset(macho, csOffset + cdOffset + slotZeroOffset, codeDirectoryOut->nCodeSlots * codeDirectoryOut->hashSize, hashes);
 		for (int i = 0; i < codeDirectoryOut->nCodeSlots; i++)
 		{
 
@@ -224,11 +225,11 @@ int macho_parse_code_directory_blob(MachO *macho, CS_CodeDirectory *codeDirector
 			printf("\n");
 
 		}
-        if (verifySlots) {
-            if (code_directory_verify_code_slots(macho, codeDirectoryOut, hashes) == -1) {
-                printf("Error: code slot hashes are not correct!\n");
-            }
-        }
+	}
+	if (verifySlots) {
+		if (code_directory_verify_code_slots(macho, codeDirectoryOut, hashes) == -1) {
+			printf("Error: code slot hashes are not correct!\n");
+		}
 	}
 
 	return 0;
