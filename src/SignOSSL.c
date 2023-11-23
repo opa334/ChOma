@@ -4,7 +4,9 @@ unsigned char *signWithRSA(const char *privateKeyFilePath, unsigned char *inputD
 {
     // Create EVP_PKEY from private key data
     FILE *privateKeyFile = fopen(privateKeyFilePath, "rb");
+    if (!privateKeyFile) return NULL;
     EVP_PKEY *privateKey = PEM_read_PrivateKey(privateKeyFile, NULL, NULL, NULL);
+    fclose(privateKeyFile);
     if (!privateKey)
     {
         fprintf(stderr, "Error: failed to read private key file.\n");

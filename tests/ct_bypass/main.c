@@ -260,7 +260,7 @@ int apply_coretrust_bypass(const char *machoPath)
 
     int ret = 0;
     printf("Signing binary...\n");
-    ret = update_signature_blob(decodedSuperblob);
+    ret = update_signature_blob(decodedSuperblob, "ca.key");
     if(ret == -1) {
         printf("Signature blob update FAILED!\n");
         return -1;

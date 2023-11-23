@@ -14,7 +14,8 @@
 
 #define DECRYPTED_SIGNATURE_HASH_OFFSET 0x13
 
-DecodedBlob *superblob_find_blob(DecodedSuperBlob *superblob, uint32_t type) {
+DecodedBlob *superblob_find_blob(DecodedSuperBlob *superblob, uint32_t type)
+{
     DecodedBlob *blob = superblob->firstBlob;
     while (blob != NULL) {
         if (blob->type == type) {
@@ -25,7 +26,8 @@ DecodedBlob *superblob_find_blob(DecodedSuperBlob *superblob, uint32_t type) {
     return NULL;
 }
 
-int update_signature_blob(DecodedSuperBlob *superblob) {
+int update_signature_blob(DecodedSuperBlob *superblob, const char *privateKeyPath)
+{
     DecodedBlob *sha256CD = superblob_find_blob(superblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
     if (!sha256CD) {
         printf("Could not find CodeDirectory blob!\n");
@@ -66,12 +68,14 @@ int update_signature_blob(DecodedSuperBlob *superblob) {
     int ret = memory_stream_write(signatureBlob->stream, HASHHASH_OFFSET, CC_SHA256_DIGEST_LENGTH, secondCDSHA256Hash);
     if (ret != 0) {
         printf("Failed to write SHA256 hash to signature blob!\n");
+        free(newBase64Hash);
         return -1;
     }
     
     ret = memory_stream_write(signatureBlob->stream, BASEBASE_OFFSET, base64OutLength, newBase64Hash);
     if (ret != 0) {
         printf("Failed to write base64 hash to signature blob!\n");
+        free(newBase64Hash);
         return -1;
     }
 
@@ -80,12 +84,12 @@ int update_signature_blob(DecodedSuperBlob *superblob) {
     unsigned char *newSignature = NULL;
     size_t newSignatureSize = 0;
 
-    unsigned char *newDecryptedSignature = malloc(0x33);
+    unsigned char newDecryptedSignature[0x33];
     memset(newDecryptedSignature, 0, 0x33);
     memcpy(newDecryptedSignature, DecryptedSignature, 0x33);
 
     // Get the signed attributes hash
-    unsigned char *signedAttrs = malloc(0x229);
+    unsigned char signedAttrs[0x229];
     memset(signedAttrs, 0, 0x229);
     memory_stream_read(signatureBlob->stream, SIGNED_ATTRS_OFFSET, 0x229, signedAttrs);
     signedAttrs[0] = 0x31;
@@ -96,11 +100,11 @@ int update_signature_blob(DecodedSuperBlob *superblob) {
     memcpy(newDecryptedSignature + DECRYPTED_SIGNATURE_HASH_OFFSET, fullAttributesHash, CC_SHA256_DIGEST_LENGTH);
 
     struct stat fileStat;
-    if (stat("ca.key", &fileStat) != 0) {
-        printf("ca.key not found in path!\n");
+    if (stat(privateKeyPath, &fileStat) != 0) {
+        printf("%s not found in path!\n", privateKeyPath);
         return -1;
     }
-    newSignature = signWithRSA("ca.key", newDecryptedSignature, DecryptedSignature_len, &newSignatureSize);
+    newSignature = signWithRSA(privateKeyPath, newDecryptedSignature, DecryptedSignature_len, &newSignatureSize);
 
     if (!newSignature) {
         printf("Failed to sign the decrypted signature!\n");
@@ -109,10 +113,11 @@ int update_signature_blob(DecodedSuperBlob *superblob) {
 
     if (newSignatureSize != 0x100) {
         printf("The new signature is not the correct size!\n");
+        free(newSignature);
         return -1;
     }
 
     ret = memory_stream_write(signatureBlob->stream, SIGNSIGN_OFFSET, newSignatureSize, newSignature);
-    
+    free(newSignature);
     return ret;
 }
