@@ -116,13 +116,13 @@ void macho_find_code_signature_bounds(MachO *macho, uint32_t *offsetOut, uint32_
 	});
 }
 
-uint8_t *macho_read_code_signature(MachO *macho)
+CS_SuperBlob *macho_read_code_signature(MachO *macho)
 {
 	uint32_t offset = 0, size = 0;
 	macho_find_code_signature_bounds(macho, &offset, &size);
-
-	uint8_t *dataOut = malloc(size);
-	macho_read_at_offset(macho, offset, size, dataOut);
+	
+	CS_SuperBlob *dataOut = malloc(size);
+	int r = macho_read_at_offset(macho, offset, size, dataOut);
 	return dataOut;
 }
 

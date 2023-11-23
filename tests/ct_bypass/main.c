@@ -99,8 +99,8 @@ int apply_coretrust_bypass(const char *machoPath)
 {
     MachO *macho = macho_init_for_writing(machoPath);
     if (!macho) return -1;
-
-    CS_SuperBlob *superblob = (CS_SuperBlob *)macho_read_code_signature(macho);
+    
+    CS_SuperBlob *superblob = macho_read_code_signature(macho);
     if (!superblob) {
         printf("Error: no code signature found, please fake-sign the binary at minimum before running the bypass.\n");
         return -1;
@@ -141,10 +141,23 @@ int apply_coretrust_bypass(const char *machoPath)
     MemoryStream *appstoreCDStream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len, 0);
     blob->stream = appstoreCDStream;
     DecodedBlob *requirementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_REQUIREMENTS);
+    if(requirementsBlob == NULL) {
+        printf("Failed to find Requirements slot!");
+        return -1;
+    }
+    // these aren't always present
     DecodedBlob *entitlementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ENTITLEMENTS);
     DecodedBlob *derEntitlementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_DER_ENTITLEMENTS);
     DecodedBlob *actualCDBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
+    if(actualCDBlob == NULL) {
+        printf("Failed to find Alternate Code Directories slot!");
+        return -1;
+    }
     DecodedBlob *signatureBlob = superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT);
+    if(requirementsBlob == NULL) {
+        printf("Failed to find Code Signature slot!");
+        return -1;
+    }
 
     // After Modification:
     // 1. App Store CodeDirectory
@@ -224,9 +237,13 @@ int apply_coretrust_bypass(const char *machoPath)
     }
 
     printf("Creating new superblob...\n");
-    requirementsBlob->next = entitlementsBlob;
-    entitlementsBlob->next = derEntitlementsBlob;
-    derEntitlementsBlob->next = actualCDBlob;
+    if (entitlementsBlob) {
+        requirementsBlob->next = entitlementsBlob;
+        entitlementsBlob->next = derEntitlementsBlob;
+        derEntitlementsBlob->next = actualCDBlob;
+    } else {
+        requirementsBlob->next = actualCDBlob;
+    }
     actualCDBlob->next = signatureBlob;
     signatureBlob->next = NULL;
 

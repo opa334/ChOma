@@ -80,7 +80,7 @@ int macho_extract_cs_to_file(MachO *macho, CS_SuperBlob *superblob);
 
 void macho_find_code_signature_bounds(MachO *macho, uint32_t *offsetOut, uint32_t *sizeOut);
 
-uint8_t *macho_read_code_signature(MachO *macho);
+CS_SuperBlob *macho_read_code_signature(MachO *macho);
 
 int macho_replace_code_signature(MachO *macho, CS_SuperBlob *superblob);
 
