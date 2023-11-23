@@ -117,8 +117,6 @@ int main(int argc, char *argv[]) {
         memory_stream_free(blob->stream);
     }
 
-    MemoryStream *newCDStream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len, 0);
-    blob->stream = newCDStream;
 
     /*
         App Store CodeDirectory
@@ -130,9 +128,8 @@ int main(int argc, char *argv[]) {
     */
 
     printf("Adding App Store CodeDirectory...\n");
-    DecodedBlob *appStoreCDBlob = malloc(sizeof(DecodedBlob));
-    appStoreCDBlob->type = CSSLOT_CODEDIRECTORY;
-    appStoreCDBlob->stream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len, 0);
+    MemoryStream *appstoreCDStream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len, 0);
+    blob->stream = appstoreCDStream;
 
     DecodedBlob *requirementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_REQUIREMENTS);
 
@@ -216,7 +213,6 @@ int main(int argc, char *argv[]) {
     }
 
     printf("Creating new superblob...\n");
-    appStoreCDBlob->next = requirementsBlob;
     requirementsBlob->next = entitlementsBlob;
     entitlementsBlob->next = derEntitlementsBlob;
     derEntitlementsBlob->next = actualCDBlob;
