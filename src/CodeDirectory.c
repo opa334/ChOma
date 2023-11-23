@@ -17,7 +17,6 @@ int code_directory_verify_code_slots(MachO *macho, CS_CodeDirectory *codeDirecto
                 }
             });
         }
-		printf("Data offset: 0x%x\n", dataOffsetToRead);
         uint8_t *data = malloc(dataSizeToRead);
         memset(data, 0, dataSizeToRead);
         macho_read_at_offset(macho, dataOffsetToRead, dataSizeToRead, data);
