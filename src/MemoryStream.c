@@ -10,7 +10,7 @@ int memory_stream_read(MemoryStream *stream, uint64_t offset, size_t size, void 
     return -1;
 }
 
-int memory_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf)
+int memory_stream_write(MemoryStream *stream, uint64_t offset, size_t size, const void *inBuf)
 {
     if (stream->write) {
         int ret = stream->write(stream, offset, size, inBuf);
@@ -20,7 +20,7 @@ int memory_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void
     return -1;
 }
 
-int memory_stream_insert(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf)
+int memory_stream_insert(MemoryStream *stream, uint64_t offset, size_t size, const void *inBuf)
 {
     if (!(stream->flags & MEMORY_STREAM_FLAG_MUTABLE)) return -1;
 
@@ -45,7 +45,7 @@ int memory_stream_read_string(MemoryStream *stream, uint64_t offset, char **outS
     return memory_stream_read(stream, offset, size+1, *outString);
 }
 
-int memory_stream_write_string(MemoryStream *stream, uint64_t offset, char *string)
+int memory_stream_write_string(MemoryStream *stream, uint64_t offset, const char *string)
 {
     size_t size = strlen(string) + 1;
     return memory_stream_write(stream, offset, size, string);

@@ -13,7 +13,7 @@ static int file_stream_read(MemoryStream *stream, uint64_t offset, size_t size, 
     return read(context->fd, outBuf, size);
 }
 
-static int file_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf)
+static int file_stream_write(MemoryStream *stream, uint64_t offset, size_t size, const void *inBuf)
 {
     FileStreamContext *context = stream->context;
 

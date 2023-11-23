@@ -29,7 +29,7 @@ static int buffered_stream_read(MemoryStream *stream, uint64_t offset, size_t si
     return size;
 }
 
-static int buffered_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf)
+static int buffered_stream_write(MemoryStream *stream, uint64_t offset, size_t size, const void *inBuf)
 {
     BufferedStreamContext *context = stream->context;
 

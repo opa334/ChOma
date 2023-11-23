@@ -22,7 +22,7 @@ typedef struct s_MemoryStream {
    uint32_t flags;
 
    int (*read)(struct s_MemoryStream *stream, uint64_t offset, size_t size, void *outBuf);
-   int (*write)(struct s_MemoryStream *stream, uint64_t offset, size_t size, void *inBuf);
+   int (*write)(struct s_MemoryStream *stream, uint64_t offset, size_t size, const void *inBuf);
    int (*getSize)(struct s_MemoryStream *stream, size_t *sizeOut);
    uint8_t *(*getRawPtr)(struct s_MemoryStream *stream);
 
@@ -35,12 +35,12 @@ typedef struct s_MemoryStream {
 } MemoryStream;
 
 int memory_stream_read(MemoryStream *stream, uint64_t offset, size_t size, void *outBuf);
-int memory_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf);
+int memory_stream_write(MemoryStream *stream, uint64_t offset, size_t size, const void *inBuf);
 
-int memory_stream_insert(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf);
+int memory_stream_insert(MemoryStream *stream, uint64_t offset, size_t size, const void *inBuf);
 
 int memory_stream_read_string(MemoryStream *stream, uint64_t offset, char **outString);
-int memory_stream_write_string(MemoryStream *stream, uint64_t offset, char *string);
+int memory_stream_write_string(MemoryStream *stream, uint64_t offset, const char *string);
 
 size_t memory_stream_get_size(MemoryStream *stream);
 uint8_t *memory_stream_get_raw_pointer(MemoryStream *stream);
