@@ -51,7 +51,7 @@ static int buffered_stream_write(MemoryStream *stream, uint64_t offset, size_t s
     }
 
     memcpy(context->buffer + context->subBufferStart + offset, inBuf, size);
-    return 0;
+    return size;
 }
 
 static int buffered_stream_get_size(MemoryStream *stream, size_t *sizeOut)
