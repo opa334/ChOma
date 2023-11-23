@@ -76,7 +76,7 @@ static int file_stream_trim(MemoryStream *stream, size_t trimAtStart, size_t tri
         return -1;
     }
 
-    if ((stream->flags | MEMORY_STREAM_FLAG_MUTABLE) && !_file_stream_context_is_trimmed(context)) {
+    if ((stream->flags & MEMORY_STREAM_FLAG_MUTABLE) && !_file_stream_context_is_trimmed(context)) {
         // If this stream is mutable, we want to actually trim the file itself
         uint32_t newSize = context->bufferSize - trimAtStart - trimAtEnd;
         memory_stream_copy_data(stream, trimAtStart, stream, 0, newSize);
