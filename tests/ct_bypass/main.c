@@ -163,17 +163,53 @@ int main(int argc, char *argv[]) {
         nextBlob->next = signatureBlob;
     }
 
+    const char *teamIDToSet = APPSTORE_CERT_TEAM_ID;
+    size_t teamIDToSetSize = strlen(teamIDToSet)+1;
+
     if (actualCDBlob != NULL) {
         CS_CodeDirectory codeDir;
         memory_stream_read(actualCDBlob->stream, 0, sizeof(codeDir), &codeDir);
         CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDir, BIG_TO_HOST_APPLIER);
 
-        uint32_t newTeamOffset = memory_stream_get_size(actualCDBlob->stream);
+        int32_t shift = 0;
+        uint32_t initalTeamOffset = codeDir.teamOffset;
 
-        memory_stream_write(actualCDBlob->stream, newTeamOffset, sizeof(APPSTORE_CERT_TEAM_ID), APPSTORE_CERT_TEAM_ID);
-        printf("Replacing TeamID with \"%s\"\n", APPSTORE_CERT_TEAM_ID);
+        // If there is already a TeamID, delete it
+        if (initalTeamOffset != 0) {
+            
+            uint32_t existingTeamIDSize = 0;
+            char *existingTeamID = NULL;
+            memory_stream_read_string(actualCDBlob->stream, initalTeamOffset, &existingTeamID);
+            existingTeamIDSize = strlen(existingTeamID)+1;
+            free(existingTeamID);
 
+            memory_stream_delete(actualCDBlob->stream, initalTeamOffset, existingTeamIDSize);
+            shift -= existingTeamIDSize;
+        }
+
+        // Insert new TeamID
+        if (codeDir.identOffset == 0) {
+            printf("No identity found, that's bad.\n");
+            return -1;
+        }
+        char *ident = NULL;
+        memory_stream_read_string(actualCDBlob->stream, codeDir.identOffset, &ident);
+        uint32_t newTeamOffset = codeDir.identOffset + strlen(ident) + 1;
+        free(ident);
+        memory_stream_insert(actualCDBlob->stream, newTeamOffset, teamIDToSetSize, teamIDToSet);
+        shift += teamIDToSetSize;
+
+        
         codeDir.teamOffset = newTeamOffset;
+
+        // Offsets that point to after the TeamID have to be shifted
+        if (codeDir.hashOffset != 0 && codeDir.hashOffset > initalTeamOffset) {
+            codeDir.hashOffset += shift;
+        }
+        if (codeDir.scatterOffset != 0 && codeDir.scatterOffset > initalTeamOffset) {
+            codeDir.scatterOffset += shift;
+        }
+
         CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDir, HOST_TO_BIG_APPLIER);
         memory_stream_write(actualCDBlob->stream, 0, sizeof(codeDir), &codeDir);
     }
