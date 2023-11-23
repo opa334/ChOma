@@ -31,6 +31,18 @@ int memory_stream_insert(MemoryStream *stream, uint64_t offset, size_t size, con
     return 0;
 }
 
+int memory_stream_delete(MemoryStream *stream, uint64_t offset, size_t size)
+{
+    if (size == 0) return 0;
+    if (!(stream->flags & MEMORY_STREAM_FLAG_MUTABLE)) return -1;
+
+    size_t streamSize = memory_stream_get_size(stream);
+    if (memory_stream_copy_data(stream, offset+size, stream, offset, streamSize-(offset+size)) != 0) return -1;
+    if (memory_stream_trim(stream, 0, size) != 0) return -1;
+
+    return 0;
+}
+
 int memory_stream_read_string(MemoryStream *stream, uint64_t offset, char **outString)
 {
     size_t size = 0;

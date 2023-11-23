@@ -38,6 +38,7 @@ int memory_stream_read(MemoryStream *stream, uint64_t offset, size_t size, void 
 int memory_stream_write(MemoryStream *stream, uint64_t offset, size_t size, const void *inBuf);
 
 int memory_stream_insert(MemoryStream *stream, uint64_t offset, size_t size, const void *inBuf);
+int memory_stream_delete(MemoryStream *stream, uint64_t offset, size_t size);
 
 int memory_stream_read_string(MemoryStream *stream, uint64_t offset, char **outString);
 int memory_stream_write_string(MemoryStream *stream, uint64_t offset, const char *string);
