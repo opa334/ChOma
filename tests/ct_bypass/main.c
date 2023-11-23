@@ -1,4 +1,5 @@
 
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <choma/CSBlob.h>
@@ -14,6 +15,8 @@
 #include <choma/CodeDirectory.h>
 #include "AppStoreCodeDirectory.h"
 #include "TemplateSignatureBlob.h"
+
+#define APPSTORE_CERT_TEAM_ID "T8ALTGMVXN"
 
 char *extract_preferred_slice(const char *fatPath)
 {
@@ -34,6 +37,28 @@ char *extract_preferred_slice(const char *fatPath)
 
 int main(int argc, char *argv[]) {
     printf("CoreTrust bypass eta s0n!!\n");
+
+    /*uint8_t *testData = malloc(0x300);
+    memset(testData, 0x41, 0x300);
+    MemoryStream *testStream = buffered_stream_init_from_buffer(testData, 0x300, BUFFERED_STREAM_FLAG_AUTO_EXPAND);
+
+    memory_stream_expand(testStream, 0x100, 0x100);
+    //memory_stream_trim(testStream, 0x100, 0x0);
+
+    printf("size after trim: 0x%lx\n", memory_stream_get_size(testStream));
+
+    uint8_t append[0x100];
+    memset(append, 0x42, 0x100);
+    memory_stream_write(testStream, memory_stream_get_size(testStream), 0x100, &append[0]);
+
+    uint32_t dumpSize = memory_stream_get_size(testStream);
+    char fullData[dumpSize];
+    memory_stream_read(testStream, 0, dumpSize, fullData);
+    FILE *fx = fopen("data/test.bin", "wb");
+    fwrite(fullData, dumpSize, 1, fx);
+    fclose(fx);
+    return 0;*/
+
 
     if (argc < 2) {
         printf("Usage: %s <path to MachO file>\n", argv[0]);
@@ -136,6 +161,25 @@ int main(int argc, char *argv[]) {
             nextBlob = nextBlob->next;
         }
         nextBlob->next = signatureBlob;
+    }
+
+    if (actualCDBlob != NULL) {
+        CS_CodeDirectory codeDir;
+        memory_stream_read(actualCDBlob->stream, 0, sizeof(codeDir), &codeDir);
+        CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDir, BIG_TO_HOST_APPLIER);
+
+        uint32_t newTeamOffset = memory_stream_get_size(actualCDBlob->stream);
+
+        memory_stream_write(actualCDBlob->stream, newTeamOffset, sizeof(APPSTORE_CERT_TEAM_ID), APPSTORE_CERT_TEAM_ID);
+        printf("Replacing TeamID with \"%s\"\n", APPSTORE_CERT_TEAM_ID);
+
+        codeDir.teamOffset = newTeamOffset;
+        CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDir, HOST_TO_BIG_APPLIER);
+        memory_stream_write(actualCDBlob->stream, 0, sizeof(codeDir), &codeDir);
+    }
+    else {
+        printf("Failed to locate actual CD blob.\n");
+        return -1;
     }
 
     printf("Creating new superblob...\n");
