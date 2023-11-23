@@ -198,8 +198,21 @@ DecodedSuperBlob *superblob_decode(CS_SuperBlob *superblob)
 	return decodedSuperblob;
 }
 
+void superblob_fixup_lengths(DecodedSuperBlob *decodedSuperblob)
+{
+	DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
+	while (nextBlob) {
+		MemoryStream *curStream = nextBlob->stream;
+		uint32_t curSize = HOST_TO_BIG((uint32_t)memory_stream_get_size(curStream));
+		memory_stream_write(curStream, offsetof(CS_GenericBlob, length), sizeof(curSize), &curSize);
+
+		nextBlob = nextBlob->next;
+	}
+}
+
 CS_SuperBlob *superblob_encode(DecodedSuperBlob *decodedSuperblob)
 {
+	superblob_fixup_lengths(decodedSuperblob);
 	uint32_t blobCount = 0, blobSize = 0;
 
 	// Determine amount and size of contained blobs
@@ -231,9 +244,6 @@ CS_SuperBlob *superblob_encode(DecodedSuperBlob *decodedSuperblob)
 		uint32_t curSize = memory_stream_get_size(curStream);
 
 		memory_stream_read(curStream, 0, curSize, superblobDataCur);
-
-		// Automatically update the length of the blob based on the length of the stream backing it
-		((CS_GenericBlob *)superblobDataCur)->length = HOST_TO_BIG(curSize);
 
 		curIndex->offset = dataStartOffset + (superblobDataCur - superblobData);
 		curIndex->type = nextBlob->type;

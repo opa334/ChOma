@@ -35,6 +35,35 @@ char *extract_preferred_slice(const char *fatPath)
     return temp;
 }
 
+int extract_blobs(CS_SuperBlob *superBlob, const char *dir)
+{
+    DecodedSuperBlob *decodedSuperblob = superblob_decode(superBlob);
+
+    DecodedBlob *blob = decodedSuperblob->firstBlob;
+    while (blob) {
+        char outPath[PATH_MAX];
+        uint32_t magic = 0;
+        //uint32_t len = 0;
+        memory_stream_read(blob->stream, offsetof(CS_GenericBlob, magic), sizeof(magic), &magic);
+        //memory_stream_read(blob->stream, offsetof(CS_GenericBlob, length), sizeof(len), &len);
+        magic = BIG_TO_HOST(magic);
+        //len = BIG_TO_HOST(len);
+
+        snprintf(outPath, PATH_MAX, "%s/%x_%x.bin", dir, blob->type, magic);
+
+        uint64_t len = memory_stream_get_size(blob->stream);
+        uint8_t blobData[len];
+        memory_stream_read(blob->stream, 0, len, blobData);
+
+        FILE *f = fopen(outPath, "wb");
+        fwrite(blobData, len, 1, f);
+        fclose(f);
+
+        blob = blob->next;
+    }
+    return 0;
+}
+
 int main(int argc, char *argv[]) {
     printf("CoreTrust bypass eta s0n!!\n");
 
@@ -84,7 +113,6 @@ int main(int argc, char *argv[]) {
         printf("Error: no code signature found, please fake-sign the binary at minimum before running the bypass.\n");
         return -1;
     }
-    uint64_t sizeOfCodeSignature = BIG_TO_HOST(superblob->length);
 
     FILE *fp = fopen("data/blob.orig", "wb");
     fwrite(superblob, BIG_TO_HOST(superblob->length), 1, fp);
@@ -116,16 +144,13 @@ int main(int argc, char *argv[]) {
         // Don't free if we've moved the original CodeDirectory to the last slot
         memory_stream_free(blob->stream);
     }
-
-
-    /*
-        App Store CodeDirectory
-        Requirements
-        Entitlements
-        DER entitlements
-        Actual CodeDirectory
-        Signature blob
-    */
+    
+    // App Store CodeDirectory
+    // Requirements
+    // Entitlements
+    // DER entitlements
+    // Actual CodeDirectory
+    // Signature blob
 
     printf("Adding App Store CodeDirectory...\n");
     MemoryStream *appstoreCDStream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len, 0);
@@ -143,8 +168,8 @@ int main(int argc, char *argv[]) {
 
     printf("Adding new signature blob...\n");
     if (signatureBlob != NULL) {
-        memory_stream_free(superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT)->stream);
-        superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT)->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len, 0);
+        memory_stream_free(signatureBlob->stream);
+        signatureBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len, 0);
     } else {
         signatureBlob = malloc(sizeof(DecodedBlob));
         signatureBlob->type = CSSLOT_SIGNATURESLOT;
@@ -219,7 +244,7 @@ int main(int argc, char *argv[]) {
     actualCDBlob->next = signatureBlob;
     signatureBlob->next = NULL;
 
-    int ret = 0;
+    uint64_t sizeOfCodeSignature = BIG_TO_HOST(superblob->length);
     CS_SuperBlob *encodedSuperblobUnsigned = superblob_encode(decodedSuperblob);
     printf("Updating load commands...\n");
     update_load_commands_for_coretrust_bypass(macho, encodedSuperblobUnsigned, sizeOfCodeSignature, memory_stream_get_size(macho->stream));
@@ -228,7 +253,9 @@ int main(int argc, char *argv[]) {
     printf("Updating code slot hashes...\n");
     DecodedBlob *codeDirectoryBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
     update_code_directory(macho, codeDirectoryBlob->stream);
+    superblob_fixup_lengths(decodedSuperblob);
 
+    int ret = 0;
     printf("Signing binary...\n");
     ret = update_signature_blob(decodedSuperblob);
     if(ret == -1) {

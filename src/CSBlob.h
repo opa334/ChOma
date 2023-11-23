@@ -68,6 +68,7 @@ typedef struct s_DecodedSuperBlob {
 } DecodedSuperBlob;
 
 DecodedSuperBlob *superblob_decode(CS_SuperBlob *superblob);
+void superblob_fixup_lengths(DecodedSuperBlob *decodedSuperblob);
 CS_SuperBlob *superblob_encode(DecodedSuperBlob *decodedSuperblob);
 void decoded_superblob_free(DecodedSuperBlob *decodedSuperblob);
 
