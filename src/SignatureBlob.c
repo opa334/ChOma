@@ -61,7 +61,7 @@ int update_signature_blob(DecodedSuperBlob *superblob) {
     }
 
     // Print the base64 hash
-    printf("Base64 hash: %s\n", newBase64Hash);
+    printf("Base64 hash: %.*s\n", CC_SHA256_DIGEST_LENGTH, newBase64Hash);
 
     int ret = memory_stream_write(signatureBlob->stream, HASHHASH_OFFSET, CC_SHA256_DIGEST_LENGTH, secondCDSHA256Hash);
     if (ret != 0) {
