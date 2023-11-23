@@ -20,6 +20,37 @@ int memory_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void
     return -1;
 }
 
+int memory_stream_insert(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf)
+{
+    if (!(stream->flags & MEMORY_STREAM_FLAG_MUTABLE)) return -1;
+
+    size_t streamSize = memory_stream_get_size(stream);
+    if (memory_stream_expand(stream, 0, size) != 0) return -1;
+    if (memory_stream_copy_data(stream, offset, stream, offset + size, streamSize-offset) != 0) return -1;
+    if (memory_stream_write(stream, offset, size, inBuf) != 0) return -1;
+    return 0;
+}
+
+int memory_stream_read_string(MemoryStream *stream, uint64_t offset, char **outString)
+{
+    size_t size = 0;
+    char c = 1;
+    while (c != 0) {
+        int r = memory_stream_read(stream, offset+size, sizeof(c), &c);
+        if (r != 0) return r;
+        size++;
+    }
+
+    *outString = malloc(size+1);
+    return memory_stream_read(stream, offset, size+1, *outString);
+}
+
+int memory_stream_write_string(MemoryStream *stream, uint64_t offset, char *string)
+{
+    size_t size = strlen(string) + 1;
+    return memory_stream_write(stream, offset, size, string);
+}
+
 size_t memory_stream_get_size(MemoryStream *stream)
 {
     if (stream->getSize) {
@@ -121,6 +152,8 @@ int memory_stream_copy_data(MemoryStream *originStream, uint64_t originOffset, M
         return -1;
     }
 
+    bool backwards = (originStream == targetStream) && (targetOffset > originOffset);
+
     uint8_t buffer[COPY_DATA_BUFFER_SIZE];
     for (uint32_t copiedSize = 0; copiedSize < size; copiedSize += COPY_DATA_BUFFER_SIZE) {
         uint32_t remainingSize = size - copiedSize;
@@ -128,9 +161,13 @@ int memory_stream_copy_data(MemoryStream *originStream, uint64_t originOffset, M
         if (remainingSize < sizeToCopy) {
             sizeToCopy = remainingSize;
         }
-        int rr = memory_stream_read(originStream, originOffset + copiedSize, sizeToCopy, buffer);
+
+        uint64_t readOffset = backwards ? ((originOffset + (size - copiedSize)) - sizeToCopy) : (originOffset + copiedSize);
+        uint64_t writeOffset = backwards ? ((targetOffset + (size - copiedSize)) - sizeToCopy) : (targetOffset + copiedSize);
+
+        int rr = memory_stream_read(originStream, readOffset, sizeToCopy, buffer);
         if (rr != 0) return rr;
-        int wr = memory_stream_write(targetStream, targetOffset + copiedSize, sizeToCopy, buffer);
+        int wr = memory_stream_write(targetStream, writeOffset, sizeToCopy, buffer);
         if (wr != 0) return wr;
     }
 

@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 #define MEMORY_STREAM_FLAG_OWNS_DATA (1 << 0)
 #define MEMORY_STREAM_FLAG_MUTABLE (1 << 1)
@@ -35,6 +36,12 @@ typedef struct s_MemoryStream {
 
 int memory_stream_read(MemoryStream *stream, uint64_t offset, size_t size, void *outBuf);
 int memory_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf);
+
+int memory_stream_insert(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf);
+
+int memory_stream_read_string(MemoryStream *stream, uint64_t offset, char **outString);
+int memory_stream_write_string(MemoryStream *stream, uint64_t offset, char *string);
+
 size_t memory_stream_get_size(MemoryStream *stream);
 uint8_t *memory_stream_get_raw_pointer(MemoryStream *stream);
 uint32_t memory_stream_get_flags(MemoryStream *stream);
