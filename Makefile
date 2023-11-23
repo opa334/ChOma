@@ -55,10 +55,18 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+ifeq ($(TARGET), ios)
 $(TESTS_OUTPUT_DIR)/%: $(TESTS_SRC_DIR)/%
 	@mkdir -p $(dir $@)
 	@rm -rf $@
 	$(CC) $(CFLAGS) -I$(OUTPUT_DIR)/include -o $@ $</*.c $(OUTPUT_DIR)/lib/libchoma.a
+	@ldid -Sexternal/ios/entitlements.plist $@
+else
+$(TESTS_OUTPUT_DIR)/%: $(TESTS_SRC_DIR)/%
+	@mkdir -p $(dir $@)
+	@rm -rf $@
+	$(CC) $(CFLAGS) -I$(OUTPUT_DIR)/include -o $@ $</*.c $(OUTPUT_DIR)/lib/libchoma.a
+endif
 
 copy-choma-headers: $(CHOMA_HEADERS)
 	@rm -rf $(CHOMA_HEADERS_DST_DIR)
