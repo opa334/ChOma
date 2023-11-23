@@ -106,9 +106,9 @@ int apply_coretrust_bypass(const char *machoPath)
         return -1;
     }
 
-    FILE *fp = fopen("data/blob.orig", "wb");
-    fwrite(superblob, BIG_TO_HOST(superblob->length), 1, fp);
-    fclose(fp);
+    //FILE *fp = fopen("data/blob.orig", "wb");
+    //fwrite(superblob, BIG_TO_HOST(superblob->length), 1, fp);
+    //fclose(fp);
 
     DecodedSuperBlob *decodedSuperblob = superblob_decode(superblob);
 
@@ -183,7 +183,6 @@ int apply_coretrust_bypass(const char *machoPath)
 
         // If there is already a TeamID, delete it
         if (initalTeamOffset != 0) {
-            
             uint32_t existingTeamIDSize = 0;
             char *existingTeamID = NULL;
             memory_stream_read_string(actualCDBlob->stream, initalTeamOffset, &existingTeamID);
@@ -205,7 +204,6 @@ int apply_coretrust_bypass(const char *machoPath)
         free(ident);
         memory_stream_insert(actualCDBlob->stream, newTeamOffset, teamIDToSetSize, teamIDToSet);
         shift += teamIDToSetSize;
-
         
         codeDir.teamOffset = newTeamOffset;
 
@@ -255,9 +253,9 @@ int apply_coretrust_bypass(const char *machoPath)
     CS_SuperBlob *newSuperblob = superblob_encode(decodedSuperblob);
 
     // Write the new superblob to the file
-    fp = fopen("data/blob.generated", "wb");
-    fwrite(newSuperblob, BIG_TO_HOST(newSuperblob->length), 1, fp);
-    fclose(fp);
+    //fp = fopen("data/blob.generated", "wb");
+    //fwrite(newSuperblob, BIG_TO_HOST(newSuperblob->length), 1, fp);
+    //fclose(fp);
 
     // Write the new signed superblob to the MachO
     macho_replace_code_signature(macho, newSuperblob);
