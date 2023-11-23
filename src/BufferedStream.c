@@ -34,11 +34,11 @@ static int buffered_stream_write(MemoryStream *stream, uint64_t offset, size_t s
     BufferedStreamContext *context = stream->context;
 
     bool expandAllowed = (stream->flags & MEMORY_STREAM_FLAG_AUTO_EXPAND);
-    bool needsExpand = (offset + size) > context->bufferSize;
+    bool needsExpand = (offset + size) > context->subBufferSize;
     printf("expandAllowed: %d, needsExpand: %d\n", expandAllowed, needsExpand);
 
     if (needsExpand && !expandAllowed) {
-        printf("Error: cannot write %zx bytes at %llx, maximum is %zx.\n", size, offset, context->bufferSize);
+        printf("Error: cannot write %zx bytes at %llx, maximum is %zx.\n", size, offset, context->subBufferSize);
         return -1;
     }
 
@@ -48,7 +48,7 @@ static int buffered_stream_write(MemoryStream *stream, uint64_t offset, size_t s
     }
 
     if (needsExpand) {
-        buffered_stream_expand(stream, 0, (offset + size) - context->bufferSize);
+        buffered_stream_expand(stream, 0, (offset + size) - context->subBufferSize);
     }
 
     memcpy(context->buffer + context->subBufferStart + offset, inBuf, size);
@@ -58,7 +58,7 @@ static int buffered_stream_write(MemoryStream *stream, uint64_t offset, size_t s
 static int buffered_stream_get_size(MemoryStream *stream, size_t *sizeOut)
 {
     BufferedStreamContext *context = stream->context;
-    *sizeOut = context->bufferSize;
+    *sizeOut = context->subBufferSize;
     return 0;
 }
 
@@ -74,7 +74,7 @@ static int buffered_stream_trim(MemoryStream *stream, size_t trimAtStart, size_t
 
     // TODO: bound checks
     context->subBufferStart += trimAtStart;
-    context->subBufferSize -= trimAtEnd;
+    context->subBufferSize -= (trimAtEnd + trimAtStart);
 
     return 0;
 }
@@ -83,15 +83,17 @@ static int buffered_stream_expand(MemoryStream *stream, size_t expandAtStart, si
 {
     BufferedStreamContext *context = stream->context;
 
-    size_t newSize = context->bufferSize + expandAtStart + expandAtEnd;
-    void *newBuffer = malloc(newSize);
+    size_t newSize = context->subBufferSize + expandAtStart + expandAtEnd;
+    uint8_t *newBuffer = malloc(newSize);
     memset(newBuffer, 0, newSize);
-    memcpy(newBuffer + expandAtEnd, context->buffer, newSize);
+    memcpy(&newBuffer[expandAtStart], &context->buffer[context->subBufferStart], newSize - expandAtStart);
     if (stream->flags & MEMORY_STREAM_FLAG_OWNS_DATA) {
         free(context->buffer);
     }
     context->buffer = newBuffer;
     context->bufferSize = newSize;
+    context->subBufferStart = 0;
+    context->subBufferSize = newSize;
     stream->flags |= MEMORY_STREAM_FLAG_OWNS_DATA;
 
     return 0;
