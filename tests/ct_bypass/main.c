@@ -266,7 +266,7 @@ int main(int argc, char *argv[]) {
         memset(padding, 0, paddingSize);
         macho_write_at_offset(macho, offsetOfCodeSignature + newCodeSignatureSize, paddingSize, padding);
     } else if (newCodeSignatureSize < freeSpace) {
-        memory_stream_trim(macho_get_stream(macho), 0, offsetOfCodeSignature);
+        memory_stream_trim(macho_get_stream(macho), 0, entireFileSize-offsetOfCodeSignature);
         macho_write_at_offset(macho, offsetOfCodeSignature, newCodeSignatureSize, newSuperblob);
         uint8_t padding[paddingSize];
         memset(padding, 0, paddingSize);
