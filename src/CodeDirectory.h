@@ -33,12 +33,14 @@ typedef struct __CodeDirectory {
 	uint32_t teamOffset;
 } CS_CodeDirectory;
 
-#define CS_HASHTYPE_SHA160_160 1
-#define CS_HASHTYPE_SHA256_256 2
-#define CS_HASHTYPE_SHA256_160 3
-#define CS_HASHTYPE_SHA384_384 4
+enum CS_HashType {
+	CS_HASHTYPE_SHA160_160 = 1,
+	CS_HASHTYPE_SHA256_256 = 2,
+	CS_HASHTYPE_SHA256_160 = 3,
+	CS_HASHTYPE_SHA384_384 = 4,
+};
 
-int macho_parse_code_directory_blob(MachO *macho, CS_CodeDirectory *codeDirectoryOut, bool printSlots, bool verifySlots);
+int macho_parse_code_directory_blob(MachO *macho, CS_CodeDirectory *codeDirectoryOut, uint32_t cdOffset, bool printSlots, bool verifySlots);
 void update_code_directory(MachO *macho, DecodedSuperBlob *decodedSuperblob);
 
 #endif // CODE_DIRECTORY_H

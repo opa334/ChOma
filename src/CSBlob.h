@@ -58,6 +58,7 @@ enum {
 typedef struct s_DecodedBlob {
 	struct s_DecodedBlob *next;
 	uint32_t type;
+	uint32_t offset;
 	MemoryStream *stream;
 } DecodedBlob;
 

@@ -69,8 +69,24 @@ int code_directory_verify_code_slots(MachO *macho, CS_CodeDirectory *codeDirecto
     return foundIncorrectHash ? -1 : 0;
 }
 
+char *cs_hash_type_to_string(int hashType)
+{
+	switch (hashType)
+	{
+	case CS_HASHTYPE_SHA160_160:
+		return "SHA-1 160";
+	case CS_HASHTYPE_SHA256_256:
+		return "SHA-2 256";
+	case CS_HASHTYPE_SHA256_160:
+		return "SHA-2 160";
+	case CS_HASHTYPE_SHA384_384:
+		return "SHA-3 384";
+	default:
+		return "Unknown blob type";
+	}
+}
 
-int macho_parse_code_directory_blob(MachO *macho, CS_CodeDirectory *codeDirectoryOut, bool printSlots, bool verifySlots)
+int macho_parse_code_directory_blob(MachO *macho, CS_CodeDirectory *codeDirectoryOut, uint32_t cdOffset, bool printSlots, bool verifySlots)
 {
 	printf("Code directory:\n");
 	printf("\tMagic: 0x%X\n", codeDirectoryOut->magic);
@@ -83,7 +99,7 @@ int macho_parse_code_directory_blob(MachO *macho, CS_CodeDirectory *codeDirector
 	printf("\tNumber of code slots: %d\n", codeDirectoryOut->nCodeSlots);
 	printf("\tCode limit: 0x%x\n", codeDirectoryOut->codeLimit);
 	printf("\tHash size: 0x%x\n", codeDirectoryOut->hashSize);
-	printf("\tHash type: %d\n", codeDirectoryOut->hashType);
+	printf("\tHash type: %s\n", cs_hash_type_to_string(codeDirectoryOut->hashType));
 	printf("\tPage size: 0x%x\n", codeDirectoryOut->pageSize);
 	printf("\tScatter offset: 0x%x\n", codeDirectoryOut->scatterOffset);
 	printf("\tTeam offset: 0x%x\n", codeDirectoryOut->teamOffset);
@@ -93,94 +109,96 @@ int macho_parse_code_directory_blob(MachO *macho, CS_CodeDirectory *codeDirector
 	uint8_t *specialSlots = malloc(codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize);
 	memset(specialSlots, 0, codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize);
 	size_t lastSpecialSlotOffset = slotZeroOffset - (codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize);
-	macho_read_at_offset(macho, lastSpecialSlotOffset, codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize, specialSlots);
 
-	// for (int i = 0; i < codeDirectoryOut->nSpecialSlots; i++)
-	// {
+	uint64_t csOffset = macho_find_code_signature_offset(macho);
+	macho_read_at_offset(macho, csOffset + cdOffset + lastSpecialSlotOffset, codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize, specialSlots);
 
-	// 	// Print the slot number
-	// 	int slotNumber = 0 - (codeDirectoryOut->nSpecialSlots - i);
-	// 	printf("%d: ", slotNumber);
+	for (int i = 0; i < codeDirectoryOut->nSpecialSlots; i++)
+	{
 
-	// 	// Print each byte of the hash
-	// 	for (int j = 0; j < codeDirectoryOut->hashSize; j++)
-	// 	{
-	// 		printf("%02x", specialSlots[(i * codeDirectoryOut->hashSize) + j]);
-	// 	}
+		// Print the slot number
+		int slotNumber = 0 - (codeDirectoryOut->nSpecialSlots - i);
+		printf("%d: ", slotNumber);
 
-	// 	// Check if hash is just zeroes
-	// 	bool isZero = true;
-	// 	for (int j = 0; j < codeDirectoryOut->hashSize; j++)
-	// 	{
-	// 		if (specialSlots[(i * codeDirectoryOut->hashSize) + j] != 0)
-	// 		{
-	// 			isZero = false;
-	// 			break;
-	// 		}
-	// 	}
+		// Print each byte of the hash
+		for (int j = 0; j < codeDirectoryOut->hashSize; j++)
+		{
+			printf("%02x", specialSlots[(i * codeDirectoryOut->hashSize) + j]);
+		}
 
-	// 	// TrollStore TODO: Validate that hashes are correct
-	// 	// validateHashes(macho, specialSlots, codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize);
-	// 	// Don't print the special slot name if the hash is just zeroes
-	// 	if (!isZero)
-	// 	{
-	// 		// Print the special slot name (if applicable)
-	// 		if (slotNumber == -1)
-	// 		{
-	// 			printf(" (Info.plist hash)");
-	// 		}
-	// 		else if (slotNumber == -2)
-	// 		{
-	// 			printf(" (Requirements blob hash)");
-	// 		}
-	// 		else if (slotNumber == -3)
-	// 		{
-	// 			printf(" (CodeResources hash)");
-	// 		}
-	// 		else if (slotNumber == -4)
-	// 		{
-	// 			printf(" (App-specific hash)");
-	// 		}
-	// 		else if (slotNumber == -5)
-	// 		{
-	// 			printf(" (Entitlements hash)");
-	// 		}
-	// 		else if (slotNumber == -6)
-	// 		{
-	// 			printf(" (DMG signature hash)");
-	// 		}
-	// 		else if (slotNumber == -7)
-	// 		{
-	// 			printf(" (DER entitlements hash)");
-	// 		}
-	// 		else if (slotNumber == -8)
-	// 		{
-	// 			printf(" (Process launch constraints hash)");
-	// 		}
-	// 		else if (slotNumber == -9)
-	// 		{
-	// 			printf(" (Parent process launch constraints hash)");
-	// 		}
-	// 		else if (slotNumber == -10)
-	// 		{
-	// 			printf(" (Responsible process launch constraints hash)");
-	// 		}
-	// 		else if (slotNumber == -11)
-	// 		{
-	// 			printf(" (Loaded library launch constraints hash)");
-	// 		}
-	// 	}
+		// Check if hash is just zeroes
+		bool isZero = true;
+		for (int j = 0; j < codeDirectoryOut->hashSize; j++)
+		{
+			if (specialSlots[(i * codeDirectoryOut->hashSize) + j] != 0)
+			{
+				isZero = false;
+				break;
+			}
+		}
 
-	// 	printf("\n");
-	// }
+		// TrollStore TODO: Validate that hashes are correct
+		// validateHashes(macho, specialSlots, codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize);
+		// Don't print the special slot name if the hash is just zeroes
+		if (!isZero)
+		{
+			// Print the special slot name (if applicable)
+			if (slotNumber == -1)
+			{
+				printf(" (Info.plist hash)");
+			}
+			else if (slotNumber == -2)
+			{
+				printf(" (Requirements blob hash)");
+			}
+			else if (slotNumber == -3)
+			{
+				printf(" (CodeResources hash)");
+			}
+			else if (slotNumber == -4)
+			{
+				printf(" (App-specific hash)");
+			}
+			else if (slotNumber == -5)
+			{
+				printf(" (Entitlements hash)");
+			}
+			else if (slotNumber == -6)
+			{
+				printf(" (DMG signature hash)");
+			}
+			else if (slotNumber == -7)
+			{
+				printf(" (DER entitlements hash)");
+			}
+			else if (slotNumber == -8)
+			{
+				printf(" (Process launch constraints hash)");
+			}
+			else if (slotNumber == -9)
+			{
+				printf(" (Parent process launch constraints hash)");
+			}
+			else if (slotNumber == -10)
+			{
+				printf(" (Responsible process launch constraints hash)");
+			}
+			else if (slotNumber == -11)
+			{
+				printf(" (Loaded library launch constraints hash)");
+			}
+		}
 
-	// // Clean up
-	// free(specialSlots);
+		printf("\n");
+	}
+
+	// Clean up
+	free(specialSlots);
 
 	if (printSlots) {
 		uint8_t *hashes = malloc(codeDirectoryOut->nCodeSlots * codeDirectoryOut->hashSize);
 		memset(hashes, 0, codeDirectoryOut->nCodeSlots * codeDirectoryOut->hashSize);
-		macho_read_at_offset(macho, slotZeroOffset, codeDirectoryOut->nCodeSlots * codeDirectoryOut->hashSize, hashes);
+		macho_read_at_offset(macho, csOffset + cdOffset + slotZeroOffset, codeDirectoryOut->nCodeSlots * codeDirectoryOut->hashSize, hashes);
 		for (int i = 0; i < codeDirectoryOut->nCodeSlots; i++)
 		{
 
