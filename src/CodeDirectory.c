@@ -1,4 +1,5 @@
 #include "CodeDirectory.h"
+#include "CSBlob.h"
 #include "MemoryStream.h"
 
 int code_directory_verify_code_slots(MachO *macho, CS_CodeDirectory *codeDirectory, uint8_t *hashes) {
@@ -111,7 +112,9 @@ int macho_parse_code_directory_blob(MachO *macho, CS_CodeDirectory *codeDirector
 	memset(specialSlots, 0, codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize);
 	size_t lastSpecialSlotOffset = slotZeroOffset - (codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize);
 
-	uint64_t csOffset = macho_find_code_signature_offset(macho);
+	uint32_t csOffset;
+	macho_find_code_signature_bounds(macho, &csOffset, NULL);
+
 	macho_read_at_offset(macho, csOffset + cdOffset + lastSpecialSlotOffset, codeDirectoryOut->nSpecialSlots * codeDirectoryOut->hashSize, specialSlots);
 
 	for (int i = 0; i < codeDirectoryOut->nSpecialSlots; i++)

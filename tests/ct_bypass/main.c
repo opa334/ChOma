@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
     MachO *macho = macho_init_for_writing(machoPath);
     if (!macho) return -1;
 
-    CS_SuperBlob *superblob = (CS_SuperBlob *)macho_find_code_signature(macho);
+    CS_SuperBlob *superblob = (CS_SuperBlob *)macho_read_code_signature(macho);
     if (!superblob) {
         printf("Error: no code signature found, please fake-sign the binary at minimum before running the bypass.\n");
         return -1;
@@ -253,26 +253,8 @@ int main(int argc, char *argv[]) {
     fwrite(newSuperblob, BIG_TO_HOST(newSuperblob->length), 1, fp);
     fclose(fp);
 
-    // Write the new MachO to the file
-    // Calculate offset to write the new code signature
-    uint64_t offsetOfCodeSignature = macho_find_code_signature_offset(macho);
-    // See how much space we have to write the new code signature
-    uint64_t entireFileSize = memory_stream_get_size(macho->stream);
-    uint64_t freeSpace = entireFileSize - offsetOfCodeSignature;
-    uint64_t paddingSize = freeSpace - sizeOfCodeSignature;
-    uint64_t newCodeSignatureSize = BIG_TO_HOST(newSuperblob->length);
-    if (newCodeSignatureSize >= freeSpace) {
-        macho_write_at_offset(macho, offsetOfCodeSignature, newCodeSignatureSize, newSuperblob);
-        uint8_t padding[paddingSize];
-        memset(padding, 0, paddingSize);
-        macho_write_at_offset(macho, offsetOfCodeSignature + newCodeSignatureSize, paddingSize, padding);
-    } else if (newCodeSignatureSize < freeSpace) {
-        memory_stream_trim(macho_get_stream(macho), 0, entireFileSize-offsetOfCodeSignature);
-        macho_write_at_offset(macho, offsetOfCodeSignature, newCodeSignatureSize, newSuperblob);
-        uint8_t padding[paddingSize];
-        memset(padding, 0, paddingSize);
-        macho_write_at_offset(macho, offsetOfCodeSignature + newCodeSignatureSize, paddingSize, padding);
-    }
+    // Write the new signed superblob to the MachO
+    macho_replace_code_signature(macho, newSuperblob);
 
     decoded_superblob_free(newDecodedSuperblob);
     free(superblob);

@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
 
     if (getArgumentBool("-c")) {
         for (int i = 0; i < fat->slicesCount; i++) {
-            CS_SuperBlob *superblob = (CS_SuperBlob *)macho_find_code_signature(macho);
+            CS_SuperBlob *superblob = (CS_SuperBlob *)macho_read_code_signature(macho);
             MachO *slice = fat->slices[i];
             DecodedSuperBlob *decodedSuperBlob = superblob_decode(superblob);
             decodedsuperblob_parse_blobs(macho, decodedSuperBlob, getArgumentBool("-s"), getArgumentBool("-v"));

@@ -103,33 +103,66 @@ int decodedsuperblob_parse_blobs(MachO *macho, DecodedSuperBlob *decodedSuperblo
 	return 0;
 }
 
-uint8_t *macho_find_code_signature(MachO *macho)
+void macho_find_code_signature_bounds(MachO *macho, uint32_t *offsetOut, uint32_t *sizeOut)
 {
-	__block uint8_t *dataOut = NULL;
 	macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
 		if (loadCommand.cmd == LC_CODE_SIGNATURE) {
 			struct linkedit_data_command *csLoadCommand = ((struct linkedit_data_command *)cmd);
 			LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(csLoadCommand, LITTLE_TO_HOST_APPLIER);
-			dataOut = malloc(csLoadCommand->datasize);
-			macho_read_at_offset(macho, csLoadCommand->dataoff, csLoadCommand->datasize, dataOut);
+			if (offsetOut) *offsetOut = csLoadCommand->dataoff;
+			if (sizeOut) *sizeOut = csLoadCommand->datasize;
 			*stop = true;
 		}
 	});
+}
+
+uint8_t *macho_read_code_signature(MachO *macho)
+{
+	uint32_t offset = 0, size = 0;
+	macho_find_code_signature_bounds(macho, &offset, &size);
+
+	uint8_t *dataOut = malloc(size);
+	macho_read_at_offset(macho, offset, size, dataOut);
 	return dataOut;
 }
 
-uint64_t macho_find_code_signature_offset(MachO *macho)
+int macho_replace_code_signature(MachO *macho, CS_SuperBlob *superblob)
 {
-	__block uint64_t offsetOut = 0;
-	macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
-		if (loadCommand.cmd == LC_CODE_SIGNATURE) {
-			struct linkedit_data_command *csLoadCommand = ((struct linkedit_data_command *)cmd);
-			LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(csLoadCommand, LITTLE_TO_HOST_APPLIER);
-			offsetOut = csLoadCommand->dataoff;
-			*stop = true;
-		}
-	});
-	return offsetOut;
+	uint32_t csSegmentOffset = 0, csSegmentSize = 0;
+	macho_find_code_signature_bounds(macho, &csSegmentOffset, &csSegmentSize);
+
+	uint32_t sizeOfCodeSignature = 0;
+	memory_stream_read(macho->stream, csSegmentOffset + offsetof(CS_SuperBlob, length), sizeof(sizeOfCodeSignature), &sizeOfCodeSignature);
+	sizeOfCodeSignature = BIG_TO_HOST(sizeOfCodeSignature);
+
+	printf("csSegmentOffset=0x%x\n", csSegmentOffset);
+	printf("sizeOfCodeSignature=0x%x\n", sizeOfCodeSignature);
+
+	uint64_t newCodeSignatureSize = BIG_TO_HOST(superblob->length);
+
+    // See how much space we have to write the new code signature
+    uint64_t entireFileSize = memory_stream_get_size(macho->stream);
+    uint64_t freeSpace = entireFileSize - csSegmentOffset;
+    uint64_t paddingSize = freeSpace - sizeOfCodeSignature;
+
+	printf("entireFileSize=0x%llx\n", entireFileSize);
+	printf("freeSpace=0x%llx\n", freeSpace);
+	printf("paddingSize=0x%llx\n", paddingSize);
+
+    if (newCodeSignatureSize >= freeSpace) {
+        macho_write_at_offset(macho, csSegmentOffset, newCodeSignatureSize, superblob);
+        uint8_t padding[paddingSize];
+        memset(padding, 0, paddingSize);
+        macho_write_at_offset(macho, csSegmentOffset + newCodeSignatureSize, paddingSize, padding);
+    } else if (newCodeSignatureSize < freeSpace) {
+        memory_stream_trim(macho_get_stream(macho), 0, entireFileSize-csSegmentOffset);
+        macho_write_at_offset(macho, csSegmentOffset, newCodeSignatureSize, superblob);
+        uint8_t padding[paddingSize];
+        memset(padding, 0, paddingSize);
+        macho_write_at_offset(macho, csSegmentOffset + newCodeSignatureSize, paddingSize, padding);
+    }
+
+	return 0;
 }
 
 int macho_extract_cs_to_file(MachO *macho, CS_SuperBlob *superblob)

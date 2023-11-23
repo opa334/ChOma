@@ -71,14 +71,17 @@ DecodedSuperBlob *superblob_decode(CS_SuperBlob *superblob);
 CS_SuperBlob *superblob_encode(DecodedSuperBlob *decodedSuperblob);
 void decoded_superblob_free(DecodedSuperBlob *decodedSuperblob);
 
-uint8_t *macho_find_code_signature(MachO *macho);
-uint64_t macho_find_code_signature_offset(MachO *macho);
-
 // Convert blob magic to readable blob type string
 char *cs_blob_magic_to_string(int magic);
 
 // Extract Code Signature to file
 int macho_extract_cs_to_file(MachO *macho, CS_SuperBlob *superblob);
+
+void macho_find_code_signature_bounds(MachO *macho, uint32_t *offsetOut, uint32_t *sizeOut);
+
+uint8_t *macho_read_code_signature(MachO *macho);
+
+int macho_replace_code_signature(MachO *macho, CS_SuperBlob *superblob);
 
 int decodedsuperblob_parse_blobs(MachO *macho, DecodedSuperBlob *decodedSuperblob, bool printAllSlots, bool verifySlots);
 
