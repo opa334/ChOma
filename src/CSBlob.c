@@ -122,7 +122,7 @@ CS_SuperBlob *macho_read_code_signature(MachO *macho)
 	macho_find_code_signature_bounds(macho, &offset, &size);
 	
 	CS_SuperBlob *dataOut = malloc(size);
-	int r = macho_read_at_offset(macho, offset, size, dataOut);
+	macho_read_at_offset(macho, offset, size, dataOut);
 	return dataOut;
 }
 
