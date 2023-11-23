@@ -26,7 +26,7 @@ static int buffered_stream_read(MemoryStream *stream, uint64_t offset, size_t si
     }
 
     memcpy(outBuf, context->buffer + context->subBufferStart + offset, size);
-    return 0;
+    return size;
 }
 
 static int buffered_stream_write(MemoryStream *stream, uint64_t offset, size_t size, void *inBuf)
