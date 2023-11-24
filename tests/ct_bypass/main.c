@@ -27,7 +27,7 @@ char *extract_preferred_slice(const char *fatPath)
     if (!macho) return NULL;
     
     char *temp = strdup("/tmp/XXXXXX");
-    mkstemp(temp);
+    int fd = mkstemp(temp);
 
     MemoryStream *outStream = file_stream_init_from_path(temp, 0, 0, FILE_STREAM_FLAG_WRITABLE | FILE_STREAM_FLAG_AUTO_EXPAND);
     MemoryStream *machoStream = macho_get_stream(macho);
@@ -35,6 +35,7 @@ char *extract_preferred_slice(const char *fatPath)
 
     fat_free(fat);
     memory_stream_free(outStream);
+    close(fd);
     return temp;
 }
 
