@@ -22,25 +22,32 @@ int memory_stream_write(MemoryStream *stream, uint64_t offset, size_t size, cons
 
 int memory_stream_insert(MemoryStream *stream, uint64_t offset, size_t size, const void *inBuf)
 {
-    if (!(stream->flags & MEMORY_STREAM_FLAG_MUTABLE)) return -1;
+    if (!(stream->flags & MEMORY_STREAM_FLAG_MUTABLE)) goto fail;
 
     size_t streamSize = memory_stream_get_size(stream);
-    if (memory_stream_expand(stream, 0, size) != 0) return -1;
-    if (memory_stream_copy_data(stream, offset, stream, offset + size, streamSize-offset) != 0) return -1;
-    if (memory_stream_write(stream, offset, size, inBuf) != 0) return -1;
+    if (memory_stream_expand(stream, 0, size) != 0) goto fail;
+    if (memory_stream_copy_data(stream, offset, stream, offset + size, streamSize-offset) != 0) goto fail;
+    if (memory_stream_write(stream, offset, size, inBuf) != 0) goto fail;
     return 0;
+
+fail:
+    printf("Error: memory_stream_insert failed\n");
+    return -1;
 }
 
 int memory_stream_delete(MemoryStream *stream, uint64_t offset, size_t size)
 {
     if (size == 0) return 0;
-    if (!(stream->flags & MEMORY_STREAM_FLAG_MUTABLE)) return -1;
+    if (!(stream->flags & MEMORY_STREAM_FLAG_MUTABLE)) goto fail;
 
     size_t streamSize = memory_stream_get_size(stream);
-    if (memory_stream_copy_data(stream, offset+size, stream, offset, streamSize-(offset+size)) != 0) return -1;
-    if (memory_stream_trim(stream, 0, size) != 0) return -1;
-
+    if (memory_stream_copy_data(stream, offset+size, stream, offset, streamSize-(offset+size)) != 0) goto fail;
+    if (memory_stream_trim(stream, 0, size) != 0) goto fail;
     return 0;
+
+fail:
+    printf("Error: memory_stream_delete failed\n");
+    return -1;
 }
 
 int memory_stream_read_string(MemoryStream *stream, uint64_t offset, char **outString)
@@ -153,12 +160,17 @@ int memory_stream_copy_data(MemoryStream *originStream, uint64_t originOffset, M
 {
     size_t originSize = memory_stream_get_size(originStream);
     size_t targetSize = memory_stream_get_size(targetStream);
-    if (originSize == MEMORY_STREAM_SIZE_INVALID || targetSize == MEMORY_STREAM_SIZE_INVALID) return -1;
+    if (originSize == MEMORY_STREAM_SIZE_INVALID || targetSize == MEMORY_STREAM_SIZE_INVALID) {
+        printf("Error: memory_stream_copy_data failed, invalid size detected\n");
+        return -1;
+    }
 
     if (originOffset + size > originSize) {
+        printf("Error: memory_stream_copy_data failed, originOffset OOB\n");
         return -1;
     }
     if (targetOffset + size > targetSize && !(memory_stream_get_flags(targetStream) | MEMORY_STREAM_FLAG_AUTO_EXPAND)) {
+        printf("Error: memory_stream_copy_data failed, targetOffset OOB\n");
         return -1;
     }
 
@@ -176,9 +188,15 @@ int memory_stream_copy_data(MemoryStream *originStream, uint64_t originOffset, M
         uint64_t writeOffset = backwards ? ((targetOffset + (size - copiedSize)) - sizeToCopy) : (targetOffset + copiedSize);
 
         int rr = memory_stream_read(originStream, readOffset, sizeToCopy, buffer);
-        if (rr != 0) return rr;
+        if (rr != 0) {
+            printf("Error: memory_stream_copy_data failed on memory_stream_read (%d)\n", rr);
+            return rr;
+        }
         int wr = memory_stream_write(targetStream, writeOffset, sizeToCopy, buffer);
-        if (wr != 0) return wr;
+        if (wr != 0) {
+            printf("Error: memory_stream_copy_data failed on memory_stream_write (%d)\n", wr);
+            return rr;
+        }
     }
 
     return 0;
