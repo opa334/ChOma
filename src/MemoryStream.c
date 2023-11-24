@@ -87,8 +87,6 @@ uint32_t memory_stream_get_flags(MemoryStream *stream)
 
 void _memory_stream_clone(MemoryStream *clone, MemoryStream *stream)
 {
-    clone->flags = stream->flags;
-
     clone->read = stream->read;
     clone->write = stream->write;
     clone->getSize = stream->getSize;
