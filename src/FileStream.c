@@ -1,5 +1,6 @@
 #include "FileStream.h"
 #include <sys/fcntl.h>
+#include <errno.h>
 
 static int _file_stream_context_is_trimmed(FileStreamContext *context)
 {
@@ -112,9 +113,11 @@ static int file_stream_expand(MemoryStream *stream, size_t expandAtStart, size_t
 static void file_stream_free(MemoryStream *stream)
 {
     FileStreamContext *context = stream->context;
-    if (context->fd != -1) {
+    if (context->fd > 0) {
         if (stream->flags & MEMORY_STREAM_FLAG_OWNS_DATA) {
-            close(context->fd);
+            if (close(context->fd) != 0) {
+                perror("close");
+            }
         }
     }
     free(context);
@@ -192,7 +195,7 @@ MemoryStream *file_stream_init_from_path(const char *path, uint32_t bufferStart,
     }
     int fd = open(path, openFlags);
     if (fd < 0) {
-        printf("Failed to open %s\n", path);
+        printf("Failed to open %s: %s\n", path, strerror(errno));
         return NULL;
     }
 
