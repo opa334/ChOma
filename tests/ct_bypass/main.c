@@ -107,6 +107,10 @@ int apply_coretrust_bypass(const char *machoPath)
     }
 
     bool isDynamicLibrary = macho->machHeader.filetype == MH_DYLIB;
+    if (!isDynamicLibrary && macho->machHeader.filetype != MH_EXECUTE) {
+        printf("Error: only executables and dynamic libraries are supported.\n");
+        return -1;
+    }
 
     //FILE *fp = fopen("data/blob.orig", "wb");
     //fwrite(superblob, BIG_TO_HOST(superblob->length), 1, fp);
