@@ -106,6 +106,8 @@ int apply_coretrust_bypass(const char *machoPath)
         return -1;
     }
 
+    bool isDynamicLibrary = macho->machHeader.filetype == MH_DYLIB;
+
     //FILE *fp = fopen("data/blob.orig", "wb");
     //fwrite(superblob, BIG_TO_HOST(superblob->length), 1, fp);
     //fclose(fp);
@@ -147,7 +149,7 @@ int apply_coretrust_bypass(const char *machoPath)
     }
     // these aren't always present
     DecodedBlob *entitlementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ENTITLEMENTS);
-    if (entitlementsBlob == NULL) {
+    if (entitlementsBlob == NULL && !isDynamicLibrary) {
         printf("Error: No entitlements found!\n");
         return -1;
     }
@@ -242,11 +244,15 @@ int apply_coretrust_bypass(const char *machoPath)
 
     printf("Creating new superblob...\n");
     requirementsBlob->next = entitlementsBlob;
-    if (derEntitlementsBlob) {
+    if (isDynamicLibrary) {
+        requirementsBlob->next = actualCDBlob;
+    } else {
+        if (derEntitlementsBlob) {
         entitlementsBlob->next = derEntitlementsBlob;
         derEntitlementsBlob->next = actualCDBlob;
-    } else {
-        entitlementsBlob->next = actualCDBlob;
+        } else {
+            entitlementsBlob->next = actualCDBlob;
+        }
     }
     actualCDBlob->next = signatureBlob;
     signatureBlob->next = NULL;
