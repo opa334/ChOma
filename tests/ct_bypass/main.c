@@ -2,6 +2,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <dirent.h>
+#include <sys/stat.h>
 #include <choma/CSBlob.h>
 #include <choma/MachOByteOrder.h>
 #include <choma/MachO.h>
@@ -92,7 +94,7 @@ bool argument_exists(int argc, char *argv[], const char *flag)
 
 void print_usage(const char *self)
 {
-    printf("Usage: %s -i <path to input MachO/FAT file> (-r) (-o <path to output MachO file>)\n", self);
+    printf("Usage: %s -i <path to input MachO/FAT file or .app bundle> (-r) (-o <path to output MachO file>)\n", self);
     exit(-1);
 }
 
@@ -322,6 +324,52 @@ int apply_coretrust_bypass_wrapper(const char *inputPath, const char *outputPath
     return r;
 }
 
+int apply_coretrust_bypass_to_app_bundle(const char *appBundlePath) {
+    // Recursively find all MachO files in the app bundle
+    DIR *dir;
+    struct dirent *entry;
+    struct stat statbuf;
+
+    if ((dir = opendir(appBundlePath)) == NULL) {
+        perror("opendir");
+        exit(EXIT_FAILURE);
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        char fullpath[1024];
+        snprintf(fullpath, sizeof(fullpath), "%s/%s", appBundlePath, entry->d_name);
+
+        if (stat(fullpath, &statbuf) == -1) {
+            perror("stat");
+            exit(EXIT_FAILURE);
+        }
+
+        if (S_ISDIR(statbuf.st_mode)) {
+            if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+                // Recursive call for subdirectories
+                apply_coretrust_bypass_to_app_bundle(fullpath);
+            }
+        } else {
+            // Process file
+            MemoryStream *stream = file_stream_init_from_path(fullpath, 0, 0, 0);
+            if (!stream) {
+                printf("Error: failed to open file %s\n", fullpath);
+                continue;
+            }
+            uint32_t magic = 0;
+            memory_stream_read(stream, 0, sizeof(magic), &magic);
+            if (magic == FAT_MAGIC_64 || magic == MH_MAGIC_64) {
+                printf("Applying bypass to %s.\n", fullpath);
+                apply_coretrust_bypass_wrapper(fullpath, fullpath);
+                memory_stream_free(stream);
+            }
+        }
+    }
+
+    closedir(dir);
+    return 0;
+}
+
 int main(int argc, char *argv[]) {
     printf("CoreTrust bypass eta s0n!!\n");
 
@@ -352,5 +400,10 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    // If the input ends with .app, assume it's an app bundle
+    if (strlen(input) > 4 && !strcmp(input + strlen(input) - 4, ".app")) {
+        printf("Applying CoreTrust bypass to app bundle.\n");
+        return apply_coretrust_bypass_to_app_bundle(input);
+    }
     return apply_coretrust_bypass_wrapper(input, output);
 }
