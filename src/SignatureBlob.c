@@ -26,7 +26,7 @@ CS_DecodedBlob *superblob_find_blob(CS_DecodedSuperBlob *superblob, uint32_t typ
     return NULL;
 }
 
-int update_signature_blob(CS_DecodedSuperBlob *superblob, const char *privateKeyPath)
+int update_signature_blob(CS_DecodedSuperBlob *superblob)
 {
     CS_DecodedBlob *sha256CD = superblob_find_blob(superblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
     if (!sha256CD) {
@@ -99,12 +99,7 @@ int update_signature_blob(CS_DecodedSuperBlob *superblob, const char *privateKey
     CC_SHA256(signedAttrs, (CC_LONG)0x229, fullAttributesHash);
     memcpy(newDecryptedSignature + DECRYPTED_SIGNATURE_HASH_OFFSET, fullAttributesHash, CC_SHA256_DIGEST_LENGTH);
 
-    struct stat fileStat;
-    if (stat(privateKeyPath, &fileStat) != 0) {
-        printf("%s not found in path!\n", privateKeyPath);
-        return -1;
-    }
-    newSignature = signWithRSA(privateKeyPath, newDecryptedSignature, DecryptedSignature_len, &newSignatureSize);
+    newSignature = signWithRSA(newDecryptedSignature, DecryptedSignature_len, &newSignatureSize);
 
     if (!newSignature) {
         printf("Failed to sign the decrypted signature!\n");

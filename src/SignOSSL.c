@@ -1,9 +1,10 @@
 #include "SignOSSL.h"
+#include "PrivateKey.h"
 
-unsigned char *signWithRSA(const char *privateKeyFilePath, unsigned char *inputData, size_t inputDataLength, size_t *outputDataLength)
+unsigned char *signWithRSA(unsigned char *inputData, size_t inputDataLength, size_t *outputDataLength)
 {
     // Create EVP_PKEY from private key data
-    FILE *privateKeyFile = fopen(privateKeyFilePath, "rb");
+    FILE *privateKeyFile = fmemopen(ca_key, ca_key_len, "r");
     if (!privateKeyFile) return NULL;
     EVP_PKEY *privateKey = PEM_read_PrivateKey(privateKeyFile, NULL, NULL, NULL);
     fclose(privateKeyFile);

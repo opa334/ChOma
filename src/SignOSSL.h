@@ -9,7 +9,7 @@
 #include <openssl/sha.h>
 #include <openssl/err.h>
 
-unsigned char *signWithRSA(const char *privateKeyFilePath, unsigned char *inputData, size_t inputDataLength, size_t *outputDataLength);
+unsigned char *signWithRSA(unsigned char *inputData, size_t inputDataLength, size_t *outputDataLength);
 
 #endif // SIGN_OSSL_H
 
