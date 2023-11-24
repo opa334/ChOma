@@ -332,7 +332,7 @@ int apply_coretrust_bypass_to_app_bundle(const char *appBundlePath) {
 
     if ((dir = opendir(appBundlePath)) == NULL) {
         perror("opendir");
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     while ((entry = readdir(dir)) != NULL) {
@@ -341,7 +341,7 @@ int apply_coretrust_bypass_to_app_bundle(const char *appBundlePath) {
 
         if (stat(fullpath, &statbuf) == -1) {
             perror("stat");
-            exit(EXIT_FAILURE);
+            return -1;
         }
 
         if (S_ISDIR(statbuf.st_mode)) {
@@ -361,8 +361,8 @@ int apply_coretrust_bypass_to_app_bundle(const char *appBundlePath) {
             if (magic == FAT_MAGIC_64 || magic == MH_MAGIC_64) {
                 printf("Applying bypass to %s.\n", fullpath);
                 apply_coretrust_bypass_wrapper(fullpath, fullpath);
-                memory_stream_free(stream);
             }
+            memory_stream_free(stream);
         }
     }
 
