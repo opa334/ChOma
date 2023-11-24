@@ -147,7 +147,7 @@ void update_lc_code_signature(MachO *macho, uint64_t size) {
     });
 }
 
-void update_load_commands_for_coretrust_bypass(MachO *macho, CS_SuperBlob *superblob, uint64_t originalCodeSignatureSize, uint64_t originalMachOSize) {
+int update_load_commands_for_coretrust_bypass(MachO *macho, CS_SuperBlob *superblob, uint64_t originalCodeSignatureSize, uint64_t originalMachOSize) {
 
     uint64_t sizeOfCodeSignature = BIG_TO_HOST(superblob->length);
 
@@ -170,7 +170,7 @@ void update_load_commands_for_coretrust_bypass(MachO *macho, CS_SuperBlob *super
 
     if (blockPaddingSize == 0 || vmAddress == 0 || fileOffset == 0) {
         printf("Error: failed to get existing values for __LINKEDIT segment.\n");
-        exit(1);
+        return -1;
     }
 
     uint64_t newSegmentSize = sizeOfCodeSignature + blockPaddingSize;
@@ -184,5 +184,5 @@ void update_load_commands_for_coretrust_bypass(MachO *macho, CS_SuperBlob *super
     printf("Updating LC_CODE_SIGNATURE load command...\n");
     update_lc_code_signature(macho, sizeOfCodeSignature);
 
-    return;
+    return 0;
 }

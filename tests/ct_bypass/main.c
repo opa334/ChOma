@@ -113,10 +113,6 @@ int apply_coretrust_bypass(const char *machoPath)
         return -1;
     }
 
-    //FILE *fp = fopen("data/blob.orig", "wb");
-    //fwrite(superblob, BIG_TO_HOST(superblob->length), 1, fp);
-    //fclose(fp);
-
     CS_DecodedSuperBlob *decodedSuperblob = superblob_decode(superblob);
 
     // Replace the first CodeDirectory with the one from the App Store
@@ -130,6 +126,10 @@ int apply_coretrust_bypass(const char *machoPath)
     if (!hasTwoCodeDirectories) {
         // We need to insert the App Store CodeDirectory in the first slot and move the original one to the last slot
         CS_DecodedBlob *firstCD = superblob_find_blob(decodedSuperblob, CSSLOT_CODEDIRECTORY);
+        if (firstCD == NULL) {
+            printf("Failed to find CodeDirectory slot!");
+            return -1;
+        }
         CS_DecodedBlob *currentBlob = decodedSuperblob->firstBlob;
         while (currentBlob->next) {
             currentBlob = currentBlob->next;
@@ -152,12 +152,12 @@ int apply_coretrust_bypass(const char *machoPath)
         printf("Failed to find Requirements slot!");
         return -1;
     }
-    // these aren't always present
     CS_DecodedBlob *entitlementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ENTITLEMENTS);
     if (entitlementsBlob == NULL && !isDynamicLibrary) {
         printf("Error: No entitlements found!\n");
         return -1;
     }
+    // DER entitlements aren't required on iOS 14
     CS_DecodedBlob *derEntitlementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_DER_ENTITLEMENTS);
     CS_DecodedBlob *actualCDBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
     if (actualCDBlob == NULL) {
@@ -265,7 +265,10 @@ int apply_coretrust_bypass(const char *machoPath)
     uint64_t sizeOfCodeSignature = BIG_TO_HOST(superblob->length);
     CS_SuperBlob *encodedSuperblobUnsigned = superblob_encode(decodedSuperblob);
     printf("Updating load commands...\n");
-    update_load_commands_for_coretrust_bypass(macho, encodedSuperblobUnsigned, sizeOfCodeSignature, memory_stream_get_size(macho->stream));
+    if (update_load_commands_for_coretrust_bypass(macho, encodedSuperblobUnsigned, sizeOfCodeSignature, memory_stream_get_size(macho->stream)) != 0) {
+        printf("Error: failed to update load commands!\n");
+        return -1;
+    }
     free(encodedSuperblobUnsigned);
 
     printf("Updating code slot hashes...\n");
@@ -277,17 +280,12 @@ int apply_coretrust_bypass(const char *machoPath)
     printf("Signing binary...\n");
     ret = update_signature_blob(decodedSuperblob, "ca.key");
     if(ret == -1) {
-        printf("Signature blob update FAILED!\n");
+        printf("Error: failed to create new signature blob!\n");
         return -1;
     }
 
     printf("Encoding superblob...\n");
     CS_SuperBlob *newSuperblob = superblob_encode(decodedSuperblob);
-
-    // Write the new superblob to the file
-    //fp = fopen("data/blob.generated", "wb");
-    //fwrite(newSuperblob, BIG_TO_HOST(newSuperblob->length), 1, fp);
-    //fclose(fp);
 
     // Write the new signed superblob to the MachO
     macho_replace_code_signature(macho, newSuperblob);

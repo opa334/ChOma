@@ -25,5 +25,8 @@ data/
 # Ignore nocommit-* files and dirs
 nocommit-*
 
+# Ignore Python scripts
+*.py
+
 # Miscellaneous
 ca.key
