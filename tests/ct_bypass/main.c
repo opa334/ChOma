@@ -394,6 +394,12 @@ int main(int argc, char *argv[]) {
             print_usage(argv[0]);
         }
 
+        char *dot = strrchr(input, '.');
+        if (!dot || strcmp(dot, ".app")) {
+            printf("Error: %s is not an app bundle.\n", input);
+            return -1;
+        }
+
         printf("Applying CoreTrust bypass to app bundle.\n");
         printf("CoreTrust bypass eta s0n!!\n");
         return apply_coretrust_bypass_to_app_bundle(input);
