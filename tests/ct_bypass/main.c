@@ -94,7 +94,9 @@ bool argument_exists(int argc, char *argv[], const char *flag)
 
 void print_usage(const char *self)
 {
-    printf("Usage: %s -i <path to input MachO/FAT file or .app bundle> (-r) (-o <path to output MachO file>)\n", self);
+    printf("Usage: \n");
+    printf("\t%s -i <path to input MachO/FAT file> (-r) (-o <path to output MachO file>)\n", self);
+    printf("\t%s -i <path to input .app bundle> -a\n", self);
     exit(-1);
 }
 
@@ -371,7 +373,6 @@ int apply_coretrust_bypass_to_app_bundle(const char *appBundlePath) {
 }
 
 int main(int argc, char *argv[]) {
-    printf("CoreTrust bypass eta s0n!!\n");
 
     if (argc < 2) {
         print_usage(argv[0]);
@@ -380,6 +381,24 @@ int main(int argc, char *argv[]) {
     char *input = get_argument_value(argc, argv, "-i");
     char *output = get_argument_value(argc, argv, "-o");
     bool replace = argument_exists(argc, argv, "-r");
+    bool appBundle = argument_exists(argc, argv, "-a");
+    if (appBundle) {
+        if (replace || output) {
+            print_usage(argv[0]);
+        }
+
+        struct stat s;
+        bool inputExists = stat(input, &s) == 0;
+
+        if (!inputExists) {
+            print_usage(argv[0]);
+        }
+
+        printf("Applying CoreTrust bypass to app bundle.\n");
+        printf("CoreTrust bypass eta s0n!!\n");
+        return apply_coretrust_bypass_to_app_bundle(input);
+    }
+    
     if (!output && !replace) {
         print_usage(argv[0]);
     }
@@ -400,10 +419,6 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    // If the input ends with .app, assume it's an app bundle
-    if (strlen(input) > 4 && !strcmp(input + strlen(input) - 4, ".app")) {
-        printf("Applying CoreTrust bypass to app bundle.\n");
-        return apply_coretrust_bypass_to_app_bundle(input);
-    }
+    printf("CoreTrust bypass eta s0n!!\n");
     return apply_coretrust_bypass_wrapper(input, output);
 }

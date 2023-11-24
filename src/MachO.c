@@ -92,7 +92,7 @@ int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct l
 
         if (strcmp(load_command_to_string(loadCommand.cmd), "LC_UNKNOWN") == 0)
 		{
-			printf("Ignoring unknown command: 0x%x", loadCommand.cmd);
+			printf("Ignoring unknown command: 0x%x.\n", loadCommand.cmd);
 		}
         else {
             // TODO: Check if cmdsize matches expected size for cmd
