@@ -19,8 +19,6 @@
 #include "TemplateSignatureBlob.h"
 #include <copyfile.h>
 
-#define APPSTORE_CERT_TEAM_ID "T8ALTGMVXN"
-
 char *extract_preferred_slice(const char *fatPath)
 {
     FAT *fat = fat_init_from_path(fatPath);
@@ -43,23 +41,20 @@ char *extract_preferred_slice(const char *fatPath)
 
 int extract_blobs(CS_SuperBlob *superBlob, const char *dir)
 {
-    CS_DecodedSuperBlob *decodedSuperblob = superblob_decode(superBlob);
+    CS_DecodedSuperBlob *decodedSuperblob = csd_superblob_decode(superBlob);
 
     CS_DecodedBlob *blob = decodedSuperblob->firstBlob;
     while (blob) {
         char outPath[PATH_MAX];
-        uint32_t magic = 0;
-        //uint32_t len = 0;
-        memory_stream_read(blob->stream, offsetof(CS_GenericBlob, magic), sizeof(magic), &magic);
-        //memory_stream_read(blob->stream, offsetof(CS_GenericBlob, length), sizeof(len), &len);
-        magic = BIG_TO_HOST(magic);
-        //len = BIG_TO_HOST(len);
+        CS_GenericBlob genericBlob;
+        csd_blob_read(blob, 0, sizeof(genericBlob), &genericBlob);
+        GENERIC_BLOB_APPLY_BYTE_ORDER(&genericBlob, BIG_TO_HOST_APPLIER);
 
-        snprintf(outPath, PATH_MAX, "%s/%x_%x.bin", dir, blob->type, magic);
+        snprintf(outPath, PATH_MAX, "%s/%x_%x.bin", dir, blob->type, genericBlob.magic);
 
-        uint64_t len = memory_stream_get_size(blob->stream);
+        uint64_t len = csd_blob_get_size(blob);
         uint8_t blobData[len];
-        memory_stream_read(blob->stream, 0, len, blobData);
+        csd_blob_read(blob, 0, len, blobData);
 
         FILE *f = fopen(outPath, "wb");
         fwrite(blobData, len, 1, f);
@@ -111,99 +106,83 @@ int apply_coretrust_bypass(const char *machoPath)
         return -1;
     }
 
-    bool isDynamicLibrary = macho->machHeader.filetype == MH_DYLIB;
-    if (!isDynamicLibrary && macho->machHeader.filetype != MH_EXECUTE) {
-        printf("Error: only executables and dynamic libraries are supported.\n");
+    CS_DecodedSuperBlob *decodedSuperblob = csd_superblob_decode(superblob);
+    uint64_t originalCodeSignatureSize = BIG_TO_HOST(superblob->length);
+    free(superblob);
+
+    CS_DecodedBlob *realCodeDirectoryBlob = NULL;
+    CS_DecodedBlob *mainCodeDirectoryBlob = csd_superblob_find_blob(decodedSuperblob, CSSLOT_CODEDIRECTORY, NULL);
+    CS_DecodedBlob *alternateCodeDirectoryBlob = csd_superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES, NULL);
+
+    if (!mainCodeDirectoryBlob) {
+        printf("Error: Unable to find code directory, make sure the input binary is ad-hoc signed?\n");
         return -1;
     }
 
-    CS_DecodedSuperBlob *decodedSuperblob = superblob_decode(superblob);
+    // We need to determine which code directory to transfer to the new binary
+    if (alternateCodeDirectoryBlob) {
+        // If an alternate code directory exists, use that and remove the main one from the superblob
+        realCodeDirectoryBlob = alternateCodeDirectoryBlob;
+        csd_superblob_remove_blob(decodedSuperblob, mainCodeDirectoryBlob);
+        csd_blob_free(mainCodeDirectoryBlob);
+    }
+    else {
+        // Otherwise use the main code directory
+        realCodeDirectoryBlob = mainCodeDirectoryBlob;
+    }
+    // TODO: Sanity check that realCodeDirectoryBlob is SHA256, if it's not the bypass won't work...
 
-    // Replace the first CodeDirectory with the one from the App Store
-    CS_DecodedBlob *blob = decodedSuperblob->firstBlob;
-    if (blob->type != CSSLOT_CODEDIRECTORY) {
-        printf("The first blob is not a CodeDirectory!\n");
-        return -1;
-    }
+    printf("Applying App Store code directory...\n");
 
-    bool hasTwoCodeDirectories = superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES) != NULL;
-    if (!hasTwoCodeDirectories) {
-        // We need to insert the App Store CodeDirectory in the first slot and move the original one to the last slot
-        CS_DecodedBlob *firstCD = superblob_find_blob(decodedSuperblob, CSSLOT_CODEDIRECTORY);
-        if (firstCD == NULL) {
-            printf("Failed to find CodeDirectory slot!");
-            return -1;
-        }
-        CS_DecodedBlob *currentBlob = decodedSuperblob->firstBlob;
-        while (currentBlob->next) {
-            currentBlob = currentBlob->next;
-        }
-        currentBlob->next = malloc(sizeof(CS_DecodedBlob));
-        currentBlob->next->stream = firstCD->stream;
-        currentBlob->next->type = CSSLOT_ALTERNATE_CODEDIRECTORIES;
-        currentBlob->next->next = NULL;
+    // Append real code directory as alternateCodeDirectory at the end of superblob
+    csd_superblob_remove_blob(decodedSuperblob, realCodeDirectoryBlob);
+    csd_blob_set_type(realCodeDirectoryBlob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
+    csd_superblob_append_blob(decodedSuperblob, realCodeDirectoryBlob);
 
-    } else {
-        // Don't free if we've moved the original CodeDirectory to the last slot
-        memory_stream_free(blob->stream);
-    }
-
-    printf("Adding App Store CodeDirectory...\n");
-    MemoryStream *appstoreCDStream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len, 0);
-    blob->stream = appstoreCDStream;
-    CS_DecodedBlob *requirementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_REQUIREMENTS);
-    if (requirementsBlob == NULL) {
-        printf("Failed to find Requirements slot!");
-        return -1;
-    }
-    CS_DecodedBlob *entitlementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ENTITLEMENTS);
-    if (entitlementsBlob == NULL && !isDynamicLibrary) {
-        printf("Error: No entitlements found!\n");
-        return -1;
-    }
-    // DER entitlements aren't required on iOS 14
-    CS_DecodedBlob *derEntitlementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_DER_ENTITLEMENTS);
-    CS_DecodedBlob *actualCDBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
-    if (actualCDBlob == NULL) {
-        printf("Failed to find Alternate Code Directories slot!");
-        return -1;
-    }
-    CS_DecodedBlob *signatureBlob = superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT);
-    if (requirementsBlob == NULL) {
-        printf("Failed to find Code Signature slot!");
-        return -1;
-    }
-
-    // After Modification:
-    // 1. App Store CodeDirectory
-    // 2. Requirements
-    // 3. Entitlements
-    // 4. DER entitlements
-    // 5. Actual CodeDirectory
-    // 6. Signature blob
+    // Insert AppStore code directory as main code directory at the start
+    CS_DecodedBlob *appStoreCodeDirectoryBlob = csd_blob_init(CSSLOT_CODEDIRECTORY, (CS_GenericBlob *)AppStoreCodeDirectory);
+    csd_superblob_insert_blob_at_index(decodedSuperblob, appStoreCodeDirectoryBlob, 0);
 
     printf("Adding new signature blob...\n");
-    if (signatureBlob != NULL) {
-        memory_stream_free(signatureBlob->stream);
-        signatureBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len, 0);
-    } else {
-        signatureBlob = malloc(sizeof(CS_DecodedBlob));
-        signatureBlob->type = CSSLOT_SIGNATURESLOT;
-        signatureBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len, 0);
-        signatureBlob->next = NULL;
-        CS_DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
-        while (nextBlob->next) {
-            nextBlob = nextBlob->next;
-        }
-        nextBlob->next = signatureBlob;
+    CS_DecodedBlob *signatureBlob = csd_superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT, NULL);
+    if (signatureBlob) {
+        // Remove existing signatureBlob if existant
+        csd_superblob_remove_blob(decodedSuperblob, signatureBlob);
+        csd_blob_free(signatureBlob);
+    }
+    // Append new template blob
+    signatureBlob = csd_blob_init(CSSLOT_SIGNATURESLOT, (CS_GenericBlob *)TemplateSignatureBlob);
+    csd_superblob_append_blob(decodedSuperblob, signatureBlob);
+
+    // After Modification:
+    // 1. App Store CodeDirectory (SHA1)
+    // ?. Requirements
+    // ?. Entitlements
+    // ?. DER entitlements
+    // 5. Actual CodeDirectory (SHA256)
+    // 6. Signature blob
+
+    printf("Updating TeamID...\n");
+
+    // Get team ID from AppStore code directory
+    // For the bypass to work, both code directories need to have the same team ID
+    char *appStoreTeamID = NULL;
+    if (appStoreCodeDirectoryBlob != NULL) {
+        CS_CodeDirectory appStoreCodeDirectory;
+        csd_blob_read(appStoreCodeDirectoryBlob, 0, sizeof(appStoreCodeDirectory), &appStoreCodeDirectory);
+        CODE_DIRECTORY_APPLY_BYTE_ORDER(&appStoreCodeDirectory, BIG_TO_HOST_APPLIER);
+        csd_blob_read_string(appStoreCodeDirectoryBlob, appStoreCodeDirectory.teamOffset, &appStoreTeamID);
+    }
+    if (!appStoreTeamID) {
+        printf("Error: Unable to determine AppStore TeamID\n");
+        return -1;
     }
 
-    const char *teamIDToSet = APPSTORE_CERT_TEAM_ID;
-    size_t teamIDToSetSize = strlen(teamIDToSet)+1;
-
-    if (actualCDBlob != NULL) {
+    // Set the team ID of the real code directory to the AppStore one
+    size_t appStoreTeamIDSize = strlen(appStoreTeamID)+1;
+    if (realCodeDirectoryBlob != NULL) {
         CS_CodeDirectory codeDir;
-        memory_stream_read(actualCDBlob->stream, 0, sizeof(codeDir), &codeDir);
+        csd_blob_read(realCodeDirectoryBlob, 0, sizeof(codeDir), &codeDir);
         CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDir, BIG_TO_HOST_APPLIER);
 
         int32_t shift = 0;
@@ -213,25 +192,26 @@ int apply_coretrust_bypass(const char *machoPath)
         if (initalTeamOffset != 0) {
             uint32_t existingTeamIDSize = 0;
             char *existingTeamID = NULL;
-            memory_stream_read_string(actualCDBlob->stream, initalTeamOffset, &existingTeamID);
+            csd_blob_read_string(realCodeDirectoryBlob, initalTeamOffset, &existingTeamID);
             existingTeamIDSize = strlen(existingTeamID)+1;
             free(existingTeamID);
 
-            memory_stream_delete(actualCDBlob->stream, initalTeamOffset, existingTeamIDSize);
+            csd_blob_delete(realCodeDirectoryBlob, initalTeamOffset, existingTeamIDSize);
             shift -= existingTeamIDSize;
         }
 
         // Insert new TeamID
         if (codeDir.identOffset == 0) {
             printf("No identity found, that's bad.\n");
+            free(appStoreTeamID);
             return -1;
         }
         char *ident = NULL;
-        memory_stream_read_string(actualCDBlob->stream, codeDir.identOffset, &ident);
+        csd_blob_read_string(realCodeDirectoryBlob, codeDir.identOffset, &ident);
         uint32_t newTeamOffset = codeDir.identOffset + strlen(ident) + 1;
         free(ident);
-        memory_stream_insert(actualCDBlob->stream, newTeamOffset, teamIDToSetSize, teamIDToSet);
-        shift += teamIDToSetSize;
+        csd_blob_insert(realCodeDirectoryBlob, newTeamOffset, appStoreTeamIDSize, appStoreTeamID);
+        shift += appStoreTeamIDSize;
         
         codeDir.teamOffset = newTeamOffset;
 
@@ -244,41 +224,28 @@ int apply_coretrust_bypass(const char *machoPath)
         }
 
         CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDir, HOST_TO_BIG_APPLIER);
-        memory_stream_write(actualCDBlob->stream, 0, sizeof(codeDir), &codeDir);
+        csd_blob_write(realCodeDirectoryBlob, 0, sizeof(codeDir), &codeDir);
     }
     else {
         printf("Failed to locate actual CD blob.\n");
+        free(appStoreTeamID);
         return -1;
     }
+    printf("TeamID set to %s!\n", appStoreTeamID);
+    free(appStoreTeamID);
 
-    printf("Creating new superblob...\n");
-    requirementsBlob->next = entitlementsBlob;
-    if (isDynamicLibrary) {
-        requirementsBlob->next = actualCDBlob;
-    } else {
-        if (derEntitlementsBlob) {
-        entitlementsBlob->next = derEntitlementsBlob;
-        derEntitlementsBlob->next = actualCDBlob;
-        } else {
-            entitlementsBlob->next = actualCDBlob;
-        }
-    }
-    actualCDBlob->next = signatureBlob;
-    signatureBlob->next = NULL;
+    printf("Encoding unsigned superblob...\n");
+    CS_SuperBlob *encodedSuperblobUnsigned = csd_superblob_encode(decodedSuperblob);
 
-    uint64_t sizeOfCodeSignature = BIG_TO_HOST(superblob->length);
-    CS_SuperBlob *encodedSuperblobUnsigned = superblob_encode(decodedSuperblob);
     printf("Updating load commands...\n");
-    if (update_load_commands_for_coretrust_bypass(macho, encodedSuperblobUnsigned, sizeOfCodeSignature, memory_stream_get_size(macho->stream)) != 0) {
+    if (update_load_commands_for_coretrust_bypass(macho, encodedSuperblobUnsigned, originalCodeSignatureSize, memory_stream_get_size(macho->stream)) != 0) {
         printf("Error: failed to update load commands!\n");
         return -1;
     }
     free(encodedSuperblobUnsigned);
 
     printf("Updating code slot hashes...\n");
-    CS_DecodedBlob *codeDirectoryBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
-    update_code_directory(macho, codeDirectoryBlob->stream);
-    superblob_fixup_lengths(decodedSuperblob);
+    csd_update_code_directory(realCodeDirectoryBlob, macho);
 
     int ret = 0;
     printf("Signing binary...\n");
@@ -288,14 +255,14 @@ int apply_coretrust_bypass(const char *machoPath)
         return -1;
     }
 
-    printf("Encoding superblob...\n");
-    CS_SuperBlob *newSuperblob = superblob_encode(decodedSuperblob);
+    printf("Encoding signed superblob...\n");
+    CS_SuperBlob *newSuperblob = csd_superblob_encode(decodedSuperblob);
 
+    printf("Writing superblob to MachO...\n");
     // Write the new signed superblob to the MachO
     macho_replace_code_signature(macho, newSuperblob);
 
-    decoded_superblob_free(decodedSuperblob);
-    free(superblob);
+    csd_superblob_free(decodedSuperblob);
     free(newSuperblob);
     
     macho_free(macho);

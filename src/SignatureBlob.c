@@ -1,5 +1,4 @@
 #include "SignatureBlob.h"
-#include "BufferedStream.h"
 #include "Base64.h"
 #include "MemoryStream.h"
 #include "SignOSSL.h"
@@ -14,26 +13,14 @@
 
 #define DECRYPTED_SIGNATURE_HASH_OFFSET 0x13
 
-CS_DecodedBlob *superblob_find_blob(CS_DecodedSuperBlob *superblob, uint32_t type)
-{
-    CS_DecodedBlob *blob = superblob->firstBlob;
-    while (blob != NULL) {
-        if (blob->type == type) {
-            return blob;
-        }
-        blob = blob->next;
-    }
-    return NULL;
-}
-
 int update_signature_blob(CS_DecodedSuperBlob *superblob)
 {
-    CS_DecodedBlob *sha256CD = superblob_find_blob(superblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
+    CS_DecodedBlob *sha256CD = csd_superblob_find_blob(superblob, CSSLOT_ALTERNATE_CODEDIRECTORIES, NULL);
     if (!sha256CD) {
         printf("Could not find CodeDirectory blob!\n");
         return -1;
     }
-    CS_DecodedBlob *signatureBlob = superblob_find_blob(superblob, CSSLOT_SIGNATURESLOT);
+    CS_DecodedBlob *signatureBlob = csd_superblob_find_blob(superblob, CSSLOT_SIGNATURESLOT, NULL);
     if (!signatureBlob) {
         printf("Could not find signature blob!\n");
         return -1;

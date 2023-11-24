@@ -41,6 +41,6 @@ enum CS_HashType {
 };
 
 int macho_parse_code_directory_blob(MachO *macho, CS_CodeDirectory *codeDirectoryOut, uint32_t cdOffset, bool printSlots, bool verifySlots);
-void update_code_directory(MachO *macho, MemoryStream *codeDirStream);
+void csd_update_code_directory(CS_DecodedBlob *codeDirBlob, MachO *macho);
 
 #endif // CODE_DIRECTORY_H

@@ -3,10 +3,8 @@
 #include "CodeDirectory.h"
 #include "MachO.h"
 #include "MachOByteOrder.h"
-#include "MachOLoadCommand.h"
 #include "BufferedStream.h"
 #include "MemoryStream.h"
-#include "FileStream.h"
 #include <mach-o/loader.h>
 #include <stddef.h>
 
@@ -71,9 +69,10 @@ int decodedsuperblob_parse_blobs(MachO *macho, CS_DecodedSuperBlob *decodedSuper
 {
 	CS_DecodedBlob *currentBlob = decodedSuperblob->firstBlob;
 	int count = 0;
-    while (currentBlob->next) {
+	uint32_t offset = 0;
+    while (currentBlob) {
 		uint32_t blobType = currentBlob->type;
-		printf("Slot %d: %s (offset 0x%x, type: 0x%x).\n", count++, cs_slot_index_to_string(blobType), currentBlob->offset, blobType);
+		printf("Slot %d: %s (offset 0x%x, type: 0x%x).\n", count++, cs_slot_index_to_string(blobType), offset, blobType);
 
 		if (blobType == CSSLOT_CODEDIRECTORY || blobType == CSSLOT_ALTERNATE_CODEDIRECTORIES)
 		{
@@ -82,7 +81,7 @@ int decodedsuperblob_parse_blobs(MachO *macho, CS_DecodedSuperBlob *decodedSuper
 			memory_stream_read(currentBlob->stream, 0, sizeof(CS_CodeDirectory), codeDirectory);
 			CODE_DIRECTORY_APPLY_BYTE_ORDER(codeDirectory, BIG_TO_HOST_APPLIER);
 			printf("This is the %s, magic %#x.\n", cs_blob_magic_to_string(codeDirectory->magic), codeDirectory->magic);
-			macho_parse_code_directory_blob(macho, codeDirectory, currentBlob->offset, printAllSlots, verifySlots);
+			macho_parse_code_directory_blob(macho, codeDirectory, offset, printAllSlots, verifySlots);
 		}
 		else if (blobType == CSSLOT_SIGNATURESLOT) {
 			CS_GenericBlob *cms_blob = malloc(sizeof(CS_GenericBlob));
@@ -98,6 +97,8 @@ int decodedsuperblob_parse_blobs(MachO *macho, CS_DecodedSuperBlob *decodedSuper
 			GENERIC_BLOB_APPLY_BYTE_ORDER(generic_blob, BIG_TO_HOST_APPLIER);
 			printf("This is the %s, magic %#x.\n", cs_blob_magic_to_string(generic_blob->magic), generic_blob->magic);
 		}
+
+		offset += csd_blob_get_size(currentBlob);
 		currentBlob = currentBlob->next;
 	}
 	return 0;
@@ -166,7 +167,86 @@ int macho_extract_cs_to_file(MachO *macho, CS_SuperBlob *superblob)
 	return 0;
 }
 
-CS_DecodedSuperBlob *superblob_decode(CS_SuperBlob *superblob)
+CS_DecodedBlob *csd_blob_init(uint32_t type, CS_GenericBlob *blobData)
+{
+	CS_DecodedBlob *blob = malloc(sizeof(CS_DecodedBlob));
+	if (!blob) return NULL;
+	memset(blob, 0, sizeof(CS_DecodedBlob));
+
+	blob->type = type;
+	blob->stream = buffered_stream_init_from_buffer(blobData, BIG_TO_HOST(blobData->length), BUFFERED_STREAM_FLAG_AUTO_EXPAND);
+
+	return blob;
+}
+
+int csd_blob_read(CS_DecodedBlob *blob, uint64_t offset, size_t size, void *outBuf)
+{
+	return memory_stream_read(blob->stream, offset, size, outBuf);
+}
+
+static void _csd_blob_fix_length(CS_DecodedBlob *blob)
+{
+	uint32_t curSize = HOST_TO_BIG((uint32_t)memory_stream_get_size(blob->stream));
+	memory_stream_write(blob->stream, offsetof(CS_GenericBlob, length), sizeof(curSize), &curSize);
+}
+
+int csd_blob_write(CS_DecodedBlob *blob, uint64_t offset, size_t size, const void *inBuf)
+{
+	int r = memory_stream_write(blob->stream, offset, size, inBuf);
+	if (r == 0) _csd_blob_fix_length(blob);
+	return r;
+}
+
+int csd_blob_insert(CS_DecodedBlob *blob, uint64_t offset, size_t size, const void *inBuf)
+{
+	int r = memory_stream_insert(blob->stream, offset, size, inBuf);
+	if (r == 0) _csd_blob_fix_length(blob);
+	return r;
+}
+
+int csd_blob_delete(CS_DecodedBlob *blob, uint64_t offset, size_t size)
+{
+	int r = memory_stream_delete(blob->stream, offset, size);
+	if (r == 0) _csd_blob_fix_length(blob);
+	return r;
+}
+
+int csd_blob_read_string(CS_DecodedBlob *blob, uint64_t offset, char **outString)
+{
+	return memory_stream_read_string(blob->stream, offset, outString);
+}
+
+int csd_blob_write_string(CS_DecodedBlob *blob, uint64_t offset, const char *string)
+{
+	int r = memory_stream_write_string(blob->stream, offset, string);
+	if (r == 0) _csd_blob_fix_length(blob);
+	return r;
+}
+
+int csd_blob_get_size(CS_DecodedBlob *blob)
+{
+	return memory_stream_get_size(blob->stream);
+}
+
+uint32_t csd_blob_get_type(CS_DecodedBlob *blob)
+{
+	return blob->type;
+}
+
+void csd_blob_set_type(CS_DecodedBlob *blob, uint32_t type)
+{
+	blob->type = type;
+}
+
+void csd_blob_free(CS_DecodedBlob *blob)
+{
+	if (blob->stream) {
+		memory_stream_free(blob->stream);
+	}
+	free(blob);
+}
+
+CS_DecodedSuperBlob *csd_superblob_decode(CS_SuperBlob *superblob)
 {
 	CS_DecodedSuperBlob *decodedSuperblob = malloc(sizeof(CS_DecodedSuperBlob));
 	if (!decodedSuperblob) return NULL;
@@ -178,48 +258,25 @@ CS_DecodedSuperBlob *superblob_decode(CS_SuperBlob *superblob)
 	for (uint32_t i = 0; i < BIG_TO_HOST(superblob->count); i++) {
 		CS_BlobIndex curIndex = superblob->index[i];
 		BLOB_INDEX_APPLY_BYTE_ORDER(&curIndex, BIG_TO_HOST_APPLIER);
-		printf("decoding %u (type: %x, offset: 0x%x)\n", i, curIndex.type, curIndex.offset);
+		//printf("decoding %u (type: %x, offset: 0x%x)\n", i, curIndex.type, curIndex.offset);
 
-		CS_GenericBlob *start = (CS_GenericBlob *)(((uint8_t*)superblob) + curIndex.offset);
+		CS_GenericBlob *curBlobData = (CS_GenericBlob *)(((uint8_t*)superblob) + curIndex.offset);
 
-		MemoryStream *stream = buffered_stream_init_from_buffer(start, BIG_TO_HOST(start->length), BUFFERED_STREAM_FLAG_AUTO_EXPAND);
-		if (!stream) {
-			decoded_superblob_free(decodedSuperblob);
-			return NULL;
-		}
-
-		*nextBlob = malloc(sizeof(CS_DecodedBlob));
-		(*nextBlob)->stream = stream;
-		(*nextBlob)->next = NULL;
-		(*nextBlob)->type = curIndex.type;
-		(*nextBlob)->offset = curIndex.offset;
+		*nextBlob = csd_blob_init(curIndex.type, curBlobData);
 		nextBlob = &(*nextBlob)->next;
 	}
 	return decodedSuperblob;
 }
 
-void superblob_fixup_lengths(CS_DecodedSuperBlob *decodedSuperblob)
+CS_SuperBlob *csd_superblob_encode(CS_DecodedSuperBlob *decodedSuperblob)
 {
-	CS_DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
-	while (nextBlob) {
-		MemoryStream *curStream = nextBlob->stream;
-		uint32_t curSize = HOST_TO_BIG((uint32_t)memory_stream_get_size(curStream));
-		memory_stream_write(curStream, offsetof(CS_GenericBlob, length), sizeof(curSize), &curSize);
-
-		nextBlob = nextBlob->next;
-	}
-}
-
-CS_SuperBlob *superblob_encode(CS_DecodedSuperBlob *decodedSuperblob)
-{
-	superblob_fixup_lengths(decodedSuperblob);
 	uint32_t blobCount = 0, blobSize = 0;
 
 	// Determine amount and size of contained blobs
 	CS_DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
 	while (nextBlob) {
 		blobCount++;
-		blobSize += memory_stream_get_size(nextBlob->stream);
+		blobSize += csd_blob_get_size(nextBlob);
 		nextBlob = nextBlob->next;
 	}
 
@@ -239,34 +296,122 @@ CS_SuperBlob *superblob_encode(CS_DecodedSuperBlob *decodedSuperblob)
 	uint8_t *superblobDataCur = superblobData;
 	nextBlob = decodedSuperblob->firstBlob;
 	while (nextBlob) {
+		// Populate blob data
+		uint32_t curSize = csd_blob_get_size(nextBlob);
+		csd_blob_read(nextBlob, 0, curSize, superblobDataCur);
+
+		// Populate index
 		CS_BlobIndex *curIndex = &superblob->index[idx];
-		MemoryStream *curStream = nextBlob->stream;
-		uint32_t curSize = memory_stream_get_size(curStream);
-
-		memory_stream_read(curStream, 0, curSize, superblobDataCur);
-
 		curIndex->offset = dataStartOffset + (superblobDataCur - superblobData);
 		curIndex->type = nextBlob->type;
 		BLOB_INDEX_APPLY_BYTE_ORDER(curIndex, HOST_TO_BIG_APPLIER);
 
 		superblobDataCur += curSize;
 		idx++;
-
 		nextBlob = nextBlob->next;
 	}
 	return superblob;
 }
 
-void decoded_superblob_free(CS_DecodedSuperBlob *decodedSuperblob)
+CS_DecodedBlob *csd_superblob_find_blob(CS_DecodedSuperBlob *superblob, uint32_t type, uint32_t *indexOut)
+{
+    CS_DecodedBlob *blob = superblob->firstBlob;
+	uint32_t i = 0;
+    while (blob) {
+        if (blob->type == type) {
+			if (indexOut) *indexOut = i;
+            return blob;
+        }
+        blob = blob->next;
+		i++;
+    }
+    return NULL;
+}
+
+int csd_superblob_insert_blob_after_blob(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToInsert, CS_DecodedBlob *afterBlob)
+{
+	blobToInsert->next = afterBlob->next;
+	afterBlob->next = blobToInsert;
+	return 0;
+}
+
+int csd_superblob_insert_blob_at_index(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToInsert, uint32_t atIndex)
+{
+	if (atIndex == 0) {
+		blobToInsert->next = superblob->firstBlob;
+		superblob->firstBlob = blobToInsert;
+		return 0;
+	}
+	else {
+		uint32_t i = 0;
+		CS_DecodedBlob *blobAtIndex = superblob->firstBlob;
+		while (blobAtIndex && i < atIndex) {
+			blobAtIndex = blobAtIndex->next;
+			i++;
+		}
+		if (blobAtIndex) {
+			csd_superblob_insert_blob_after_blob(superblob, blobToInsert, blobAtIndex);
+			return 0;
+		}
+		return -1;
+	}
+}
+
+int csd_superblob_append_blob(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToAppend)
+{
+	CS_DecodedBlob *lastBlob = superblob->firstBlob;
+    while (lastBlob->next) {
+        lastBlob = lastBlob->next;
+    }
+	return csd_superblob_insert_blob_after_blob(superblob, blobToAppend, lastBlob);
+}
+
+int csd_superblob_remove_blob(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToRemove)
+{
+	CS_DecodedBlob *blob = superblob->firstBlob;
+	if (blob == blobToRemove) {
+		superblob->firstBlob = blobToRemove->next;
+		return 0;
+	}
+    while (blob) {
+		if (blob->next == blobToRemove) {
+			blob->next = blobToRemove->next;
+			return 0;
+		}
+        blob = blob->next;
+    }
+	return -1;
+}
+
+int csd_superblob_remove_blob_at_index(CS_DecodedSuperBlob *superblob, uint32_t atIndex)
+{
+	if (atIndex == 0) {
+		return csd_superblob_remove_blob(superblob, superblob->firstBlob);
+	}
+	else {
+		uint32_t i = 0;
+		CS_DecodedBlob *blobAtIndex = superblob->firstBlob;
+		while (blobAtIndex && i < atIndex) {
+			blobAtIndex = blobAtIndex->next;
+			i++;
+		}
+		if (blobAtIndex) {
+			int r = csd_superblob_remove_blob(superblob, blobAtIndex);
+			if (r == 0) csd_blob_free(blobAtIndex);
+			return r;
+		}
+		return -1;
+	}
+	return 0;
+}
+
+void csd_superblob_free(CS_DecodedSuperBlob *decodedSuperblob)
 {
 	CS_DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
 	while (nextBlob) {
 		CS_DecodedBlob *prevBlob = nextBlob;
 		nextBlob = nextBlob->next;
-		if (prevBlob->stream) {
-			memory_stream_free(prevBlob->stream);
-		}
-		free(prevBlob);
+		csd_blob_free(prevBlob);
 	}
 	free(decodedSuperblob);
 }

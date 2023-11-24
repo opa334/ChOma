@@ -40,6 +40,7 @@ int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBu
 int macho_write_at_offset(MachO *macho, uint64_t offset, size_t size, void *inBuf);
 
 MemoryStream *macho_get_stream(MachO *macho);
+uint32_t macho_get_filetype(MachO *macho);
 
 // Perform translation between file offsets and virtual addresses
 int macho_translate_fileoff_to_vmaddr(MachO *macho, uint64_t fileoff, uint64_t *vmaddrOut, MachOSegment **segmentOut);

@@ -8,6 +8,7 @@
 
 #include "FAT.h"
 #include "MachO.h"
+#include "MemoryStream.h"
 
 // Blob index
 typedef struct __BlobIndex {
@@ -58,7 +59,6 @@ enum {
 typedef struct s_CS_DecodedBlob {
 	struct s_CS_DecodedBlob *next;
 	uint32_t type;
-	uint32_t offset;
 	MemoryStream *stream;
 } CS_DecodedBlob;
 
@@ -66,11 +66,6 @@ typedef struct s_CS_DecodedSuperBlob {
 	uint32_t magic;
 	struct s_CS_DecodedBlob *firstBlob;
 } CS_DecodedSuperBlob;
-
-CS_DecodedSuperBlob *superblob_decode(CS_SuperBlob *superblob);
-void superblob_fixup_lengths(CS_DecodedSuperBlob *decodedSuperblob);
-CS_SuperBlob *superblob_encode(CS_DecodedSuperBlob *decodedSuperblob);
-void decoded_superblob_free(CS_DecodedSuperBlob *decodedSuperblob);
 
 // Convert blob magic to readable blob type string
 char *cs_blob_magic_to_string(int magic);
@@ -89,5 +84,28 @@ int decodedsuperblob_parse_blobs(MachO *macho, CS_DecodedSuperBlob *decodedSuper
 int update_load_commands(MachO *macho, CS_SuperBlob *superblob, uint64_t originalSize);
 
 uint64_t alignToSize(int size, int alignment);
+
+CS_DecodedBlob *csd_blob_init(uint32_t type, CS_GenericBlob *blobData);
+int csd_blob_read(CS_DecodedBlob *blob, uint64_t offset, size_t size, void *outBuf);
+int csd_blob_write(CS_DecodedBlob *blob, uint64_t offset, size_t size, const void *inBuf);
+int csd_blob_insert(CS_DecodedBlob *blob, uint64_t offset, size_t size, const void *inBuf);
+int csd_blob_delete(CS_DecodedBlob *blob, uint64_t offset, size_t size);
+int csd_blob_read_string(CS_DecodedBlob *blob, uint64_t offset, char **outString);
+int csd_blob_write_string(CS_DecodedBlob *blob, uint64_t offset, const char *string);
+int csd_blob_get_size(CS_DecodedBlob *blob);
+uint32_t csd_blob_get_type(CS_DecodedBlob *blob);
+void csd_blob_set_type(CS_DecodedBlob *blob, uint32_t type);
+void csd_blob_free(CS_DecodedBlob *blob);
+
+CS_DecodedSuperBlob *csd_superblob_decode(CS_SuperBlob *superblob);
+CS_SuperBlob *csd_superblob_encode(CS_DecodedSuperBlob *decodedSuperblob);
+CS_DecodedBlob *csd_superblob_find_blob(CS_DecodedSuperBlob *superblob, uint32_t type, uint32_t *indexOut);
+int csd_superblob_insert_blob_after_blob(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToInsert, CS_DecodedBlob *afterBlob);
+int csd_superblob_insert_blob_at_index(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToInsert, uint32_t atIndex);
+int csd_superblob_append_blob(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToAppend);
+int csd_superblob_remove_blob(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToRemove); // <- Important: When calling this, caller is responsible for freeing blobToRemove
+int csd_superblob_remove_blob_at_index(CS_DecodedSuperBlob *superblob, uint32_t atIndex);
+void csd_superblob_free(CS_DecodedSuperBlob *decodedSuperblob);
+
 
 #endif // CS_BLOB_H

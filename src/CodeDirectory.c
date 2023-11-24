@@ -1,6 +1,5 @@
 #include "CodeDirectory.h"
 #include "CSBlob.h"
-#include "MemoryStream.h"
 
 int code_directory_verify_code_slots(MachO *macho, CS_CodeDirectory *codeDirectory, uint8_t *hashes) {
     bool foundIncorrectHash = false;
@@ -234,10 +233,10 @@ int macho_parse_code_directory_blob(MachO *macho, CS_CodeDirectory *codeDirector
 	return 0;
 }
 
-void update_code_directory(MachO *macho, MemoryStream *codeDirStream)
+void csd_update_code_directory(CS_DecodedBlob *codeDirBlob, MachO *macho)
 {
 	CS_CodeDirectory codeDirectory;
-	memory_stream_read(codeDirStream, 0, sizeof(CS_CodeDirectory), &codeDirectory);
+	csd_blob_read(codeDirBlob, 0, sizeof(CS_CodeDirectory), &codeDirectory);
 	CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDirectory, BIG_TO_HOST_APPLIER);
 	uint32_t slotZeroOffset = codeDirectory.hashOffset;
 
@@ -264,6 +263,6 @@ void update_code_directory(MachO *macho, MemoryStream *codeDirStream)
 	
 		// Write hash to CodeDirectory
 		uint32_t offsetOfBlobToReplace = slotZeroOffset + (pageNumber * codeDirectory.hashSize);
-		memory_stream_write(codeDirStream, offsetOfBlobToReplace, codeDirectory.hashSize, pageHash);
+		csd_blob_write(codeDirBlob, offsetOfBlobToReplace, codeDirectory.hashSize, pageHash);
 	}
 }
