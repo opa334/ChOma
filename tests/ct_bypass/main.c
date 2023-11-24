@@ -41,9 +41,9 @@ char *extract_preferred_slice(const char *fatPath)
 
 int extract_blobs(CS_SuperBlob *superBlob, const char *dir)
 {
-    DecodedSuperBlob *decodedSuperblob = superblob_decode(superBlob);
+    CS_DecodedSuperBlob *decodedSuperblob = superblob_decode(superBlob);
 
-    DecodedBlob *blob = decodedSuperblob->firstBlob;
+    CS_DecodedBlob *blob = decodedSuperblob->firstBlob;
     while (blob) {
         char outPath[PATH_MAX];
         uint32_t magic = 0;
@@ -117,10 +117,10 @@ int apply_coretrust_bypass(const char *machoPath)
     //fwrite(superblob, BIG_TO_HOST(superblob->length), 1, fp);
     //fclose(fp);
 
-    DecodedSuperBlob *decodedSuperblob = superblob_decode(superblob);
+    CS_DecodedSuperBlob *decodedSuperblob = superblob_decode(superblob);
 
     // Replace the first CodeDirectory with the one from the App Store
-    DecodedBlob *blob = decodedSuperblob->firstBlob;
+    CS_DecodedBlob *blob = decodedSuperblob->firstBlob;
     if (blob->type != CSSLOT_CODEDIRECTORY) {
         printf("The first blob is not a CodeDirectory!\n");
         return -1;
@@ -129,12 +129,12 @@ int apply_coretrust_bypass(const char *machoPath)
     bool hasTwoCodeDirectories = superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES) != NULL;
     if (!hasTwoCodeDirectories) {
         // We need to insert the App Store CodeDirectory in the first slot and move the original one to the last slot
-        DecodedBlob *firstCD = superblob_find_blob(decodedSuperblob, CSSLOT_CODEDIRECTORY);
-        DecodedBlob *currentBlob = decodedSuperblob->firstBlob;
+        CS_DecodedBlob *firstCD = superblob_find_blob(decodedSuperblob, CSSLOT_CODEDIRECTORY);
+        CS_DecodedBlob *currentBlob = decodedSuperblob->firstBlob;
         while (currentBlob->next) {
             currentBlob = currentBlob->next;
         }
-        currentBlob->next = malloc(sizeof(DecodedBlob));
+        currentBlob->next = malloc(sizeof(CS_DecodedBlob));
         currentBlob->next->stream = firstCD->stream;
         currentBlob->next->type = CSSLOT_ALTERNATE_CODEDIRECTORIES;
         currentBlob->next->next = NULL;
@@ -147,24 +147,24 @@ int apply_coretrust_bypass(const char *machoPath)
     printf("Adding App Store CodeDirectory...\n");
     MemoryStream *appstoreCDStream = buffered_stream_init_from_buffer(AppStoreCodeDirectory, AppStoreCodeDirectory_len, 0);
     blob->stream = appstoreCDStream;
-    DecodedBlob *requirementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_REQUIREMENTS);
+    CS_DecodedBlob *requirementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_REQUIREMENTS);
     if (requirementsBlob == NULL) {
         printf("Failed to find Requirements slot!");
         return -1;
     }
     // these aren't always present
-    DecodedBlob *entitlementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ENTITLEMENTS);
+    CS_DecodedBlob *entitlementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ENTITLEMENTS);
     if (entitlementsBlob == NULL && !isDynamicLibrary) {
         printf("Error: No entitlements found!\n");
         return -1;
     }
-    DecodedBlob *derEntitlementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_DER_ENTITLEMENTS);
-    DecodedBlob *actualCDBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
+    CS_DecodedBlob *derEntitlementsBlob = superblob_find_blob(decodedSuperblob, CSSLOT_DER_ENTITLEMENTS);
+    CS_DecodedBlob *actualCDBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
     if (actualCDBlob == NULL) {
         printf("Failed to find Alternate Code Directories slot!");
         return -1;
     }
-    DecodedBlob *signatureBlob = superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT);
+    CS_DecodedBlob *signatureBlob = superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT);
     if (requirementsBlob == NULL) {
         printf("Failed to find Code Signature slot!");
         return -1;
@@ -183,11 +183,11 @@ int apply_coretrust_bypass(const char *machoPath)
         memory_stream_free(signatureBlob->stream);
         signatureBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len, 0);
     } else {
-        signatureBlob = malloc(sizeof(DecodedBlob));
+        signatureBlob = malloc(sizeof(CS_DecodedBlob));
         signatureBlob->type = CSSLOT_SIGNATURESLOT;
         signatureBlob->stream = buffered_stream_init_from_buffer(TemplateSignatureBlob, TemplateSignatureBlob_len, 0);
         signatureBlob->next = NULL;
-        DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
+        CS_DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
         while (nextBlob->next) {
             nextBlob = nextBlob->next;
         }
@@ -269,7 +269,7 @@ int apply_coretrust_bypass(const char *machoPath)
     free(encodedSuperblobUnsigned);
 
     printf("Updating code slot hashes...\n");
-    DecodedBlob *codeDirectoryBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
+    CS_DecodedBlob *codeDirectoryBlob = superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
     update_code_directory(macho, codeDirectoryBlob->stream);
     superblob_fixup_lengths(decodedSuperblob);
 

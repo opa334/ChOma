@@ -55,22 +55,22 @@ enum {
     CSSLOT_SIGNATURESLOT = 0x10000
 } CS_SlotType;
 
-typedef struct s_DecodedBlob {
-	struct s_DecodedBlob *next;
+typedef struct s_CS_DecodedBlob {
+	struct s_CS_DecodedBlob *next;
 	uint32_t type;
 	uint32_t offset;
 	MemoryStream *stream;
-} DecodedBlob;
+} CS_DecodedBlob;
 
-typedef struct s_DecodedSuperBlob {
+typedef struct s_CS_DecodedSuperBlob {
 	uint32_t magic;
-	struct s_DecodedBlob *firstBlob;
-} DecodedSuperBlob;
+	struct s_CS_DecodedBlob *firstBlob;
+} CS_DecodedSuperBlob;
 
-DecodedSuperBlob *superblob_decode(CS_SuperBlob *superblob);
-void superblob_fixup_lengths(DecodedSuperBlob *decodedSuperblob);
-CS_SuperBlob *superblob_encode(DecodedSuperBlob *decodedSuperblob);
-void decoded_superblob_free(DecodedSuperBlob *decodedSuperblob);
+CS_DecodedSuperBlob *superblob_decode(CS_SuperBlob *superblob);
+void superblob_fixup_lengths(CS_DecodedSuperBlob *decodedSuperblob);
+CS_SuperBlob *superblob_encode(CS_DecodedSuperBlob *decodedSuperblob);
+void decoded_superblob_free(CS_DecodedSuperBlob *decodedSuperblob);
 
 // Convert blob magic to readable blob type string
 char *cs_blob_magic_to_string(int magic);
@@ -84,7 +84,7 @@ CS_SuperBlob *macho_read_code_signature(MachO *macho);
 
 int macho_replace_code_signature(MachO *macho, CS_SuperBlob *superblob);
 
-int decodedsuperblob_parse_blobs(MachO *macho, DecodedSuperBlob *decodedSuperblob, bool printAllSlots, bool verifySlots);
+int decodedsuperblob_parse_blobs(MachO *macho, CS_DecodedSuperBlob *decodedSuperblob, bool printAllSlots, bool verifySlots);
 
 int update_load_commands(MachO *macho, CS_SuperBlob *superblob, uint64_t originalSize);
 

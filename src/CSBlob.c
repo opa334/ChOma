@@ -67,9 +67,9 @@ int macho_parse_signature_blob_to_der_encoded_data(MachO *macho, uint32_t signat
 	return macho_read_at_offset(macho, signatureBlobOffset + 8, signatureBlobLength - 8, outputDER);
 }
 
-int decodedsuperblob_parse_blobs(MachO *macho, DecodedSuperBlob *decodedSuperblob, bool printAllSlots, bool verifySlots)
+int decodedsuperblob_parse_blobs(MachO *macho, CS_DecodedSuperBlob *decodedSuperblob, bool printAllSlots, bool verifySlots)
 {
-	DecodedBlob *currentBlob = decodedSuperblob->firstBlob;
+	CS_DecodedBlob *currentBlob = decodedSuperblob->firstBlob;
 	int count = 0;
     while (currentBlob->next) {
 		uint32_t blobType = currentBlob->type;
@@ -166,13 +166,13 @@ int macho_extract_cs_to_file(MachO *macho, CS_SuperBlob *superblob)
 	return 0;
 }
 
-DecodedSuperBlob *superblob_decode(CS_SuperBlob *superblob)
+CS_DecodedSuperBlob *superblob_decode(CS_SuperBlob *superblob)
 {
-	DecodedSuperBlob *decodedSuperblob = malloc(sizeof(DecodedSuperBlob));
+	CS_DecodedSuperBlob *decodedSuperblob = malloc(sizeof(CS_DecodedSuperBlob));
 	if (!decodedSuperblob) return NULL;
-	memset(decodedSuperblob, 0, sizeof(DecodedSuperBlob));
+	memset(decodedSuperblob, 0, sizeof(CS_DecodedSuperBlob));
 
-	DecodedBlob **nextBlob = &decodedSuperblob->firstBlob;
+	CS_DecodedBlob **nextBlob = &decodedSuperblob->firstBlob;
 	decodedSuperblob->magic = BIG_TO_HOST(superblob->magic);
 
 	for (uint32_t i = 0; i < BIG_TO_HOST(superblob->count); i++) {
@@ -188,7 +188,7 @@ DecodedSuperBlob *superblob_decode(CS_SuperBlob *superblob)
 			return NULL;
 		}
 
-		*nextBlob = malloc(sizeof(DecodedBlob));
+		*nextBlob = malloc(sizeof(CS_DecodedBlob));
 		(*nextBlob)->stream = stream;
 		(*nextBlob)->next = NULL;
 		(*nextBlob)->type = curIndex.type;
@@ -198,9 +198,9 @@ DecodedSuperBlob *superblob_decode(CS_SuperBlob *superblob)
 	return decodedSuperblob;
 }
 
-void superblob_fixup_lengths(DecodedSuperBlob *decodedSuperblob)
+void superblob_fixup_lengths(CS_DecodedSuperBlob *decodedSuperblob)
 {
-	DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
+	CS_DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
 	while (nextBlob) {
 		MemoryStream *curStream = nextBlob->stream;
 		uint32_t curSize = HOST_TO_BIG((uint32_t)memory_stream_get_size(curStream));
@@ -210,13 +210,13 @@ void superblob_fixup_lengths(DecodedSuperBlob *decodedSuperblob)
 	}
 }
 
-CS_SuperBlob *superblob_encode(DecodedSuperBlob *decodedSuperblob)
+CS_SuperBlob *superblob_encode(CS_DecodedSuperBlob *decodedSuperblob)
 {
 	superblob_fixup_lengths(decodedSuperblob);
 	uint32_t blobCount = 0, blobSize = 0;
 
 	// Determine amount and size of contained blobs
-	DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
+	CS_DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
 	while (nextBlob) {
 		blobCount++;
 		blobSize += memory_stream_get_size(nextBlob->stream);
@@ -257,11 +257,11 @@ CS_SuperBlob *superblob_encode(DecodedSuperBlob *decodedSuperblob)
 	return superblob;
 }
 
-void decoded_superblob_free(DecodedSuperBlob *decodedSuperblob)
+void decoded_superblob_free(CS_DecodedSuperBlob *decodedSuperblob)
 {
-	DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
+	CS_DecodedBlob *nextBlob = decodedSuperblob->firstBlob;
 	while (nextBlob) {
-		DecodedBlob *prevBlob = nextBlob;
+		CS_DecodedBlob *prevBlob = nextBlob;
 		nextBlob = nextBlob->next;
 		if (prevBlob->stream) {
 			memory_stream_free(prevBlob->stream);

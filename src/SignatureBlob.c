@@ -14,9 +14,9 @@
 
 #define DECRYPTED_SIGNATURE_HASH_OFFSET 0x13
 
-DecodedBlob *superblob_find_blob(DecodedSuperBlob *superblob, uint32_t type)
+CS_DecodedBlob *superblob_find_blob(CS_DecodedSuperBlob *superblob, uint32_t type)
 {
-    DecodedBlob *blob = superblob->firstBlob;
+    CS_DecodedBlob *blob = superblob->firstBlob;
     while (blob != NULL) {
         if (blob->type == type) {
             return blob;
@@ -26,14 +26,14 @@ DecodedBlob *superblob_find_blob(DecodedSuperBlob *superblob, uint32_t type)
     return NULL;
 }
 
-int update_signature_blob(DecodedSuperBlob *superblob, const char *privateKeyPath)
+int update_signature_blob(CS_DecodedSuperBlob *superblob, const char *privateKeyPath)
 {
-    DecodedBlob *sha256CD = superblob_find_blob(superblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
+    CS_DecodedBlob *sha256CD = superblob_find_blob(superblob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
     if (!sha256CD) {
         printf("Could not find CodeDirectory blob!\n");
         return -1;
     }
-    DecodedBlob *signatureBlob = superblob_find_blob(superblob, CSSLOT_SIGNATURESLOT);
+    CS_DecodedBlob *signatureBlob = superblob_find_blob(superblob, CSSLOT_SIGNATURESLOT);
     if (!signatureBlob) {
         printf("Could not find signature blob!\n");
         return -1;
