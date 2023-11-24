@@ -85,7 +85,7 @@ static int buffered_stream_expand(MemoryStream *stream, size_t expandAtStart, si
     size_t newSize = context->subBufferSize + expandAtStart + expandAtEnd;
     uint8_t *newBuffer = malloc(newSize);
     memset(newBuffer, 0, newSize);
-    memcpy(&newBuffer[expandAtStart], &context->buffer[context->subBufferStart], newSize - expandAtStart);
+    memcpy(&newBuffer[expandAtStart], &context->buffer[context->subBufferStart], context->subBufferSize);
     if (stream->flags & MEMORY_STREAM_FLAG_OWNS_DATA) {
         free(context->buffer);
     }
