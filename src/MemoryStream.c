@@ -207,16 +207,13 @@ int memcmp_masked(const void *str1, const void *str2, unsigned char* mask, size_
     const unsigned char* p = (const unsigned char*)str1;
     const unsigned char* q = (const unsigned char*)str2;
 
-    if(p == q) return 0;
-
-    for(int i = 0; i < n; i++)
-    {
+    if (p == q) return 0;
+    for (int i = 0; i < n; i++) {
         unsigned char cMask = 0xFF;
         if (mask) {
             cMask = mask[i];
         }
-        if((p[i] & cMask) != (q[i] & cMask))
-        {
+        if((p[i] & cMask) != (q[i] & cMask)) {
             // we do not care about 1 / -1
             return -1;
         }

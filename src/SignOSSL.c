@@ -8,15 +8,13 @@ unsigned char *signWithRSA(unsigned char *inputData, size_t inputDataLength, siz
     if (!privateKeyFile) return NULL;
     EVP_PKEY *privateKey = PEM_read_PrivateKey(privateKeyFile, NULL, NULL, NULL);
     fclose(privateKeyFile);
-    if (!privateKey)
-    {
+    if (!privateKey) {
         fprintf(stderr, "Error: failed to read private key file.\n");
     }
 
     // Get the RSA key from the private key
     RSA *rsaKey = EVP_PKEY_get1_RSA(privateKey);
-    if (!rsaKey)
-    {
+    if (!rsaKey) {
         printf("Error: failed to get RSA key from private key.\n");
     }
 
@@ -25,15 +23,13 @@ unsigned char *signWithRSA(unsigned char *inputData, size_t inputDataLength, siz
 
     // Allocate memory for the signature
     unsigned char *signature = (unsigned char *)malloc(keySize);
-    if (!signature)
-    {
+    if (!signature) {
         printf("Error: failed to allocate memory.\n");
     }
 
     // Sign the data
     int signatureLength = RSA_private_encrypt(inputDataLength, inputData, signature, rsaKey, RSA_PKCS1_PADDING);
-    if (signatureLength == -1)
-    {
+    if (signatureLength == -1) {
         printf("Error: failed to sign the data.\n");
     }
     

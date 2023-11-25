@@ -1,8 +1,8 @@
 #include "MachOLoadCommand.h"
+#include "Util.h"
 
 char *load_command_to_string(int loadCommand) {
-    switch (loadCommand)
-    {
+    switch (loadCommand) {
         case LC_SEGMENT:
             return "LC_SEGMENT";
         case LC_SYMTAB:
@@ -174,7 +174,7 @@ int update_load_commands_for_coretrust_bypass(MachO *macho, CS_SuperBlob *superb
     }
 
     uint64_t newSegmentSize = sizeOfCodeSignature + blockPaddingSize;
-    uint64_t newVMSize = alignToSize(newSegmentSize, 0x4000);
+    uint64_t newVMSize = align_to_size(newSegmentSize, 0x4000);
 
     // Update the segment command
     printf("Updating __LINKEDIT segment...\n");

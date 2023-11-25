@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
             CS_SuperBlob *superblob = macho_read_code_signature(macho);
             MachO *slice = fat->slices[i];
             CS_DecodedSuperBlob *decodedSuperBlob = csd_superblob_decode(superblob);
-            decodedsuperblob_parse_blobs(macho, decodedSuperBlob, getArgumentBool("-s"), getArgumentBool("-v"));
+            csd_superblob_print_content(decodedSuperBlob, macho, getArgumentBool("-s"), getArgumentBool("-v"));
             if (getArgumentBool("-e")) {
                 macho_extract_cs_to_file(slice, superblob);
             }

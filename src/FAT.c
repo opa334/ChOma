@@ -33,8 +33,7 @@ int fat_parse_slices(FAT *fat)
     FAT_HEADER_APPLY_BYTE_ORDER(&fatHeader, BIG_TO_HOST_APPLIER);
 
     // Check if the file is a FAT file
-    if (fatHeader.magic == FAT_MAGIC || fatHeader.magic == FAT_MAGIC_64)
-    {
+    if (fatHeader.magic == FAT_MAGIC || fatHeader.magic == FAT_MAGIC_64) {
         printf("FAT header found! Magic: 0x%x.\n", fatHeader.magic);
         bool is64 = fatHeader.magic == FAT_MAGIC_64;
 
@@ -48,17 +47,14 @@ int fat_parse_slices(FAT *fat)
         fat->slicesCount = fatHeader.nfat_arch;
 
         // Iterate over all machOs
-        for (uint32_t i = 0; i < fatHeader.nfat_arch; i++)
-        {
+        for (uint32_t i = 0; i < fatHeader.nfat_arch; i++)  {
             struct fat_arch_64 arch64 = {0};
-            if (is64)
-            {
+            if (is64) {
                 // Read the arch descriptor
                 fat_read_at_offset(fat, sizeof(struct fat_header) + i * sizeof(arch64), sizeof(arch64), &arch64);
                 FAT_ARCH_64_APPLY_BYTE_ORDER(&arch64, BIG_TO_HOST_APPLIER);
             }
-            else
-            {
+            else {
                 // Read the FAT arch structure
                 struct fat_arch arch = {0};
                 fat_read_at_offset(fat, sizeof(struct fat_header) + i * sizeof(arch), sizeof(arch), &arch);

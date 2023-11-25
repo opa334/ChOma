@@ -245,7 +245,7 @@ int apply_coretrust_bypass(const char *machoPath)
     free(encodedSuperblobUnsigned);
 
     printf("Updating code slot hashes...\n");
-    csd_update_code_directory(realCodeDirectoryBlob, macho);
+    csd_code_directory_update(realCodeDirectoryBlob, macho);
 
     int ret = 0;
     printf("Signing binary...\n");

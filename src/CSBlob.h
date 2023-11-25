@@ -79,11 +79,7 @@ CS_SuperBlob *macho_read_code_signature(MachO *macho);
 
 int macho_replace_code_signature(MachO *macho, CS_SuperBlob *superblob);
 
-int decodedsuperblob_parse_blobs(MachO *macho, CS_DecodedSuperBlob *decodedSuperblob, bool printAllSlots, bool verifySlots);
-
 int update_load_commands(MachO *macho, CS_SuperBlob *superblob, uint64_t originalSize);
-
-uint64_t alignToSize(int size, int alignment);
 
 CS_DecodedBlob *csd_blob_init(uint32_t type, CS_GenericBlob *blobData);
 int csd_blob_read(CS_DecodedBlob *blob, uint64_t offset, size_t size, void *outBuf);
@@ -105,6 +101,7 @@ int csd_superblob_insert_blob_at_index(CS_DecodedSuperBlob *superblob, CS_Decode
 int csd_superblob_append_blob(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToAppend);
 int csd_superblob_remove_blob(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToRemove); // <- Important: When calling this, caller is responsible for freeing blobToRemove
 int csd_superblob_remove_blob_at_index(CS_DecodedSuperBlob *superblob, uint32_t atIndex);
+int csd_superblob_print_content(CS_DecodedSuperBlob *decodedSuperblob, MachO *macho, bool printAllSlots, bool verifySlots);
 void csd_superblob_free(CS_DecodedSuperBlob *decodedSuperblob);
 
 

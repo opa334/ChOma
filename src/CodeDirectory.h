@@ -40,7 +40,7 @@ enum CS_HashType {
 	CS_HASHTYPE_SHA384_384 = 4,
 };
 
-int macho_parse_code_directory_blob(MachO *macho, CS_CodeDirectory *codeDirectoryOut, uint32_t cdOffset, bool printSlots, bool verifySlots);
-void csd_update_code_directory(CS_DecodedBlob *codeDirBlob, MachO *macho);
+int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, bool printSlots, bool verifySlots);
+void csd_code_directory_update(CS_DecodedBlob *codeDirBlob, MachO *macho);
 
 #endif // CODE_DIRECTORY_H
