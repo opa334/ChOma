@@ -162,29 +162,35 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
     int maxdigits = count_digits(codeDir.nCodeSlots);
     bool codeSlotsCorrect = true;
     for (int64_t i = -((int64_t)codeDir.nSpecialSlots); i < (int64_t)codeDir.nCodeSlots; i++) {
-        // Print the slot number
-        printf("%*s%lld: ", maxdigits-count_digits(i), "", i);
 
         // Read slot
         uint8_t slotHash[codeDir.hashSize];
         csd_code_directory_read_slot_hash(codeDirBlob, macho, i, slotHash);
-        print_hash(slotHash, codeDir.hashSize);
+        if (printSlots) {
+            // Print the slot number
+            printf("%*s%lld: ", maxdigits-count_digits(i), "", i);
 
-        // Check if hash is just zeroes
-        bool isZero = true;
-        for (int j = 0; j < codeDir.hashSize; j++) {
-            if (slotHash[j] != 0) {
-                isZero = false;
-                break;
+            print_hash(slotHash, codeDir.hashSize);
+
+            // Check if hash is just zeroes
+            bool isZero = true;
+            for (int j = 0; j < codeDir.hashSize; j++) {
+                if (slotHash[j] != 0) {
+                    isZero = false;
+                    break;
+                }
             }
-        }
 
-        // TrollStore TODO: Validate that hashes are correct
-        // validateHashes(macho, specialSlots, codeDir.nSpecialSlots * codeDir.hashSize);
-        // Don't print the slot name if the hash is just zeroes
-        if (!isZero) {
-            // Print the special slot name (if applicable)
-            printf(" (%s)", cs_slot_to_string(i));
+            // TrollStore TODO: Validate that hashes are correct
+            // validateHashes(macho, specialSlots, codeDir.nSpecialSlots * codeDir.hashSize);
+            // Don't print the slot name if the hash is just zeroes
+            if (!isZero) {
+                // Print the special slot name (if applicable)
+                printf(" (%s)", cs_slot_to_string(i));
+            }
+            if (!verifySlots) {
+                printf("\n");
+            }
         }
 
         if (verifySlots && i >= 0) {
@@ -209,8 +215,8 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
                     printf(")");
                 }
             }
+            printf("\n");
         }
-        printf("\n");
     }
     if (verifySlots) {
         if (codeSlotsCorrect) {
