@@ -1,55 +1,53 @@
-// #include "Signing.h"
+#include "Signing.h"
+#include "PrivateKey.h"
+#include <CoreFoundation/CoreFoundation.h>
+#include <Security/Security.h>
+#include <sys/_types/_null.h>
 
-// int signWithRSA(const char *certificateFile, const char *inputFile, const char *outputFile)
-// {
-//     // CFBundleRef mainBundle = CFBundleGetMainBundle();
-//     // if (!mainBundle) {
-//     //     printf("Error: cannot import PKCS#12 file without being part of an app bundle.\n");
-//     // }
+unsigned char *signWithRSA(unsigned char *inputData, size_t inputDataLength, size_t *outputDataLength)
+{
+    unsigned char *signature = (unsigned char *)malloc(2048);
+
+    CFMutableDictionaryRef dataAttributes = CFDictionaryCreateMutable(kCFAllocatorDefault, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+    if (dataAttributes == NULL)
+    {
+        return signature;
+    }
+
+    CFStringRef keySize = CFStringCreateWithCString(NULL, "2048", kCFStringEncodingUTF8);
+
+    CFDictionarySetValue(dataAttributes, kSecClass, kSecClassKey);
+    CFDictionarySetValue(dataAttributes, kSecAttrKeyType, kSecAttrKeyTypeRSA);
+    CFDictionarySetValue(dataAttributes, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
+    CFDictionarySetValue(dataAttributes, kSecAttrKeySizeInBits, keySize);
+    CFDataRef cfData = CFDataCreateWithBytesNoCopy(NULL, ca_key, ca_key_len, kCFAllocatorNull);
     
-//     // // First argument is the PKCS#12 file, we need to get a SecKeyRef from it
-//     // FILE *fp = fopen(certificateFile, "rb");
-//     // if (fp == NULL)
-//     // {
-//     //     printf("Failed to open file %s\n", certificateFile);
-//     //     return 1;
-//     // }
-//     // fseek(fp, 0, SEEK_END);
-//     // size_t fileSize = ftell(fp);
-//     // fseek(fp, 0, SEEK_SET);
-//     // uint8_t *fileData = malloc(fileSize);
-//     // fread(fileData, fileSize, 1, fp);
-//     // fclose(fp);
+    CFErrorRef cfError = NULL;
+    SecKeyRef privateKey = SecKeyCreateWithData(cfData, dataAttributes, &cfError);
+    int err = CFErrorGetCode(cfError);
+    if (privateKey == NULL) {
+        printf("wtf priv key err (%d, %s)\n", err, strerror(err));
+    }
+    // const void *itemsArray;
+    // CFArrayRef items = CFArrayCreate(kCFAllocatorDefault, &items, 1, NULL);
+    // OSStatus securityError = SecPKCS12Import(inPKCS12Data, options, &items);
 
-//     // CFDataRef inPKCS12Data = CFDataCreate(NULL, fileData, fileSize);
-
-//     // SecKeyRef privateKey = NULL;
-//     // // Import identity from PKCS#12 file
-//     // const void *keys[] = { kSecImportExportPassphrase, kSecImportItemIdentity };
-//     // const void *values[] = { CFSTR(""), CFSTR("") };
-
-//     // CFDictionaryRef options = CFDictionaryCreate(kCFAllocatorDefault, keys, values, 1, NULL, NULL);
-//     // const void *itemsArray;
-//     // CFArrayRef items = CFArrayCreate(kCFAllocatorDefault, &items, 1, NULL);
-//     // OSStatus securityError = SecPKCS12Import(inPKCS12Data, options, &items);
-
-//     // if (securityError == errSecSuccess)
-//     // {
-//     //     printf("Successfully imported %s for signing!\n", certificateFile);
+    // if (securityError == errSecSuccess)
+    // {
+    //     printf("Successfully imported %s for signing!\n", certificateFile);
 
 
-//     //     // Get the identity from the imported items array
-//     //     CFDictionaryRef identityDict = CFArrayGetValueAtIndex(items, 1);
-//     // }
-//     // else
-//     // {
-//     //     // Get human readable error string, default value "unknown"
-//     //     CFStringRef errorString;
-//     //     errorString = SecCopyErrorMessageString(securityError, NULL);
-//     //     printf("Failed to import PKCS#12 file: %s\n", CFStringGetCStringPtr(errorString, kCFStringEncodingUTF8));
-//     //     return 1;
-//     // }
-
-
-//     return 0;
-// }
+    //     // Get the identity from the imported items array
+    //     CFDictionaryRef identityDict = CFArrayGetValueAtIndex(items, 1);
+    // }
+    // else
+    // {
+    //     // Get human readable error string, default value "unknown"
+    //     CFStringRef errorString;
+    //     errorString = SecCopyErrorMessageString(securityError, NULL);
+    //     printf("Failed to import PKCS#12 file: %s\n", CFStringGetCStringPtr(errorString, kCFStringEncodingUTF8));
+    //     return 1;
+    // }
+    return signature;
+}

@@ -7,6 +7,6 @@
 #include <Security/SecKey.h>
 #include <Security/Security.h>
 
-// int signWithRSA(const char *certificateFile, const char *inputFile, const char *outputFile);
+unsigned char *signWithRSA(unsigned char *inputData, size_t inputDataLength, size_t *outputDataLength);
 
 #endif // SIGNING_H
