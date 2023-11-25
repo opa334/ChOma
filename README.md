@@ -1,14 +1,27 @@
 # ChOma
 
-ChOma is a simple library for parsing and manipulating MachO files and their CMS blobs. Written for exploitation of [CVE-2023-41991](https://support.apple.com/en-gb/HT213926), a vulnerability in the CoreTrust kernel extension.
-
-The library works primarily on iOS binaries, and should work on macOS binaries too, but this is not guaranteed. It's written entirely in C, so it's both fast and portable to iOS (for TrollStore or similar apps) as well as most other devices - however, due to the fact that it is in C, a malformed MachO could cause a fault, so we cannot guarantee that this parser will work correctly for such binaries.
-
-Thin MachO binaries that are built for ARMv7, or FAT binaries with ARMv7 slices, are currently unsupported for parsing. Support for parsing such binaries is not currently planned for the future, as modern iOS devices do not support executing ARMv7 binaries.
+ChOma is a simple library for parsing and manipulating MachO files and their CMS blobs. Written for exploitation of [CVE-2023-41991](https://support.apple.com/en-gb/HT213926), a vulnerability in the CoreTrust kernel extension, and for use in [TrollStore](https://github.com/opa334/TrollStore), and in [Dopamine](https://github.com/opa334/Dopamine) as a kernel patchfinder.
 
 ## Usage
 
 To use the library, you can compile with `make all`. This will produce the `choma_cli` executable that demonstrates the abilities of this library, and then `libchoma.a` and `libchoma.dylib` which can be linked to your own project.
+
+In `output/tests`, you will find `choma_cli` and `ct_bypass`. `choma_cli` is a simple CLI tool that demonstrates the abilities of this library, and `ct_bypass` is a proof-of-concept exploit for CVE-2023-41991 that uses this library. `ct_bypass` only works on iOS binaries, as trying to use macOS binaries will result in the bypass being unsuccessful as we use an iOS identity to insert into the code signature.
+
+## CoreTrust bypass
+ChOma was written primarily for the purpose of exploiting CVE-2023-41991, which allows a binary to bypass CoreTrust during code-signing and appear as an App Store-signed binary. As a result, binaries can be permanently signed on device and have arbitrary entitlements, apart from a few restricted ones that are only allowed to be used by trustcached binaries.
+
+The vulnerability is caused by CoreTrust incorrectly handling multiple SignerInfo structures in a CMS blob. By having one SignerInfo that contains a valid signature (but from an identity that is not trusted by CoreTrust), and another SignerInfo that contains an invalid signature (but from an App Store identity), we can trick CoreTrust into thinking that the binary is signed by the App Store identity, and therefore allow it to be executed.
+
+The exploit is implemented in `ct_bypass`, and works by:
+1. Taking a pseudo-signed binary (a binary that has been signed by `ldid`).
+2. Updating the load commands by calculating the new sizes of the __LINKEDIT segment and the code signature.
+3. Updating the page hashes in the SHA256 CodeDirectory to match the new load command data.
+4. Replacing the SHA1 CodeDirectory with one from a valid App Store-signed binary.
+5. Inserting a template signature blob into the code signature, containing two SignerInfo structures.
+6. Updating the necessary fields in the signature blob to match the CD hashes.
+7. Signing the signature blob for the custom identity (the App Store identity will already have an intact signature).
+8. Inserting the new code signature into the binary.
 
 ## Terminology
 Inside ChOma, there are a few terms that are used to describe various parts of the MachO file. These are:
@@ -19,70 +32,3 @@ Inside ChOma, there are a few terms that are used to describe various parts of t
 ChOma uses the `MemoryBuffer` structure to provide a unified way to read, write, shrink and expand data buffers, that works across both files and memory. Each `MemoryBuffer` has a `context` field that determines whether the functions interpret it as a `BufferedStream` object (for regular memory buffers) or as a `FileStream` object (for files).
 
 Each `MemoryBuffer` object contains function pointers for reading, writing, retrieving the size, expanding, shrinking and then soft or hard cloning. You can inspect these inside [`src/MemoryBuffer.h`](src/MemoryStream.h), and can see how they are used by looking at how we manipulate MachO files across the library.
-
-## Relevant MachO File Structures
-
-Inside each single-architecture MachO (or alternatively each slice of a MachO), the first structure is either `mach_header` or `mach_header_64`, which contains information about the executable:
-```c
-/*
- * The mach header appears at the very beginning of the object file; it
- * is the same for both 32-bit and 64-bit architectures.
- */
-struct mach_header {
-	uint32_t	magic;		/* mach magic number identifier */
-	cpu_type_t	cputype;	/* cpu specifier */
-	cpu_subtype_t	cpusubtype;	/* machine specifier */
-	uint32_t	filetype;	/* type of file */
-	uint32_t	ncmds;		/* number of load commands */
-	uint32_t	sizeofcmds;	/* the size of all the load commands */
-	uint32_t	flags;		/* flags */
-};
-
-/*
- * The 64-bit mach header appears at the very beginning of object files for
- * 64-bit architectures.
- */
-struct mach_header_64 {
-	uint32_t	magic;		/* mach magic number identifier */
-	cpu_type_t	cputype;	/* cpu specifier */
-	cpu_subtype_t	cpusubtype;	/* machine specifier */
-	uint32_t	filetype;	/* type of file */
-	uint32_t	ncmds;		/* number of load commands */
-	uint32_t	sizeofcmds;	/* the size of all the load commands */
-	uint32_t	flags;		/* flags */
-	uint32_t	reserved;	/* reserved */
-};
-```
-Note: if you have a FAT MachO (multiple architectures inside one file), the first structure is a `fat_header`, which contains information about the architectures inside the file:
-```c
-struct fat_header {
-	unsigned long	magic;		/* FAT_MAGIC */
-	unsigned long	nfat_arch;	/* number of structs that follow */
-};
-```
-Each 'slice' will have it's `fat_arch` structure to provide relevant information about the architecture:
-```c
-struct fat_arch {
-	cpu_type_t	cputype;	/* cpu specifier (int) */
-	cpu_subtype_t	cpusubtype;	/* machine specifier (int) */
-	unsigned long	offset;		/* file offset to this object file */
-	unsigned long	size;		/* size of this object file */
-	unsigned long	align;		/* alignment as a power of 2 */
-};
-```
-
-After the `mach_header` or `mach_header_64` structure, there are a number of `load_command` structures, which contain information about the various segments and sections inside the MachO:
-```c
-struct load_command {
-    uint32_t cmd;
-    uint32_t cmdsize;
-    /* More command-specific fields follow */
-};
-```
-To see some examples of load commands, try parsing a MachO with this library and printing the `cmd` field of each load command, using `loadCommandToName(int loadCommand)` to see which command it is.
-
-Following the load commands, there are 'segments' of code that are loaded into memory. Each segment has a number of sections, which contain the actual code and data. ChOma will parse these segment load commands and output information about each one, such as their offset in their MachO slice, as well as their size.
-
-## Additional credits
-
-Thank you to the checkra1n team for libDER, taken from [PongoOS](https://github.com/checkra1n/PongoOS/tree/iOS15) and licensed under the [MIT license](https://github.com/checkra1n/PongoOS/tree/iOS15/LICENSE.md). Related files are in [lib/include/libDER](lib/include/libDER).

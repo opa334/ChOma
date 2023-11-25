@@ -30,3 +30,8 @@ nocommit-*
 
 # Miscellaneous
 ca.key
+*.tipa
+*.zip
+*.ipa
+*.app
+Payload/
