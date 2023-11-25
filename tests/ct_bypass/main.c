@@ -130,7 +130,14 @@ int apply_coretrust_bypass(const char *machoPath)
         // Otherwise use the main code directory
         realCodeDirectoryBlob = mainCodeDirectoryBlob;
     }
-    // TODO: Sanity check that realCodeDirectoryBlob is SHA256, if it's not the bypass won't work...
+    
+    CS_CodeDirectory *realCD = malloc(sizeof(CS_CodeDirectory));
+    csd_blob_read(realCodeDirectoryBlob, 0, sizeof(CS_CodeDirectory), realCD);
+    CODE_DIRECTORY_APPLY_BYTE_ORDER(realCD, BIG_TO_HOST_APPLIER);
+    if (realCD->hashType != CS_HASHTYPE_SHA256_256) {
+        printf("Error: Alternate code directory is not SHA256, bypass won't work!\n");
+        return -1;
+    }
 
     printf("Applying App Store code directory...\n");
 
