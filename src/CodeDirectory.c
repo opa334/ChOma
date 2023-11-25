@@ -25,7 +25,8 @@ bool csd_code_directory_calculate_page_hash(CS_DecodedBlob *codeDirBlob, MachO *
     if (slot == codeDir.nCodeSlots - 1) {
         uint32_t csOffset = 0, csSize = 0;
         macho_find_code_signature_bounds(macho, &csOffset, &csSize);
-        pageToReadSize = (csOffset) - pageToReadOffset;
+        if (pageToReadOffset > csOffset) return false;
+        pageToReadSize = csOffset - pageToReadOffset;
     }
 
     // Bail out when past EOF
