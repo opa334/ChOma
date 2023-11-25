@@ -21,15 +21,15 @@ bool csd_code_directory_calculate_page_hash(CS_DecodedBlob *codeDirBlob, MachO *
     uint32_t pageToReadSize = (uint32_t)(pow(2.0, (double)(codeDir.pageSize)));
     uint32_t pageToReadOffset = slot * pageToReadSize;
 
-    // Bail out when past EOF
-    if ((pageToReadOffset + pageToReadSize) > memory_stream_get_size(macho_get_stream(macho))) return false;
-
     // Special case for reading the code signature itself
     if (slot == codeDir.nCodeSlots - 1) {
         uint32_t csOffset = 0, csSize = 0;
         macho_find_code_signature_bounds(macho, &csOffset, &csSize);
         pageToReadSize = (csOffset) - pageToReadOffset;
     }
+
+    // Bail out when past EOF
+    if ((pageToReadOffset + pageToReadSize) > memory_stream_get_size(macho_get_stream(macho))) return false;
 
     uint8_t page[pageToReadSize];
     if (macho_read_at_offset(macho, pageToReadOffset, pageToReadSize, page) != 0) return false;
