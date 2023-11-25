@@ -166,7 +166,7 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
         // Read slot
         uint8_t slotHash[codeDir.hashSize];
         csd_code_directory_read_slot_hash(codeDirBlob, macho, i, slotHash);
-        if (printSlots) {
+        if (printSlots || verifySlots) {
             // Print the slot number
             printf("%*s%lld: ", maxdigits-count_digits(i), "", i);
 
