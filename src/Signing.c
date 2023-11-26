@@ -4,9 +4,8 @@
 #include <Security/Security.h>
 #include <sys/_types/_null.h>
 
-unsigned char *signWithRSA(unsigned char *inputData, size_t inputDataLength,
-                           size_t *outputDataLength) {
-    unsigned char *signature = (unsigned char *)malloc(2048); // check this
+unsigned char *signWithRSA(unsigned char *inputData, size_t inputDataLength, size_t *outputDataLength) {
+    unsigned char *signature = (unsigned char *)malloc(256); // check this
     
     FILE *fp = fmemopen(ca_key, ca_key_len, "r");
     fseek(fp, 0, SEEK_END);
@@ -17,9 +16,7 @@ unsigned char *signWithRSA(unsigned char *inputData, size_t inputDataLength,
     fclose(fp);
     
     CFDataRef inPKCS12Data = CFDataCreate(NULL, fileData, fileSize);
-    CFMutableDictionaryRef dataAttributes = CFDictionaryCreateMutable(
-                                                                      kCFAllocatorDefault, 2, &kCFTypeDictionaryKeyCallBacks,
-                                                                      &kCFTypeDictionaryValueCallBacks);
+    CFMutableDictionaryRef dataAttributes = CFDictionaryCreateMutable(kCFAllocatorDefault, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     if (dataAttributes == NULL) {
         return signature;
     }
@@ -43,12 +40,17 @@ unsigned char *signWithRSA(unsigned char *inputData, size_t inputDataLength,
             if (pKeyError == errSecSuccess) {
                 // cast to CFDataRef
                 CFDataRef inputDataDataRef = CFDataCreate(NULL, inputData, inputDataLength);
-
+                
                 CFErrorRef signError = NULL;
                 // Sign Data!
-                CFDataRef signedData = SecKeyCreateSignature(realpKey, kSecKeyAlgorithmRSASignatureRaw,inputDataDataRef, &signError);
+                CFDataRef signedData = SecKeyCreateSignature(realpKey, kSecKeyAlgorithmRSASignatureRaw, inputDataDataRef, &signError);
                 if (signedData != NULL) {
                     printf("Successfully signed!\n");
+                    CFIndex length = CFDataGetLength(signedData);
+                    CFRange range = CFRangeMake(0, length);
+                    CFDataGetBytes(signedData, range, signature);
+                    *outputDataLength = length;
+                    return signature;
                 } else {
                     CFStringRef errorString = CFErrorCopyDescription(signError);
                     CFIndex length = CFStringGetLength(errorString);

@@ -13,7 +13,6 @@
 #include <choma/BufferedStream.h>
 #include <choma/Signing.h>
 #include <choma/SignatureBlob.h>
-#include <choma/SignOSSL.h>
 #include <choma/CodeDirectory.h>
 #include "AppStoreCodeDirectory.h"
 #include "TemplateSignatureBlob.h"
