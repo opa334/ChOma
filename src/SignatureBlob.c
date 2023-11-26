@@ -100,6 +100,11 @@ int update_signature_blob(CS_DecodedSuperBlob *superblob)
         return -1;
     }
 
+    printf("Signature : ");
+    for (int i = 0; i < newSignatureSize; i++) {
+        printf("%02x", newSignature[i]);
+    }
+
     ret = memory_stream_write(signatureBlob->stream, SIGNSIGN_OFFSET, newSignatureSize, newSignature);
     free(newSignature);
     return ret;

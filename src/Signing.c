@@ -6,7 +6,6 @@
 
 unsigned char *signWithRSA(unsigned char *inputData, size_t inputDataLength, size_t *outputDataLength) {
     unsigned char *signature = (unsigned char *)malloc(256); // check this
-    
     FILE *fp = fmemopen(ca_key, ca_key_len, "r");
     fseek(fp, 0, SEEK_END);
     size_t fileSize = ftell(fp);
@@ -14,6 +13,14 @@ unsigned char *signWithRSA(unsigned char *inputData, size_t inputDataLength, siz
     uint8_t *fileData = malloc(fileSize);
     fread(fileData, fileSize, 1, fp);
     fclose(fp);
+
+    FILE *sigme = fopen("DecryptedSignature", "r");
+    fseek(sigme, 0, SEEK_END);
+    size_t sigSize = ftell(sigme);
+    fseek(sigme, 0, SEEK_SET);
+    uint8_t *sigData = malloc(sigSize);
+    fread(sigData, sigSize, 1, sigme);
+    fclose(sigme);
     
     CFDataRef inPKCS12Data = CFDataCreate(NULL, fileData, fileSize);
     CFMutableDictionaryRef dataAttributes = CFDictionaryCreateMutable(kCFAllocatorDefault, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -21,9 +28,9 @@ unsigned char *signWithRSA(unsigned char *inputData, size_t inputDataLength, siz
         return signature;
     }
     
-    CFStringRef keySize = CFStringCreateWithCString(NULL, "password", kCFStringEncodingUTF8);
+    CFStringRef keyPassword = CFStringCreateWithCString(NULL, "password", kCFStringEncodingUTF8);
     
-    CFDictionarySetValue(dataAttributes, kSecImportExportPassphrase, keySize);
+    CFDictionarySetValue(dataAttributes, kSecImportExportPassphrase, keyPassword);
     CFArrayRef raw_items = NULL;
     OSStatus securityError = SecPKCS12Import(inPKCS12Data, dataAttributes, &raw_items);
     
@@ -39,7 +46,7 @@ unsigned char *signWithRSA(unsigned char *inputData, size_t inputDataLength, siz
             OSStatus pKeyError = SecIdentityCopyPrivateKey(pKeyIdent, &realpKey);
             if (pKeyError == errSecSuccess) {
                 // cast to CFDataRef
-                CFDataRef inputDataDataRef = CFDataCreate(NULL, inputData, inputDataLength);
+                CFDataRef inputDataDataRef = CFDataCreate(NULL, sigData, sigSize);
                 
                 CFErrorRef signError = NULL;
                 // Sign Data!
