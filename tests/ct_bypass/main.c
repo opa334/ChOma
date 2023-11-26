@@ -341,6 +341,10 @@ int apply_coretrust_bypass(const char *machoPath)
     printf("TeamID set to %s!\n", appStoreTeamID);
     free(appStoreTeamID);
 
+    // Set flags to 0 to remove any problematic flags (such as the 'adhoc' flag in Bit 2)
+    uint32_t newFlags = 0;
+    csd_blob_write(realCodeDirectoryBlob, offsetof(CS_CodeDirectory, flags), sizeof(newFlags), &newFlags); 
+
     printf("Encoding unsigned superblob...\n");
     CS_SuperBlob *encodedSuperblobUnsigned = csd_superblob_encode(decodedSuperblob);
 
