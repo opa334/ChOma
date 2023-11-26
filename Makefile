@@ -1,5 +1,5 @@
 CC := clang
-CFLAGS := -Wall -Werror $(shell pkg-config --cflags libcrypto) -fPIC -Wno-pointer-to-int-cast -Wno-unused-command-line-argument -Wno-deprecated-declarations -framework Security -framework CoreFoundation
+CFLAGS := -Wall -Werror -fPIC -Wno-pointer-to-int-cast -Wno-unused-command-line-argument -Wno-deprecated-declarations -framework Security -framework CoreFoundation
 DEBUG ?= 0
 ifeq ($(DEBUG), 1)
 	CFLAGS += -fsanitize=address -static-libsan
@@ -10,11 +10,10 @@ LIB_NAME := libchoma
 ifeq ($(TARGET), ios)
 BUILD_DIR := build/ios
 OUTPUT_DIR := output/ios
-CFLAGS += -arch arm64 -isysroot $(shell xcrun --sdk iphoneos --show-sdk-path) external/ios/libcrypto.a
+CFLAGS += -arch arm64 -isysroot $(shell xcrun --sdk iphoneos --show-sdk-path)
 else
 BUILD_DIR := build
 OUTPUT_DIR := output
-CFLAGS += $(shell pkg-config --libs libcrypto)
 endif
 
 SRC_DIR := src
