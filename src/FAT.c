@@ -1,3 +1,4 @@
+#include <mach-o/fat.h>
 #include <stdbool.h>
 #include <assert.h>
 
@@ -87,6 +88,7 @@ int fat_parse_slices(FAT *fat)
 
         struct mach_header_64 machHeader;
         memory_stream_read(machOStream, 0, sizeof(machHeader), &machHeader);
+        MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, LITTLE_TO_HOST_APPLIER);
 
         struct fat_arch_64 singleArch = {0};
         singleArch.cpusubtype = machHeader.cpusubtype;
@@ -95,7 +97,9 @@ int fat_parse_slices(FAT *fat)
         singleArch.size = fileSize;
         singleArch.align = 0x4000;
 
-        fat->slices[0] = macho_init(machOStream, singleArch);
+        MachO *singleSlice = macho_init(machOStream, singleArch);
+        if (!singleSlice) return -1;
+        fat->slices[0] = singleSlice;
     }
     printf("Found %u MachO slices.\n", fat->slicesCount);
     return 0;
@@ -151,7 +155,11 @@ FAT *fat_init_from_path(const char *filePath)
 {
     MemoryStream *stream = file_stream_init_from_path(filePath, 0, FILE_STREAM_SIZE_AUTO, 0);
     if (stream) {
-        return fat_init_from_memory_stream(stream);
+        FAT *fat = fat_init_from_memory_stream(stream);
+        if (!fat) {
+            memory_stream_free(stream);
+        }
+        return NULL;
     }
     return NULL;
 }

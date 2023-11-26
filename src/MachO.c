@@ -180,11 +180,10 @@ MachO *macho_init(MemoryStream *stream, struct fat_arch_64 archDescriptor)
     macho->stream = stream;
     macho->archDescriptor = archDescriptor;
     macho_read_at_offset(macho, 0, sizeof(macho->machHeader), &macho->machHeader);
-    MACH_HEADER_APPLY_BYTE_ORDER(&macho->machHeader, HOST_TO_LITTLE_APPLIER);
+    MACH_HEADER_APPLY_BYTE_ORDER(&macho->machHeader, LITTLE_TO_HOST_APPLIER);
 
     // Check the magic against the expected values
     if (macho->machHeader.magic != MH_MAGIC_64 && macho->machHeader.magic != MH_MAGIC) {
-        printf("Error: invalid magic 0x%x for mach header at offset 0x%llx.\n", macho->machHeader.magic, archDescriptor.offset);
         goto fail;
     }
 
