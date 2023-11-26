@@ -1,6 +1,7 @@
 #include "FileStream.h"
 #include <sys/fcntl.h>
 #include <errno.h>
+#include <os/log.h>
 
 static int _file_stream_context_is_trimmed(FileStreamContext *context)
 {
@@ -188,7 +189,7 @@ MemoryStream *file_stream_init_from_path(const char *path, uint32_t bufferStart,
 {
     int openFlags = 0;
     if (flags & FILE_STREAM_FLAG_WRITABLE) {
-        openFlags = O_RDWR;
+        openFlags = O_RDWR | O_CREAT;
     }
     else {
         openFlags = O_RDONLY;
