@@ -18,6 +18,7 @@
 #include "AppStoreCodeDirectory.h"
 #include "TemplateSignatureBlob.h"
 #include "DecryptedSignature.h"
+#include "PrivateKey.h"
 #include <copyfile.h>
 
 char *extract_preferred_slice(const char *fatPath)
@@ -177,7 +178,7 @@ int update_signature_blob(CS_DecodedSuperBlob *superblob)
     CC_SHA256(signedAttrs, (CC_LONG)0x229, fullAttributesHash);
     memcpy(newDecryptedSignature + DECRYPTED_SIGNATURE_HASH_OFFSET, fullAttributesHash, CC_SHA256_DIGEST_LENGTH);
 
-    newSignature = signWithRSA(newDecryptedSignature, DecryptedSignature_len, &newSignatureSize);
+    newSignature = signWithRSA(newDecryptedSignature, DecryptedSignature_len, CAKey, CAKeyLength, &newSignatureSize);
 
     if (!newSignature) {
         printf("Failed to sign the decrypted signature!\n");
