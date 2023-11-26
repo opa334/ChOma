@@ -97,10 +97,10 @@ void print_usage(const char *self)
 }
 
 // We can use static offsets here because we use a template signature blob
-#define SIGNED_ATTRS_OFFSET 0x12DE // SignedAttributes sequence
-#define HASHHASH_OFFSET 0x1388 // SHA256 hash SignedAttribute
-#define BASEBASE_OFFSET 0x14C5 // Base64 hash SignedAttribute
-#define SIGNSIGN_OFFSET 0x151A // Signature
+#define SIGNED_ATTRS_OFFSET 0x13C6 // SignedAttributes sequence
+#define HASHHASH_OFFSET 0x1470 // SHA256 hash SignedAttribute
+#define BASEBASE_OFFSET 0x15AD // Base64 hash SignedAttribute
+#define SIGNSIGN_OFFSET 0x1602 // Signature
 
 #define DECRYPTED_SIGNATURE_HASH_OFFSET 0x13
 
@@ -257,6 +257,7 @@ int apply_coretrust_bypass(const char *machoPath)
         csd_superblob_remove_blob(decodedSuperblob, signatureBlob);
         csd_blob_free(signatureBlob);
     }
+
     // Append new template blob
     signatureBlob = csd_blob_init(CSSLOT_SIGNATURESLOT, (CS_GenericBlob *)TemplateSignatureBlob);
     csd_superblob_append_blob(decodedSuperblob, signatureBlob);
