@@ -77,39 +77,36 @@ int main(int argc, char *argv[]) {
     FAT *fat = fat_init_from_path(argv[argc - 1]);
     if (!fat) return -1;
 
-    MachO *macho = fat_find_preferred_slice(fat);
-    if (!macho) return -1;
-
-    if (getArgumentBool("-c")) {
-        for (int i = 0; i < fat->slicesCount; i++) {
-            CS_SuperBlob *superblob = macho_read_code_signature(macho);
-            MachO *slice = fat->slices[i];
+    for (int i = 0; i < fat->slicesCount; i++) {
+        MachO *slice = fat->slices[i];
+        printf("Slice %d (arch %x/%x, macho %x/%x):\n", i, slice->archDescriptor.cputype, slice->archDescriptor.cpusubtype, slice->machHeader.cputype, slice->machHeader.cpusubtype);
+        if (getArgumentBool("-c")) {
+            CS_SuperBlob *superblob = macho_read_code_signature(slice);
             CS_DecodedSuperBlob *decodedSuperBlob = csd_superblob_decode(superblob);
-            csd_superblob_print_content(decodedSuperBlob, macho, getArgumentBool("-s"), getArgumentBool("-v"));
+            csd_superblob_print_content(decodedSuperBlob, slice, getArgumentBool("-s"), getArgumentBool("-v"));
             if (getArgumentBool("-e")) {
                 macho_extract_cs_to_file(slice, superblob);
             }
         }
-    }
-
-    if (getArgumentBool("-f")) {
-        for (uint32_t i = 0; i < macho->segmentCount; i++) {
-            MachOSegment *segment = macho->segments[i];
-            printf("(0x%08llx-0x%08llx)->(0x%09llx-0x%09llx) | %s\n", segment->command.fileoff, segment->command.fileoff + segment->command.filesize, segment->command.vmaddr, segment->command.vmaddr + segment->command.vmsize, segment->command.segname);
-            for (int j = 0; j < segment->command.nsects; j++) {
-                struct section_64 *section = &segment->sections[j];
-                printf("(0x%08x-0x%08llx)->(0x%09llx-0x%09llx) | %s.%s\n", section->offset, section->offset + section->size, section->addr, section->addr + section->size, section->segname, section->sectname);
+        if (getArgumentBool("-f")) {
+            for (uint32_t i = 0; i < slice->segmentCount; i++) {
+                MachOSegment *segment = slice->segments[i];
+                printf("(0x%08llx-0x%08llx)->(0x%09llx-0x%09llx) | %s\n", segment->command.fileoff, segment->command.fileoff + segment->command.filesize, segment->command.vmaddr, segment->command.vmaddr + segment->command.vmsize, segment->command.segname);
+                for (int j = 0; j < segment->command.nsects; j++) {
+                    struct section_64 *section = &segment->sections[j];
+                    printf("(0x%08x-0x%08llx)->(0x%09llx-0x%09llx) | %s.%s\n", section->offset, section->offset + section->size, section->addr, section->addr + section->size, section->segname, section->sectname);
+                }
             }
-        }
-        for (uint32_t i = 0; i < macho->filesetCount; i++) {
-            MachO *filesetMachoSlice = macho->filesetMachos[i].underlyingMachO->slices[0];
-            char *entry_id = macho->filesetMachos[i].entry_id;
-            for (int j = 0; j < filesetMachoSlice->segmentCount; j++) {
-                MachOSegment *segment = filesetMachoSlice->segments[j];
-                printf("(0x%08llx-0x%08llx)->(0x%09llx-0x%09llx) | %s.%s\n", segment->command.fileoff, segment->command.fileoff + segment->command.filesize, segment->command.vmaddr, segment->command.vmaddr + segment->command.vmsize, entry_id, segment->command.segname);
-                for (int k = 0; k < segment->command.nsects; k++) {
-                    struct section_64 *section = &segment->sections[k];
-                    printf("(0x%08x-0x%08llx)->(0x%09llx-0x%09llx) | %s.%s.%s\n", section->offset, section->offset + section->size, section->addr, section->addr + section->size, entry_id, section->segname, section->sectname);
+            for (uint32_t i = 0; i < slice->filesetCount; i++) {
+                MachO *filesetMachoSlice = slice->filesetMachos[i].underlyingMachO->slices[0];
+                char *entry_id = slice->filesetMachos[i].entry_id;
+                for (int j = 0; j < filesetMachoSlice->segmentCount; j++) {
+                    MachOSegment *segment = filesetMachoSlice->segments[j];
+                    printf("(0x%08llx-0x%08llx)->(0x%09llx-0x%09llx) | %s.%s\n", segment->command.fileoff, segment->command.fileoff + segment->command.filesize, segment->command.vmaddr, segment->command.vmaddr + segment->command.vmsize, entry_id, segment->command.segname);
+                    for (int k = 0; k < segment->command.nsects; k++) {
+                        struct section_64 *section = &segment->sections[k];
+                        printf("(0x%08x-0x%08llx)->(0x%09llx-0x%09llx) | %s.%s.%s\n", section->offset, section->offset + section->size, section->addr, section->addr + section->size, entry_id, section->segname, section->sectname);
+                    }
                 }
             }
         }
