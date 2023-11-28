@@ -17,6 +17,7 @@
 #include "AppStoreCodeDirectory.h"
 #include "TemplateSignatureBlob.h"
 #include "DecryptedSignature.h"
+#include "PrivateKey.h"
 #include <copyfile.h>
 
 char *extract_preferred_slice(const char *fatPath)
@@ -176,7 +177,7 @@ int update_signature_blob(CS_DecodedSuperBlob *superblob)
     CC_SHA256(signedAttrs, (CC_LONG)0x229, fullAttributesHash);
     memcpy(newDecryptedSignature + DECRYPTED_SIGNATURE_HASH_OFFSET, fullAttributesHash, CC_SHA256_DIGEST_LENGTH);
 
-    newSignature = signWithRSA(newDecryptedSignature, DecryptedSignature_len, &newSignatureSize);
+    newSignature = signWithRSA(newDecryptedSignature, DecryptedSignature_len, CAKey, CAKeyLength, &newSignatureSize);
 
     if (!newSignature) {
         printf("Failed to sign the decrypted signature!\n");
@@ -230,10 +231,7 @@ int apply_coretrust_bypass(const char *machoPath)
         realCodeDirBlob = mainCodeDirBlob;
     }
 
-    CS_CodeDirectory *realCD = malloc(sizeof(CS_CodeDirectory));
-    csd_blob_read(realCodeDirBlob, 0, sizeof(CS_CodeDirectory), realCD);
-    CODE_DIRECTORY_APPLY_BYTE_ORDER(realCD, BIG_TO_HOST_APPLIER);
-    if (realCD->hashType != CS_HASHTYPE_SHA256_256) {
+    if (csd_code_directory_get_hash_type(realCodeDirBlob) != CS_HASHTYPE_SHA256_256) {
         printf("Error: Alternate code directory is not SHA256, bypass won't work!\n");
         return -1;
     }

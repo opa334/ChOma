@@ -101,9 +101,8 @@ int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct l
             bool stop = false;
             enumeratorBlock(loadCommand, offset, (void *)cmd, &stop);
             if (stop) break;
-
-            offset += loadCommand.cmdsize;
         }
+        offset += loadCommand.cmdsize;
     }
     return 0;
 }

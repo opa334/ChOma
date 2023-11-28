@@ -64,8 +64,9 @@ int macho_parse_signature_blob_to_der_encoded_data(MachO *macho, uint32_t signat
     return macho_read_at_offset(macho, signatureBlobOffset + 8, signatureBlobLength - 8, outputDER);
 }
 
-void macho_find_code_signature_bounds(MachO *macho, uint32_t *offsetOut, uint32_t *sizeOut)
+int macho_find_code_signature_bounds(MachO *macho, uint32_t *offsetOut, uint32_t *sizeOut)
 {
+    __block int r = -1;
     macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
         if (loadCommand.cmd == LC_CODE_SIGNATURE) {
             struct linkedit_data_command *csLoadCommand = ((struct linkedit_data_command *)cmd);
@@ -73,18 +74,21 @@ void macho_find_code_signature_bounds(MachO *macho, uint32_t *offsetOut, uint32_
             if (offsetOut) *offsetOut = csLoadCommand->dataoff;
             if (sizeOut) *sizeOut = csLoadCommand->datasize;
             *stop = true;
+            r = 0;
         }
     });
+    return r;
 }
 
 CS_SuperBlob *macho_read_code_signature(MachO *macho)
 {
     uint32_t offset = 0, size = 0;
-    macho_find_code_signature_bounds(macho, &offset, &size);
-    
-    CS_SuperBlob *dataOut = malloc(size);
-    macho_read_at_offset(macho, offset, size, dataOut);
-    return dataOut;
+    if (macho_find_code_signature_bounds(macho, &offset, &size) == 0) {
+        CS_SuperBlob *dataOut = malloc(size);
+        macho_read_at_offset(macho, offset, size, dataOut);
+        return dataOut;
+    }
+    return NULL;
 }
 
 int macho_replace_code_signature(MachO *macho, CS_SuperBlob *superblob)
