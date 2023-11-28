@@ -11,7 +11,6 @@
 #include <choma/MemoryStream.h>
 #include <choma/FileStream.h>
 #include <choma/BufferedStream.h>
-#include <choma/Signing.h>
 #include <choma/SignOSSL.h>
 #include <choma/CodeDirectory.h>
 #include <choma/Base64.h>

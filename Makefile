@@ -1,5 +1,5 @@
 CC := clang
-CFLAGS := -Wall -Werror $(shell pkg-config --cflags libcrypto) -fPIC -Wno-pointer-to-int-cast -Wno-unused-command-line-argument -Wno-deprecated-declarations -framework Security -framework CoreFoundation
+CFLAGS := -Wall -Werror $(shell pkg-config --cflags libcrypto) -fPIC -Wno-pointer-to-int-cast -Wno-unused-command-line-argument -Wno-deprecated-declarations -framework CoreFoundation
 DEBUG ?= 0
 ifeq ($(DEBUG), 1)
 	CFLAGS += -fsanitize=address -static-libsan
