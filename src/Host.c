@@ -53,6 +53,15 @@ MachO *fat_find_preferred_slice(FAT *fat)
                 preferredMacho = fat_find_slice(fat, cputype, CPU_SUBTYPE_ARM64_ALL);
             }
         }
+    } else {
+        // running on non-arm platform (prob x86 macos), default to arm64 because cringe
+
+        // check for arm64v8 first
+        preferredMacho = fat_find_slice(fat, CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64_V8);
+        if (!preferredMacho) {
+            // if that fails, check for regular arm64
+            preferredMacho = fat_find_slice(fat, CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64_ALL);
+        }
     }
 
     if (!preferredMacho) {
