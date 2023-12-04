@@ -268,7 +268,6 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
     int maxdigits = count_digits(codeDir.nCodeSlots);
     bool codeSlotsCorrect = true;
     for (int64_t i = -((int64_t)codeDir.nSpecialSlots); i < (int64_t)codeDir.nCodeSlots; i++) {
-
         // Read slot
         uint8_t slotHash[codeDir.hashSize];
         csd_code_directory_read_slot_hash(codeDirBlob, macho, i, slotHash);
@@ -294,6 +293,7 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
                 // Print the special slot name (if applicable)
                 printf(" (%s)", cs_slot_to_string(i));
             }
+            printf("\n");
         }
 
         if (verifySlots && i >= 0) {
@@ -318,8 +318,8 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
                     printf(")");
                 }
             }
+            printf("\n");
         }
-        printf("\n");
     }
     if (verifySlots) {
         if (codeSlotsCorrect) {

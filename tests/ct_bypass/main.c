@@ -25,7 +25,29 @@ char *extract_preferred_slice(const char *fatPath)
     FAT *fat = fat_init_from_path(fatPath);
     if (!fat) return NULL;
     MachO *macho = fat_find_preferred_slice(fat);
-    if (!macho) return NULL;
+#ifndef TARGET_OS_MAC
+    if (!macho) {
+        fat_free(fat);
+        return NULL;
+    }
+#else
+    if (!macho) {
+        // Check for arm64v8 first
+        macho = fat_find_slice(fat, CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64_V8);
+        if (!macho) {
+            // If that fails, check for regular arm64
+            macho = fat_find_slice(fat, CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64_ALL);
+            if (!macho) {
+                // If that fails, check for arm64e
+                macho = fat_find_slice(fat, CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64E);
+                if (!macho) {
+                    fat_free(fat);
+                    return NULL;
+                }
+            }
+        }
+    }
+#endif
     
     char *temp = strdup("/tmp/XXXXXX");
     int fd = mkstemp(temp);
@@ -327,6 +349,10 @@ int apply_coretrust_bypass(const char *machoPath)
 int apply_coretrust_bypass_wrapper(const char *inputPath, const char *outputPath)
 {
     char *machoPath = extract_preferred_slice(inputPath);
+    if (!machoPath) {
+        printf("Error: failed to extract preferred slice!\n");
+        return -1;
+    }
     printf("extracted best slice to %s\n", machoPath);
 
     int r = apply_coretrust_bypass(machoPath);
