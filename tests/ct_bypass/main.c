@@ -4,11 +4,9 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <sys/stat.h>
-#include <choma/CSBlob.h>
 #include <choma/MachOByteOrder.h>
 #include <choma/MachO.h>
 #include <choma/Host.h>
-#include <choma/MemoryStream.h>
 #include <choma/FileStream.h>
 #include <choma/BufferedStream.h>
 #include <choma/SignOSSL.h>

@@ -162,12 +162,23 @@ FAT *fat_init_from_path(const char *filePath)
     return NULL;
 }
 
-// this is not supported for the time being, as we would need to dynamically update the arch info when a macho is expanded (pain)
-/*FAT *fat_init_from_path_for_writing(const char *filePath)
-{
-    MemoryStream *stream = file_stream_init_from_path(filePath, 0, FILE_STREAM_SIZE_AUTO, FILE_STREAM_FLAG_WRITABLE | FILE_STREAM_FLAG_AUTO_EXPAND);
-    if (stream) {
-        return fat_init_from_memory_stream(stream);
+FAT *fat_create_for_macho_array(char *firstInputPath, MachO **machoArray, int machoArrayCount) {
+    FAT *fat = fat_init_from_path(firstInputPath);
+    for (int i = 1; i < machoArrayCount; i++) {
+        if (fat_add_macho(fat, machoArray[i]) != 0) {
+            printf("Error: failed to add MachO to FAT.\n");
+            fat_free(fat);
+            return NULL;
+        }
     }
-    return NULL;
-}*/
+    return fat;
+}
+
+int fat_add_macho(FAT *fat, MachO *macho)
+{
+    fat->slicesCount++;
+    fat->slices = realloc(fat->slices, sizeof(MachO*) * fat->slicesCount);
+    if (!fat->slices) return -1;
+    fat->slices[fat->slicesCount - 1] = macho;
+    return 0;
+}

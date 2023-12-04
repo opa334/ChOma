@@ -224,6 +224,28 @@ fail:
     return NULL;
 }
 
+MachO **macho_array_create_for_paths(char **inputPaths, int inputPathsCount) {
+    FAT **fatArray = malloc(sizeof(FAT *) * inputPathsCount);
+    MachO **machoArray;
+    int sliceCount = 0;
+    for (int i = 0; i < inputPathsCount; i++) {
+        FAT *fat = fat_init_from_path(inputPaths[i]);
+        if (!fat) {
+            printf("Error: failed to create FAT from file: %s\n", inputPaths[i]);
+            return NULL;
+        }
+        sliceCount += fat->slicesCount;
+        fatArray[i] = fat;
+    }
+    machoArray = malloc(sizeof(MachO *) * sliceCount);
+    for (int i = 0; i < inputPathsCount; i++) {
+        for (int j = 0; j < fatArray[i]->slicesCount; j++) {
+            machoArray[i] = fatArray[i]->slices[j];
+        }
+    }
+    return machoArray;
+}
+
 void macho_free(MachO *macho)
 {
     if (macho->filesetCount != 0 && macho->filesetMachos) {
