@@ -112,7 +112,13 @@ bool argument_exists(int argc, char *argv[], const char *flag)
 
 void print_usage(const char *self)
 {
-    printf("Usage: \n");
+    printf("Options: \n");
+    printf("\t-i: input file\n");
+    printf("\t-o: output file\n");
+    printf("\t-r: replace input file / replace output file if it already exists\n");
+    printf("\t-a: input is an .app bundle\n");
+    printf("\t-h: print this help message\n");
+    printf("Examples:\n");
     printf("\t%s -i <path to input MachO/FAT file> (-r) (-o <path to output MachO file>)\n", self);
     printf("\t%s -i <path to input .app bundle> -a\n", self);
     exit(-1);

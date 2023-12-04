@@ -2,93 +2,86 @@
 #include <choma/CSBlob.h>
 #include <choma/Host.h>
 
-typedef enum
+char *get_argument_value(int argc, char *argv[], const char *flag)
 {
-    FLAG_BOOL,
-    FLAG_INT,
-    FLAG_STRING
-} flag_type_t;
-typedef struct
+    for (int i = 0; i < argc; i++) {
+        if (!strcmp(argv[i], flag)) {
+            if (i+1 < argc) {
+                return argv[i+1];
+            }
+        }
+    }
+    return NULL;
+}
+
+bool argument_exists(int argc, char *argv[], const char *flag)
 {
-    char *name;
-    char *shortOpt;
-    char *longOpt;
-    char *description;
-    bool boolVal;
-} arg_t;
-
-arg_t args[] = {
-    // Name, short option, long option, description, value
-    {"Help", "-h", "--help", "Print this message", false},
-    {"Parse CMS blob", "-c", "--cms", "Parse the CMS superblob blob of a MachO", false},
-    {"Extract Code Signature", "-e", "--extract", "Extract the Code Signature from a MachO", false},
-    {"Print code slots", "-s", "--code-slots", "Print all page hash code slots in a CodeDirectory blob", false},
-    {"Verify code slots", "-v", "--verify-hashes", "Verify that the CodeDirectory hashes are correct", false},
-    {"Parse MH_FILESET", "-f", "--mh-fileset", "Parse an MH_FILESET MachO and output it's sub-files", false}
-};
-
-bool getArgumentBool(char *shortOpt) {
-    for (int i = 0; i < sizeof(args) / sizeof(arg_t); i++) {
-        if (strcmp(shortOpt, args[i].shortOpt) == 0) {
-            return args[i].boolVal;
+    for (int i = 0; i < argc; i++) {
+        if (!strcmp(argv[i], flag)) {
+            return true;
         }
     }
     return false;
 }
 
+void print_usage(char *executablePath) {
+    printf("Options:\n");
+    printf("\t-i: Path to input file\n");
+    printf("\t-c: Parse the CMS superblob blob of a MachO\n");
+    printf("\t-e: Extract the Code Signature from a MachO\n");
+    printf("\t-s: Print all page hash code slots in a CodeDirectory blob\n");
+    printf("\t-v: Verify that the CodeDirectory hashes are correct\n");
+    printf("\t-f: Parse an MH_FILESET MachO and output it's sub-files\n");
+    printf("\t-h: Print this message\n");
+    printf("Examples:\n");
+    printf("\t%s -i <path to FAT/MachO file> -c\n", executablePath);
+    printf("\t%s -i <path to FAT/MachO file> -c -s -v\n", executablePath);
+    printf("\t%s -i <path to kernelcache file> -f\n", executablePath);
+    exit(-1);
+}
+
 int main(int argc, char *argv[]) {
 
-    // Parse arguments
-    bool unknownArgumentUsed = false;
-    for (int i = 1; i < argc; i++) {
-        bool unknownArg = true;
-        for (int j = 0; j < sizeof(args) / sizeof(arg_t); j++) {
-            if (strcmp(argv[i], args[j].shortOpt) == 0 || strcmp(argv[i], args[j].longOpt) == 0) {
-                args[j].boolVal = true;
-                unknownArg = false;
-                break;
-            }
-        }
-        if (unknownArg && (i != argc - 1)) {
-            printf("Unknown argument: %s\n", argv[i]);
-            unknownArgumentUsed = true;
-        }
+    if (argument_exists(argc, argv, "-h")) {
+        print_usage(argv[0]);
+        return 0;
     }
 
-    // Sanity check passed arguments
-    if (argc < 2 || getArgumentBool("-h") || unknownArgumentUsed) {
-        printf("Usage: %s [options] <path to FAT/MachO file>\n", argv[0]);
-        printf("Options:\n");
-        for (int i = 0; i < sizeof(args) / sizeof(arg_t); i++) {
-            printf("\t%s, %s - %s\n", args[i].shortOpt, args[i].longOpt, args[i].description);
-        }
+    if (argc < 2) {
+        print_usage(argv[0]);
         return -1;
     }
 
-    // Make sure the last argument is the path to the FAT/MachO file
-    struct stat fileStat;
-    if (stat(argv[argc - 1], &fileStat) != 0 && argc > 1) {
-        printf("Please ensure the last argument is the path to a FAT/MachO file.\n");
+    char *inputPath = get_argument_value(argc, argv, "-i");
+    if (!inputPath) {
+        printf("Error: no input file specified.\n");
+        print_usage(argv[0]);
+        return -1;
+    }
+
+    if (!argument_exists(argc, argv, "-c") && !argument_exists(argc, argv, "-f")) {
+        printf("Error: no action specified.\n");
+        print_usage(argv[0]);
         return -1;
     }
 
     // Initialise the FAT structure
-    printf("Initialising FAT structure from %s.\n", argv[argc - 1]);
-    FAT *fat = fat_init_from_path(argv[argc - 1]);
+    printf("Initialising FAT structure from %s.\n", inputPath);
+    FAT *fat = fat_init_from_path(inputPath);
     if (!fat) return -1;
 
     for (int i = 0; i < fat->slicesCount; i++) {
         MachO *slice = fat->slices[i];
         printf("Slice %d (arch %x/%x, macho %x/%x):\n", i, slice->archDescriptor.cputype, slice->archDescriptor.cpusubtype, slice->machHeader.cputype, slice->machHeader.cpusubtype);
-        if (getArgumentBool("-c")) {
+        if (argument_exists(argc, argv, "-c")) {
             CS_SuperBlob *superblob = macho_read_code_signature(slice);
             CS_DecodedSuperBlob *decodedSuperBlob = csd_superblob_decode(superblob);
-            csd_superblob_print_content(decodedSuperBlob, slice, getArgumentBool("-s"), getArgumentBool("-v"));
-            if (getArgumentBool("-e")) {
+            csd_superblob_print_content(decodedSuperBlob, slice, argument_exists(argc, argv, "-s"), argument_exists(argc, argv, "-v"));
+            if (argument_exists(argc, argv, "-e")) {
                 macho_extract_cs_to_file(slice, superblob);
             }
         }
-        if (getArgumentBool("-f")) {
+        if (argument_exists(argc, argv, "-f")) {
             for (uint32_t i = 0; i < slice->segmentCount; i++) {
                 MachOSegment *segment = slice->segments[i];
                 printf("(0x%08llx-0x%08llx)->(0x%09llx-0x%09llx) | %s\n", segment->command.fileoff, segment->command.fileoff + segment->command.filesize, segment->command.vmaddr, segment->command.vmaddr + segment->command.vmsize, segment->command.segname);
