@@ -9,37 +9,57 @@
 #include <mach-o/loader.h>
 #include <stddef.h>
 
-char *cs_blob_magic_to_string(int magic)
+const char *cs_blob_magic_to_string(uint32_t magic)
 {
     switch (magic) {
-    case CSBLOB_REQUIREMENT:
+    case CSMAGIC_REQUIREMENT:
         return "Requirement blob";
-    case CSBLOB_REQUIREMENTS:
+    case CSMAGIC_REQUIREMENTS:
         return "Requirements blob";
-    case CSBLOB_CODEDIRECTORY:
+    case CSMAGIC_CODEDIRECTORY:
         return "Code directory blob";
-    case CSBLOB_EMBEDDED_SIGNATURE:
+    case CSMAGIC_EMBEDDED_SIGNATURE:
         return "Embedded signature blob";
-    case CSBLOB_DETACHED_SIGNATURE:
-        return "Detached signature blob";
-    case CSBLOB_ENTITLEMENTS:
+    case CSMAGIC_EMBEDDED_SIGNATURE_OLD:
+        return "Embedded signature blob (old)";
+    case CSMAGIC_EMBEDDED_ENTITLEMENTS:
         return "Entitlements blob";
-    case CSBLOB_DER_ENTITLEMENTS:
+    case CSMAGIC_EMBEDDED_DER_ENTITLEMENTS:
         return "DER entitlements blob";
-    case CSBLOB_SIGNATURE_BLOB:
+    case CSMAGIC_DETACHED_SIGNATURE:
+        return "Detached signature blob";
+    case CSMAGIC_BLOBWRAPPER:
         return "Signature blob";
+    case CSMAGIC_EMBEDDED_LAUNCH_CONSTRAINT:
+        return "Launchd contraint blob";
     default:
         return "Unknown blob type";
     }
 }
 
-char *cs_slot_index_to_string(int magic)
+const char *cs_slot_type_to_string(uint32_t slotType)
 {
-    switch (magic) {
+    if (slotType & CSSLOT_ALTERNATE_CODEDIRECTORIES) {
+        int num = slotType & 0xfff;
+        switch (num) {
+        case 0:
+            return "Alternate code directory slot (1)";
+        case 1:
+            return "Alternate code directory slot (2)";
+        case 2:
+            return "Alternate code directory slot (3)";
+        case 3:
+            return "Alternate code directory slot (4)";
+        case 4:
+            return "Alternate code directory slot (5)";
+        default:
+            return "Alternate code directory slot (invalid)";
+        }
+    }
+
+    switch (slotType) {
     case CSSLOT_CODEDIRECTORY:
         return "Code directory slot";
-    case CSSLOT_ALTERNATE_CODEDIRECTORIES:
-        return "Alternate code directory slot";
     case CSSLOT_INFOSLOT:
         return "Info slot";
     case CSSLOT_REQUIREMENTS:
@@ -52,8 +72,20 @@ char *cs_slot_index_to_string(int magic)
         return "Entitlements slot";
     case CSSLOT_DER_ENTITLEMENTS:
         return "DER entitlements slot";
+    case CSSLOT_LAUNCH_CONSTRAINT_SELF:
+        return "Launch constraint slot (self)";
+    case CSSLOT_LAUNCH_CONSTRAINT_PARENT:
+        return "Launch constraint slot (parent)";
+    case CSSLOT_LAUNCH_CONSTRAINT_RESPONSIBLE:
+        return "Launch constraint slot (responsible)";
+    case CSSLOT_LIBRARY_CONSTRAINT:
+        return "Library constraint slot";
     case CSSLOT_SIGNATURESLOT:
         return "Signature slot";
+    case CSSLOT_IDENTIFICATIONSLOT:
+        return "Identification slot";
+    case CSSLOT_TICKETSLOT:
+        return "Ticket slot";
     default:
         return "Unknown blob type";
     }
@@ -314,8 +346,7 @@ int csd_superblob_insert_blob_at_index(CS_DecodedSuperBlob *superblob, CS_Decode
             i++;
         }
         if (blobAtIndex) {
-            csd_superblob_insert_blob_after_blob(superblob, blobToInsert, blobAtIndex);
-            return 0;
+            return csd_superblob_insert_blob_after_blob(superblob, blobToInsert, blobAtIndex);
         }
         return -1;
     }
@@ -376,7 +407,7 @@ int csd_superblob_print_content(CS_DecodedSuperBlob *decodedSuperblob, MachO *ma
     uint32_t offset = 0;
     while (currentBlob) {
         uint32_t blobType = currentBlob->type;
-        printf("Slot %d: %s (offset 0x%x, type: 0x%x).\n", count++, cs_slot_index_to_string(blobType), offset, blobType);
+        printf("Slot %d: %s (offset 0x%x, type: 0x%x).\n", count++, cs_slot_type_to_string(blobType), offset, blobType);
 
         if (blobType == CSSLOT_CODEDIRECTORY || blobType == CSSLOT_ALTERNATE_CODEDIRECTORIES) {
             csd_code_directory_print_content(currentBlob, macho, printAllSlots, verifySlots);
