@@ -17,18 +17,15 @@
 #include "DecryptedSignature.h"
 #include "PrivateKey.h"
 #include <copyfile.h>
+#include <TargetConditionals.h>
 
 char *extract_preferred_slice(const char *fatPath)
 {
     FAT *fat = fat_init_from_path(fatPath);
     if (!fat) return NULL;
     MachO *macho = fat_find_preferred_slice(fat);
-#ifndef TARGET_OS_MAC
-    if (!macho) {
-        fat_free(fat);
-        return NULL;
-    }
-#else
+
+#if TARGET_OS_MAC && !TARGET_OS_IPHONE
     if (!macho) {
         // Check for arm64v8 first
         macho = fat_find_slice(fat, CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64_V8);
@@ -45,7 +42,12 @@ char *extract_preferred_slice(const char *fatPath)
             }
         }
     }
-#endif
+#else
+    if (!macho) {
+        fat_free(fat);
+        return NULL;
+    }
+#endif // TARGET_OS_MAC && !TARGET_OS_IPHONE
     
     char *temp = strdup("/tmp/XXXXXX");
     int fd = mkstemp(temp);
@@ -242,6 +244,7 @@ int apply_coretrust_bypass(const char *machoPath)
 
     CS_DecodedBlob *entitlementsBlob = csd_superblob_find_blob(decodedSuperblob, CSSLOT_ENTITLEMENTS, NULL);
     CS_DecodedBlob *derEntitlementsBlob = csd_superblob_find_blob(decodedSuperblob, CSSLOT_DER_ENTITLEMENTS, NULL);
+
     if (!entitlementsBlob && !derEntitlementsBlob && macho->machHeader.filetype == MH_EXECUTE) {
         printf("Error: Unable to find existing entitlements blobs in executable MachO, please make sure to ad-hoc sign with entitlements before running the bypass.\n");
         csd_blob_free(mainCodeDirBlob);
