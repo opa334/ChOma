@@ -92,6 +92,26 @@ int pf_section_read_at_relative_offset(PFSection *section, uint64_t rel, size_t 
     }
 }
 
+int pf_section_read_string_at_relative_offset(PFSection *section, uint64_t rel, char **outString)
+{
+    if (rel > section->size) return -1;
+
+    if (section->cache) {
+        const char *curString = (const char *)&section->cache[rel];
+
+        // make sure we don't end up reading OOB memory
+        if ((uint8_t *)&curString[strnlen(curString, section->size - rel)] >= &section->cache[section->size]) {
+            return -1;
+        }
+
+        *outString = strdup(curString);
+        return 0;
+    }
+    else {
+        return memory_stream_read_string(macho_get_stream(section->macho), section->fileoff + rel, outString);
+    }
+}
+
 int pf_section_read_at_address(PFSection *section, uint64_t vmaddr, void *outBuf, size_t size)
 {
     if (vmaddr < section->vmaddr) return -1;
@@ -141,14 +161,15 @@ int pf_section_set_cached(PFSection *section, bool cached)
 int pf_section_find_memory(PFSection *section, uint64_t searchOffset, size_t searchSize, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundOffsetOut)
 {
     if (section->cache) {
-        int64_t start = section->fileoff;
-        uint64_t searchOffsetTmp = searchOffset - start;
-        int r = raw_buffer_find_memory(section->cache, searchOffsetTmp, searchSize, bytes, mask, nbytes, alignment, &searchOffsetTmp);
-        *foundOffsetOut = searchOffsetTmp + start;
-        return r;
+        return raw_buffer_find_memory(section->cache, searchOffset, searchSize, bytes, mask, nbytes, alignment, foundOffsetOut);
     }
     else {
-        return memory_stream_find_memory(macho_get_stream(section->macho), searchOffset, searchSize, bytes, mask, nbytes, alignment, foundOffsetOut);
+        uint64_t foundFileoff = 0;
+        int r = memory_stream_find_memory(macho_get_stream(section->macho), section->fileoff + searchOffset, searchSize, bytes, mask, nbytes, alignment, &foundFileoff);
+        if (r == 0) {
+            *foundOffsetOut = foundFileoff - section->fileoff;
+        }
+        return r;
     }
 }
 
@@ -158,11 +179,8 @@ void pf_section_free(PFSection *section)
     free(section);
 }
 
-void _pf_section_run_bytepatter_metric(PFSection *section, BytePatternMetric *bytePatternMetric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
+void _pf_section_run_bytepatter_metric(PFSection *section, PFBytePatternMetric *bytePatternMetric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
 {
-    uint64_t fileoff = section->fileoff;
-    uint64_t fileoffEnd = section->fileoff + section->size;
-
     uint16_t alignment = 0;
     switch (bytePatternMetric->alignment) {
         case BYTE_PATTERN_ALIGN_8_BIT: {
@@ -183,22 +201,18 @@ void _pf_section_run_bytepatter_metric(PFSection *section, BytePatternMetric *by
         }
     }
 
-    uint64_t searchOffset = fileoff;
-    while (pf_section_find_memory(section, searchOffset, (fileoffEnd - searchOffset), bytePatternMetric->bytes, bytePatternMetric->mask, bytePatternMetric->nbytes, bytePatternMetric->alignment, &searchOffset) == 0) {
-        uint64_t vmaddr;
-        MachOSegment *segment;
-        if (macho_translate_fileoff_to_vmaddr(section->macho, searchOffset, &vmaddr, &segment) == 0) {
-            bool stop = false;
-            matchBlock(vmaddr, &stop);
-            if (stop) break;
-        }
+    uint64_t searchOffset = 0;
+    while (pf_section_find_memory(section, searchOffset, (section->size - searchOffset), bytePatternMetric->bytes, bytePatternMetric->mask, bytePatternMetric->nbytes, bytePatternMetric->alignment, &searchOffset) == 0) {
+        bool stop = false;
+        matchBlock(section->vmaddr + searchOffset, &stop);
+        if (stop) break;
         searchOffset += alignment;
     }
 }
 
-BytePatternMetric *pf_create_byte_pattern_metric(void *bytes, void *mask, size_t nbytes, BytePatternAlignment alignment)
+PFBytePatternMetric *pf_create_byte_pattern_metric(void *bytes, void *mask, size_t nbytes, BytePatternAlignment alignment)
 {
-    BytePatternMetric *metric = malloc(sizeof(BytePatternMetric));
+    PFBytePatternMetric *metric = malloc(sizeof(PFBytePatternMetric));
 
     metric->shared.type = METRIC_TYPE_PATTERN;
     metric->bytes = bytes;
@@ -209,12 +223,52 @@ BytePatternMetric *pf_create_byte_pattern_metric(void *bytes, void *mask, size_t
     return metric;
 }
 
+void pf_byte_pattern_metric_free(PFBytePatternMetric *metric)
+{
+    free(metric);
+}
+
+void _pf_section_run_string_metric(PFSection *section, PFStringMetric *stringMetric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
+{
+    char *str = NULL;
+    uint64_t searchOffset = 0;
+    while (pf_section_read_string_at_relative_offset(section, searchOffset, &str) == 0) {
+        if (!strcmp(str, stringMetric->string)) {
+            bool stop = false;
+            matchBlock(section->vmaddr + searchOffset, &stop);
+            if (stop) break;
+        }
+        searchOffset += strlen(str)+1;
+        free(str);
+    }
+}
+
+PFStringMetric *pf_create_string_metric(const char *string)
+{
+    PFStringMetric *metric = malloc(sizeof(PFStringMetric));
+
+    metric->shared.type = METRIC_TYPE_STRING;
+    metric->string = strdup(string);
+
+    return metric;
+}
+
+void pf_string_metric_free(PFStringMetric *metric)
+{
+    free(metric->string);
+    free(metric);
+}
+
 void pf_section_run_metric(PFSection *section, void *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
 {
     MetricShared *shared = metric;
     switch (shared->type) {
         case METRIC_TYPE_PATTERN: {
             _pf_section_run_bytepatter_metric(section, metric, matchBlock);
+            break;
+        }
+        case METRIC_TYPE_STRING: {
+            _pf_section_run_string_metric(section, metric, matchBlock);
             break;
         }
     }
