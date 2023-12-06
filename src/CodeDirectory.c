@@ -339,9 +339,11 @@ void csd_code_directory_update(CS_DecodedBlob *codeDirBlob, MachO *macho)
     csd_blob_read(codeDirBlob, 0, sizeof(CS_CodeDirectory), &codeDir);
     CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDir, BIG_TO_HOST_APPLIER);
 
-    uint64_t lastBlobOffset = macho->machHeader.sizeofcmds + sizeof(struct mach_header_64);
-    uint64_t finalPageBoundary = align_to_size(lastBlobOffset, 0x1000);
-    int numberOfPagesToHash = finalPageBoundary / 0x1000;
+    uint32_t codeSignatureOffset = 0;
+    // There is an edge case where random hashes end up incorrect, so we rehash every page (except the final one) to be sure
+    macho_find_code_signature_bounds(macho, &codeSignatureOffset, NULL);
+    uint64_t finalPageBoundary = align_to_size(codeSignatureOffset, 0x1000);
+    int numberOfPagesToHash = (finalPageBoundary / 0x1000) - 1;
 
     for (int pageNumber = 0; pageNumber < numberOfPagesToHash; pageNumber++) {
         uint64_t pageOffset = pageNumber * 0x1000;
