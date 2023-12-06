@@ -1,4 +1,5 @@
 #include "MemoryStream.h"
+#include "Util.h"
 
 int memory_stream_read(MemoryStream *stream, uint64_t offset, size_t size, void *outBuf)
 {
@@ -196,26 +197,6 @@ int memory_stream_copy_data(MemoryStream *originStream, uint64_t originOffset, M
         if (wr != 0) {
             printf("Error: memory_stream_copy_data failed on memory_stream_write (%d)\n", wr);
             return rr;
-        }
-    }
-
-    return 0;
-}
-
-int memcmp_masked(const void *str1, const void *str2, unsigned char* mask, size_t n)
-{
-    const unsigned char* p = (const unsigned char*)str1;
-    const unsigned char* q = (const unsigned char*)str2;
-
-    if (p == q) return 0;
-    for (int i = 0; i < n; i++) {
-        unsigned char cMask = 0xFF;
-        if (mask) {
-            cMask = mask[i];
-        }
-        if((p[i] & cMask) != (q[i] & cMask)) {
-            // we do not care about 1 / -1
-            return -1;
         }
     }
 

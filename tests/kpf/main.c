@@ -42,23 +42,22 @@ int main(int argc, char *argv[]) {
         clock_t t;
         t = clock();
 
-        PFSection *kernelTextSection = macho_patchfinder_create_section(macho, "com.apple.kernel", "__TEXT_EXEC", "__text");
-        macho_patchfinder_cache_section(kernelTextSection, macho);
+        PFSection *kernelTextSection = pf_section_init_from_macho(macho, "com.apple.kernel", "__TEXT_EXEC", "__text");
+        pf_section_set_cached(kernelTextSection, true);
         printf("kernelTextSection: %p\n", kernelTextSection);
-        BytePatternMetric *metric = macho_patchfinder_create_byte_pattern_metric(kernelTextSection, &inst, &mask, sizeof(inst), BYTE_PATTERN_ALIGN_32_BIT);
-        macho_patchfinder_run_metric(macho, metric, ^(uint64_t vmaddr, bool *stop) {
-            //printf("PACIBSP: 0x%llx\n", vmaddr);
+        BytePatternMetric *metric = pf_create_byte_pattern_metric(&inst, &mask, sizeof(inst), BYTE_PATTERN_ALIGN_32_BIT);
+        pf_section_run_metric(kernelTextSection, metric, ^(uint64_t vmaddr, bool *stop) {
+            printf("PACIBSP: 0x%llx (%x)\n", vmaddr, pf_section_read32(kernelTextSection, vmaddr+4));
         });
 
         t = clock() - t; 
         double time_taken = ((double)t)/CLOCKS_PER_SEC;
         printf("KPF finished in %lf seconds\n", time_taken);
 
-        macho_patchfinder_section_free(kernelTextSection);
+        pf_section_free(kernelTextSection);
         free(metric);
     }
-    
+
     fat_free(fat);
     return 0;
-    
 }
