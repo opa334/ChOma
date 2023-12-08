@@ -1,6 +1,13 @@
 #include "Util.h"
 #include <stdio.h>
 
+int64_t sxt64(int64_t value, uint8_t bits)
+{
+    value = ((uint64_t)value) << (64 - bits);
+    value >>= (64 - bits);
+    return value;
+}
+
 int memcmp_masked(const void *str1, const void *str2, unsigned char* mask, size_t n)
 {
     const unsigned char* p = (const unsigned char*)str1;

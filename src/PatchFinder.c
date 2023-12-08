@@ -2,6 +2,7 @@
 #include "MachO.h"
 #include "MemoryStream.h"
 #include "Util.h"
+#include "PatchFinder_arm64.h"
 
 int raw_buffer_find_memory(uint8_t *buf, uint64_t searchOffset, size_t searchSize, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundOffsetOut)
 {
@@ -79,7 +80,7 @@ PFSection *pf_section_init_from_macho(MachO *macho, const char *filesetEntryId, 
     return pfSection;
 }
 
-int pf_section_read_at_relative_offset(PFSection *section, uint64_t rel, size_t size, void *outBuf)
+int pf_section_read_reloff(PFSection *section, uint64_t rel, size_t size, void *outBuf)
 {
     if (rel > section->size) return -1;
 
@@ -92,7 +93,14 @@ int pf_section_read_at_relative_offset(PFSection *section, uint64_t rel, size_t 
     }
 }
 
-int pf_section_read_string_at_relative_offset(PFSection *section, uint64_t rel, char **outString)
+uint32_t pf_section_read32_reloff(PFSection *section, uint64_t rel)
+{
+    uint32_t r = 0;
+    pf_section_read_reloff(section, rel, sizeof(r), &r);
+    return r;
+}
+
+int pf_section_read_string_reloff(PFSection *section, uint64_t rel, char **outString)
 {
     if (rel > section->size) return -1;
 
@@ -118,7 +126,7 @@ int pf_section_read_at_address(PFSection *section, uint64_t vmaddr, void *outBuf
     if (vmaddr + size > section->vmaddr + section->size) return -1;
 
     uint64_t rel = vmaddr - section->vmaddr;
-    return pf_section_read_at_relative_offset(section, rel, size, outBuf);
+    return pf_section_read_reloff(section, rel, size, outBuf);
 }
 
 uint32_t pf_section_read32(PFSection *section, uint64_t vmaddr)
@@ -139,7 +147,7 @@ int pf_section_set_cached(PFSection *section, bool cached)
             }
             else {
                 void *cache = malloc(section->size);
-                int r = pf_section_read_at_relative_offset(section, 0, section->size, cache);
+                int r = pf_section_read_reloff(section, 0, section->size, cache);
                 if (r != 0) {
                     free(cache);
                     return r;
@@ -173,6 +181,26 @@ int pf_section_find_memory(PFSection *section, uint64_t searchOffset, size_t sea
     }
 }
 
+uint64_t pf_section_find_prev_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask)
+{
+    for (uint64_t addr = startAddr; addr >= section->vmaddr && addr >= (startAddr - (searchCount*4)); addr -= 4) {
+        uint32_t curInst = pf_section_read32(section, addr);
+        if ((curInst & mask) == inst) {
+            return addr;
+        }
+    }
+    return 0;
+}
+
+uint64_t pf_section_find_next_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask)
+{
+    for (uint64_t addr = startAddr; addr < (section->vmaddr + section->size) && addr < (startAddr + (searchCount*4)); addr += 4) {
+        uint32_t curInst = pf_section_read32(section, addr);
+        if ((curInst & mask) == inst) return addr;
+    }
+    return 0;
+}
+
 void pf_section_free(PFSection *section)
 {
     pf_section_set_cached(section, false);
@@ -202,7 +230,7 @@ void _pf_section_run_bytepatter_metric(PFSection *section, PFBytePatternMetric *
     }
 
     uint64_t searchOffset = 0;
-    while (pf_section_find_memory(section, searchOffset, (section->size - searchOffset), bytePatternMetric->bytes, bytePatternMetric->mask, bytePatternMetric->nbytes, bytePatternMetric->alignment, &searchOffset) == 0) {
+    while (pf_section_find_memory(section, searchOffset, (section->size - searchOffset), bytePatternMetric->bytes, bytePatternMetric->mask, bytePatternMetric->nbytes, alignment, &searchOffset) == 0) {
         bool stop = false;
         matchBlock(section->vmaddr + searchOffset, &stop);
         if (stop) break;
@@ -232,7 +260,7 @@ void _pf_section_run_string_metric(PFSection *section, PFStringMetric *stringMet
 {
     char *str = NULL;
     uint64_t searchOffset = 0;
-    while (pf_section_read_string_at_relative_offset(section, searchOffset, &str) == 0) {
+    while (pf_section_read_string_reloff(section, searchOffset, &str) == 0) {
         if (!strcmp(str, stringMetric->string)) {
             bool stop = false;
             matchBlock(section->vmaddr + searchOffset, &stop);
@@ -259,6 +287,49 @@ void pf_string_metric_free(PFStringMetric *metric)
     free(metric);
 }
 
+void _pf_section_run_arm64_xref_metric(PFSection *section, PFXrefMetric *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
+{
+    Arm64XrefTypeMask arm64Types = 0;
+    if (metric->typeMask == 0) return;
+    if (metric->typeMask & XREF_TYPE_MASK_CALL) {
+        arm64Types |= ARM64_XREF_TYPE_MASK_CALL;
+    }
+    if (metric->typeMask & XREF_TYPE_MASK_REFERENCE) {
+        arm64Types |= ARM64_XREF_TYPE_MASK_REFERENCE;
+    }
+
+    pf_section_enumerate_arm64_xrefs(section, arm64Types, ^(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop) {
+        if (target == metric->address) {
+            matchBlock(source, stop);
+        }
+    });
+}
+
+void _pf_section_run_xref_metric(PFSection *section, PFXrefMetric *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
+{
+    switch(section->macho->machHeader.cputype) {
+        case CPU_TYPE_ARM64:
+        _pf_section_run_arm64_xref_metric(section, metric, matchBlock);
+        break;
+    }
+}
+
+PFXrefMetric *pf_create_xref_metric(uint64_t address, XrefTypeMask types)
+{
+    PFXrefMetric *metric = malloc(sizeof(PFXrefMetric));
+
+    metric->shared.type = METRIC_TYPE_XREF;
+    metric->address = address;
+    metric->typeMask = types;
+
+    return metric;
+}
+
+void pf_xref_metric_free(PFXrefMetric *metric)
+{
+    free(metric);
+}
+
 void pf_section_run_metric(PFSection *section, void *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
 {
     MetricShared *shared = metric;
@@ -269,6 +340,10 @@ void pf_section_run_metric(PFSection *section, void *metric, void (^matchBlock)(
         }
         case METRIC_TYPE_STRING: {
             _pf_section_run_string_metric(section, metric, matchBlock);
+            break;
+        }
+        case METRIC_TYPE_XREF: {
+            _pf_section_run_xref_metric(section, metric, matchBlock);
             break;
         }
     }
