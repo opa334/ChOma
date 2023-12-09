@@ -155,13 +155,14 @@ int main(int argc, char *argv[]) {
         });*/
 
         PFStringMetric *stringMetric = pf_create_string_metric("trust_cache_init");
-        pf_section_run_metric(kernelStringSection, stringMetric, ^(uint64_t vmaddr, bool *stop) {
+        pf_section_run_metric(kernelStringSection, stringMetric, ^(uint64_t vmaddr, bool *stop1) {
             printf("\"trust_cache_init\": 0x%llx\n", vmaddr);
             PFXrefMetric *refMetric = pf_create_xref_metric(vmaddr, XREF_TYPE_MASK_REFERENCE);
-            pf_section_run_metric(kernelTextSection, refMetric, ^(uint64_t xrefaddr, bool *stop) {
+            pf_section_run_metric(kernelTextSection, refMetric, ^(uint64_t xrefaddr, bool *stop2) {
                 printf("\"trust_cache_init\" xref from %llx\n", xrefaddr);
                 printf("kernel_bootstrap_thread: %llx\n", pf_section_find_function_start(kernelTextSection, xrefaddr));
-                *stop = true;
+                *stop1 = true;
+                *stop2 = true;
             });
             pf_xref_metric_free(refMetric);
         });
