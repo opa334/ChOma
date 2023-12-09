@@ -253,6 +253,7 @@ CS_DecodedSuperBlob *csd_superblob_init(void)
 CS_DecodedSuperBlob *csd_superblob_decode(CS_SuperBlob *superblob)
 {
     CS_DecodedSuperBlob *decodedSuperblob = csd_superblob_init();
+    if (!decodedSuperblob) return NULL;
 
     CS_DecodedBlob **nextBlob = &decodedSuperblob->firstBlob;
     decodedSuperblob->magic = BIG_TO_HOST(superblob->magic);
