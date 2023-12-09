@@ -3,6 +3,7 @@
 #include "MemoryStream.h"
 #include "Util.h"
 #include "PatchFinder_arm64.h"
+#include <mach/machine.h>
 
 int raw_buffer_find_memory(uint8_t *buf, uint64_t searchOffset, size_t searchSize, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundOffsetOut)
 {
@@ -183,7 +184,7 @@ int pf_section_find_memory(PFSection *section, uint64_t searchOffset, size_t sea
 
 uint64_t pf_section_find_prev_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask)
 {
-    for (uint64_t addr = startAddr; addr >= section->vmaddr && addr >= (startAddr - (searchCount*4)); addr -= 4) {
+    for (uint64_t addr = startAddr; addr >= section->vmaddr && (searchCount > 0 ? (addr >= (startAddr - (searchCount*4))) : true); addr -= 4) {
         uint32_t curInst = pf_section_read32(section, addr);
         if ((curInst & mask) == inst) {
             return addr;
@@ -194,9 +195,24 @@ uint64_t pf_section_find_prev_inst(PFSection *section, uint64_t startAddr, uint3
 
 uint64_t pf_section_find_next_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask)
 {
-    for (uint64_t addr = startAddr; addr < (section->vmaddr + section->size) && addr < (startAddr + (searchCount*4)); addr += 4) {
+    for (uint64_t addr = startAddr; addr < (section->vmaddr + section->size) && (searchCount > 0 ? (addr < (startAddr + (searchCount*4))) : true); addr += 4) {
         uint32_t curInst = pf_section_read32(section, addr);
         if ((curInst & mask) == inst) return addr;
+    }
+    return 0;
+}
+
+uint64_t pf_section_find_function_start(PFSection *section, uint64_t midAddr)
+{
+    if (section->macho->machHeader.cputype == CPU_TYPE_ARM64) {
+        if ((section->macho->machHeader.cpusubtype & ~CPU_SUBTYPE_ARM64_PTR_AUTH_MASK) == CPU_SUBTYPE_ARM64E) {
+            uint64_t addr = midAddr;
+            while (addr > section->vmaddr) {
+                uint32_t curInst = pf_section_read32(section, addr);
+                if (curInst == 0xd503237f) return addr;
+                addr -= 4;
+            }
+        }
     }
     return 0;
 }

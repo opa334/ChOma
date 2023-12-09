@@ -25,6 +25,7 @@ uint32_t pf_section_read32(PFSection *section, uint64_t vmaddr);
 int pf_section_set_cached(PFSection *section, bool cached);
 uint64_t pf_section_find_prev_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask);
 uint64_t pf_section_find_next_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask);
+uint64_t pf_section_find_function_start(PFSection *section, uint64_t midAddr);
 void pf_section_free(PFSection *section);
 
 

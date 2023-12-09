@@ -160,6 +160,7 @@ int main(int argc, char *argv[]) {
             PFXrefMetric *refMetric = pf_create_xref_metric(vmaddr, XREF_TYPE_MASK_REFERENCE);
             pf_section_run_metric(kernelTextSection, refMetric, ^(uint64_t xrefaddr, bool *stop) {
                 printf("\"trust_cache_init\" xref from %llx\n", xrefaddr);
+                printf("kernel_bootstrap_thread: %llx\n", pf_section_find_function_start(kernelTextSection, xrefaddr));
                 *stop = true;
             });
             pf_xref_metric_free(refMetric);
