@@ -242,11 +242,17 @@ void csd_blob_free(CS_DecodedBlob *blob)
     free(blob);
 }
 
-CS_DecodedSuperBlob *csd_superblob_decode(CS_SuperBlob *superblob)
+CS_DecodedSuperBlob *csd_superblob_init(void)
 {
     CS_DecodedSuperBlob *decodedSuperblob = malloc(sizeof(CS_DecodedSuperBlob));
     if (!decodedSuperblob) return NULL;
     memset(decodedSuperblob, 0, sizeof(CS_DecodedSuperBlob));
+    return decodedSuperblob;
+}
+
+CS_DecodedSuperBlob *csd_superblob_decode(CS_SuperBlob *superblob)
+{
+    CS_DecodedSuperBlob *decodedSuperblob = csd_superblob_init();
 
     CS_DecodedBlob **nextBlob = &decodedSuperblob->firstBlob;
     decodedSuperblob->magic = BIG_TO_HOST(superblob->magic);
@@ -354,6 +360,11 @@ int csd_superblob_insert_blob_at_index(CS_DecodedSuperBlob *superblob, CS_Decode
 
 int csd_superblob_append_blob(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToAppend)
 {
+    if (!superblob->firstBlob) {
+        superblob->firstBlob = blobToAppend;
+        return 0;
+    }
+
     CS_DecodedBlob *lastBlob = superblob->firstBlob;
     while (lastBlob->next) {
         lastBlob = lastBlob->next;

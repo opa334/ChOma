@@ -102,6 +102,7 @@ uint32_t csd_blob_get_type(CS_DecodedBlob *blob);
 void csd_blob_set_type(CS_DecodedBlob *blob, uint32_t type);
 void csd_blob_free(CS_DecodedBlob *blob);
 
+CS_DecodedSuperBlob *csd_superblob_init(void);
 CS_DecodedSuperBlob *csd_superblob_decode(CS_SuperBlob *superblob);
 CS_SuperBlob *csd_superblob_encode(CS_DecodedSuperBlob *decodedSuperblob);
 CS_DecodedBlob *csd_superblob_find_blob(CS_DecodedSuperBlob *superblob, uint32_t type, uint32_t *indexOut);
