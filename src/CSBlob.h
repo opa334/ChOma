@@ -90,8 +90,6 @@ CS_SuperBlob *macho_read_code_signature(MachO *macho);
 
 int macho_replace_code_signature(MachO *macho, CS_SuperBlob *superblob);
 
-int update_load_commands(MachO *macho, CS_SuperBlob *superblob, uint64_t originalSize);
-
 CS_DecodedBlob *csd_blob_init(uint32_t type, CS_GenericBlob *blobData);
 int csd_blob_read(CS_DecodedBlob *blob, uint64_t offset, size_t size, void *outBuf);
 int csd_blob_write(CS_DecodedBlob *blob, uint64_t offset, size_t size, const void *inBuf);
