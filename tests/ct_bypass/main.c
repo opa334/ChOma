@@ -1,4 +1,3 @@
-
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -227,6 +226,12 @@ int apply_coretrust_bypass(const char *machoPath)
 {
     MachO *macho = macho_init_for_writing(machoPath);
     if (!macho) return -1;
+
+    if (macho_is_encrypted(macho)) {
+        printf("Error: MachO is encrypted, please use a decrypted app!\n");
+        macho_free(macho);
+        return 2;
+    }
     
     CS_SuperBlob *superblob = macho_read_code_signature(macho);
     if (!superblob) {
@@ -396,6 +401,7 @@ int apply_coretrust_bypass_to_app_bundle(const char *appBundlePath) {
     DIR *dir;
     struct dirent *entry;
     struct stat statbuf;
+    int r = 0;
 
     if ((dir = opendir(appBundlePath)) == NULL) {
         perror("opendir");
@@ -414,7 +420,7 @@ int apply_coretrust_bypass_to_app_bundle(const char *appBundlePath) {
         if (S_ISDIR(statbuf.st_mode)) {
             if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
                 // Recursive call for subdirectories
-                apply_coretrust_bypass_to_app_bundle(fullpath);
+                r = apply_coretrust_bypass_to_app_bundle(fullpath);
             }
         } else {
             // Process file
@@ -427,14 +433,19 @@ int apply_coretrust_bypass_to_app_bundle(const char *appBundlePath) {
             memory_stream_read(stream, 0, sizeof(magic), &magic);
             if (magic == FAT_MAGIC_64 || magic == MH_MAGIC_64) {
                 printf("Applying bypass to %s.\n", fullpath);
-                apply_coretrust_bypass_wrapper(fullpath, fullpath);
+                r = apply_coretrust_bypass_wrapper(fullpath, fullpath);
+                if (r != 0) {
+                    printf("Error: failed to apply bypass to %s\n", fullpath);
+                    closedir(dir);
+                    return r;
+                }
             }
             memory_stream_free(stream);
         }
     }
 
     closedir(dir);
-    return 0;
+    return r;
 }
 
 int main(int argc, char *argv[]) {

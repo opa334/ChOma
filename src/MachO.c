@@ -246,6 +246,22 @@ MachO **macho_array_create_for_paths(char **inputPaths, int inputPathsCount) {
     return machoArray;
 }
 
+bool macho_is_encrypted(MachO *macho)
+{
+    __block bool isEncrypted = false;
+    macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
+        if (loadCommand.cmd == LC_ENCRYPTION_INFO_64 || loadCommand.cmd == LC_ENCRYPTION_INFO) {
+            struct encryption_info_command *encryptionInfoCommand = cmd;
+            ENCRYPTION_INFO_COMMAND_APPLY_BYTE_ORDER(encryptionInfoCommand, LITTLE_TO_HOST_APPLIER);
+            if (encryptionInfoCommand->cryptid == 1) {
+                *stop = true;
+                isEncrypted = true;
+            }
+        }
+    });
+    return isEncrypted;
+}
+
 void macho_free(MachO *macho)
 {
     if (macho->filesetCount != 0 && macho->filesetMachos) {
