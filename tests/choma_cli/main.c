@@ -32,6 +32,7 @@ void print_usage(char *executablePath) {
     printf("\t-s: Print all page hash code slots in a CodeDirectory blob\n");
     printf("\t-v: Verify that the CodeDirectory hashes are correct\n");
     printf("\t-f: Parse an MH_FILESET MachO and output it's sub-files\n");
+    printf("\t-d: Parse code signature data (use with -c)\n");
     printf("\t-h: Print this message\n");
     printf("Examples:\n");
     printf("\t%s -i <path to FAT/MachO file> -c\n", executablePath);
@@ -63,6 +64,24 @@ int main(int argc, char *argv[]) {
         printf("Error: no action specified.\n");
         print_usage(argv[0]);
         return -1;
+    }
+
+    if (argument_exists(argc, argv, "-d")) {
+        printf("Parsing code signature data.\n");
+        MemoryStream *stream = file_stream_init_from_path(get_argument_value(argc, argv, "-i"), 0, FILE_STREAM_SIZE_AUTO, 0);
+        if (!stream) {
+            printf("Error: could not open file %s.\n", get_argument_value(argc, argv, "-i"));
+            return -1;
+        }
+        CS_SuperBlob *superblob = malloc(memory_stream_get_size(stream));
+        if (!superblob) {
+            printf("Error: could not allocate memory for superblob.\n");
+            return -1;
+        }
+        memory_stream_read(stream, 0, memory_stream_get_size(stream), superblob);
+        CS_DecodedSuperBlob *decodedSuperBlob = csd_superblob_decode(superblob);
+        csd_superblob_print_content(decodedSuperBlob, NULL, argument_exists(argc, argv, "-s"), false);
+        return 0;
     }
 
     // Initialise the FAT structure
