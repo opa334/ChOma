@@ -81,6 +81,8 @@ int main(int argc, char *argv[]) {
         memory_stream_read(stream, 0, memory_stream_get_size(stream), superblob);
         CS_DecodedSuperBlob *decodedSuperBlob = csd_superblob_decode(superblob);
         csd_superblob_print_content(decodedSuperBlob, NULL, argument_exists(argc, argv, "-s"), false);
+        free(superblob);
+        memory_stream_free(stream);
         return 0;
     }
 
