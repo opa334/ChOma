@@ -1,4 +1,5 @@
 #include "arm64.h"
+#include "Util.h"
 #include <stdio.h>
 
 #define ADRP_PAGE_SIZE 0x1000
@@ -320,4 +321,55 @@ int arm64_dec_str_imm(uint32_t inst, arm64_register *destinationReg, arm64_regis
 {
     if ((inst & 0x3fc00000) != 0x39000000) return -1;
     return _arm64_dec_str_ldr_imm(inst, destinationReg, sourceReg, immOut, typeOut);
+}
+
+int arm64_gen_cb_n_z(optional_bool isCbnz, arm64_register reg, optional_uint64_t optTarget, uint32_t *bytesOut, uint32_t *maskOut)
+{
+    uint32_t inst = 0x34000000;
+    uint32_t mask = 0x7e000000;
+
+    if (OPT_BOOL_IS_SET(isCbnz)) {
+        mask |= (1 << 24);
+        if (OPT_BOOL_GET_VAL(isCbnz)) {
+            inst |= (1 << 24);
+        }
+    }
+
+    if (ARM64_REG_IS_SET(reg)) {
+        mask |= 0x1f;
+        mask |= (!ARM64_REG_IS_32(reg) << 31);
+        inst |= ARM64_REG_GET_NUM(reg);
+    }
+
+    if (OPT_UINT64_IS_SET(optTarget)) {
+        uint64_t target = OPT_UINT64_GET_VAL(optTarget) / 4;
+        if (target & ~0x7ffff) {
+            return -1;
+        }
+        mask |= 0xffffe0;
+        inst |= (target << 5);
+    }
+
+    if (bytesOut) *bytesOut = inst;
+    if (maskOut) *maskOut = mask;
+    return 0;
+}
+
+int arm64_dec_cb_n_z(uint32_t inst, uint64_t origin, bool *isCbnzOut, arm64_register *regOut, uint64_t *targetOut)
+{
+    if ((inst & 0x7e000000) != 0x34000000) return -1;
+
+    if (isCbnzOut) {
+        *isCbnzOut = ((inst >> 24) & 0x1);
+    }
+    if (regOut) {
+        bool is64 = ((inst >> 31) & 0x1);
+        uint16_t num = inst & 0x1f;
+        *regOut = ARM64_REG(!is64, num);
+    }
+    if (targetOut) {
+        *targetOut = origin + sxt64(((inst >> 5) & 0x7ffff) * 4, 19);
+    }
+
+    return 0;
 }
