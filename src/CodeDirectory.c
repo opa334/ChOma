@@ -246,9 +246,18 @@ void csd_code_directory_set_hash_type(CS_DecodedBlob *codeDirBlob, uint8_t hashT
 int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, bool printSlots, bool verifySlots)
 {
     CS_CodeDirectory codeDir;
+    char teamID[12];
+    char ident[256];
+
     csd_blob_read(codeDirBlob, 0, sizeof(codeDir), &codeDir);
     CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDir, HOST_TO_BIG_APPLIER);
+    csd_blob_read(codeDirBlob, codeDir.teamOffset, 12, &teamID);
+    csd_blob_read(codeDirBlob, codeDir.identOffset, 256, &ident);
 
+    if (codeDir.teamOffset > 0) printf("Team ID: %s\n", teamID);
+    if (codeDir.identOffset > 0) printf("Identifier: %s\n", ident);
+
+    // Version 0x20000
     printf("Code directory:\n");
     printf("\tMagic: 0x%X\n", codeDir.magic);
     printf("\tLength: 0x%x\n", codeDir.length);
@@ -261,18 +270,54 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
     printf("\tCode limit: 0x%x\n", codeDir.codeLimit);
     printf("\tHash size: 0x%x\n", codeDir.hashSize);
     printf("\tHash type: %s\n", cs_hash_type_to_string(codeDir.hashType));
+    printf("\tPlatform: %d\n", codeDir.platform);
     printf("\tPage size: 0x%x\n", codeDir.pageSize);
-    printf("\tScatter offset: 0x%x\n", codeDir.scatterOffset);
-    printf("\tTeam offset: 0x%x\n", codeDir.teamOffset);
 
+    // Version 0x20100
+    if ((codeDir.version & 0x20100) == 0x20100) {
+        printf("\tScatter offset: 0x%x\n", codeDir.scatterOffset);
+        printf("\tTeam offset: 0x%x\n", codeDir.teamOffset);
+    }
+
+    // Version 0x20300
+    if ((codeDir.version & 0x20300) == 0x20300) {
+        printf("\tCode limit: 0x%llx\n", codeDir.codeLimit64);
+    }
+
+    // Version 0x20400
+    if ((codeDir.version & 0x20400) == 0x20400) {
+        printf("\tExecutable segment base: 0x%llx\n", codeDir.execSegBase);
+        printf("\tExecutable segment limit: 0x%llx\n", codeDir.execSegLimit);
+        printf("\tExecutable segment flags: 0x%llx\n", codeDir.execSegFlags);
+    }
+
+    // Version 0x20500
+    if ((codeDir.version & 0x20500) == 0x20500) {
+        printf("\tRuntime: 0x%x\n", codeDir.runtime);
+        printf("\tPre-Encryption offset: 0x%x\n", codeDir.preEncryptOffset);
+    }
+
+    // Version 0x20600
+    if ((codeDir.version & 0x20600) == 0x20600) {
+        printf("\tLinkage hash type: 0x%x\n", codeDir.linkageHashType);
+        printf("\tLinkage application type: 0x%x\n", codeDir.linkageHashType);
+        printf("\tLinkage application subtype: 0x%x\n", codeDir.linkageApplicationSubType);
+        printf("\tLinkage offset: 0x%x\n", codeDir.linkageOffset);
+        printf("\tLinkage size: 0x%x\n", codeDir.linkageSize);
+    }
+
+    printf("\n");
     int maxdigits = count_digits(codeDir.nCodeSlots);
     bool codeSlotsCorrect = true;
+    bool needsNewline = false;
+
     for (int64_t i = -((int64_t)codeDir.nSpecialSlots); i < (int64_t)codeDir.nCodeSlots; i++) {
         // Read slot
         uint8_t slotHash[codeDir.hashSize];
         csd_code_directory_read_slot_hash(codeDirBlob, macho, i, slotHash);
         if (printSlots || verifySlots) {
             // Print the slot number
+            needsNewline = true;
             printf("%*s%lld: ", maxdigits-count_digits(i), "", i);
 
             print_hash(slotHash, codeDir.hashSize);
@@ -298,6 +343,7 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
 
         if (verifySlots && i >= 0) {
             uint8_t pageHash[codeDir.hashSize];
+            needsNewline = true;
             bool correct = false;
             bool calcWorked = csd_code_directory_calculate_page_hash(codeDirBlob, macho, i, pageHash);
             if (calcWorked) {
@@ -320,6 +366,9 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
             }
             printf("\n");
         }
+
+        if (needsNewline) printf("\n\n");
+        needsNewline = false;
     }
     if (verifySlots) {
         if (codeSlotsCorrect) {

@@ -31,7 +31,7 @@ typedef struct __GenericBlob {
 } CS_GenericBlob;
 
 // CMS blob magic types
-enum {
+typedef enum {
     CSMAGIC_REQUIREMENT = 0xfade0c00,
     CSMAGIC_REQUIREMENTS = 0xfade0c01,
     CSMAGIC_CODEDIRECTORY = 0xfade0c02,
@@ -44,7 +44,7 @@ enum {
     CSMAGIC_EMBEDDED_LAUNCH_CONSTRAINT = 0xfade8181,
 } CS_BlobMagic;
 
-enum {
+typedef enum {
     CSSLOT_CODEDIRECTORY = 0,
     CSSLOT_INFOSLOT = 1,
     CSSLOT_REQUIREMENTS = 2,
