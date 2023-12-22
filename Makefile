@@ -83,3 +83,10 @@ clean-test:
 
 clean-output:
 	@rm -rf $(OUTPUT_DIR)/*
+
+install:
+	@mkdir -p $(INSTALL_PATH)/include
+	@rm -rf $(INSTALL_PATH)/include/choma
+	@cp -r $(OUTPUT_DIR)/include/choma $(INSTALL_PATH)/include
+	@rm -rf $(INSTALL_PATH)/lib
+	@cp -r $(OUTPUT_DIR)/lib $(INSTALL_PATH)
