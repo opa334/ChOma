@@ -22,6 +22,7 @@ int pf_section_read_reloff(PFSection *section, uint64_t rel, size_t size, void *
 uint32_t pf_section_read32_reloff(PFSection *section, uint64_t rel);
 int pf_section_read_at_address(PFSection *section, uint64_t vmaddr, void *outBuf, size_t size);
 uint32_t pf_section_read32(PFSection *section, uint64_t vmaddr);
+uint64_t pf_section_read64(PFSection *section, uint64_t vmaddr);
 int pf_section_set_cached(PFSection *section, bool cached);
 uint64_t pf_section_find_prev_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask);
 uint64_t pf_section_find_next_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask);

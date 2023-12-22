@@ -137,6 +137,13 @@ uint32_t pf_section_read32(PFSection *section, uint64_t vmaddr)
     return r;
 }
 
+uint64_t pf_section_read64(PFSection *section, uint64_t vmaddr)
+{
+    uint64_t r = 0;
+    pf_section_read_at_address(section, vmaddr, &r, sizeof(r));
+    return r;
+}
+
 int pf_section_set_cached(PFSection *section, bool cached)
 {
     bool isCachedAlready = (bool)section->cache;
