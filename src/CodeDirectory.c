@@ -138,7 +138,7 @@ const char* cs_slot_to_string(int slot)
     }
 }
 
-char *csd_code_directory_copy_identity(CS_DecodedBlob *codeDirBlob, uint32_t *offsetOut)
+char *csd_code_directory_copy_identifier(CS_DecodedBlob *codeDirBlob, uint32_t *offsetOut)
 {
     CS_CodeDirectory codeDir;
     csd_blob_read(codeDirBlob, 0, sizeof(codeDir), &codeDir);
@@ -190,7 +190,7 @@ int csd_code_directory_set_team_id(CS_DecodedBlob *codeDirBlob, char *newTeamID)
     }
     else {
         uint32_t identityOffset = 0;
-        char *identity = csd_code_directory_copy_identity(codeDirBlob, &identityOffset);
+        char *identity = csd_code_directory_copy_identifier(codeDirBlob, &identityOffset);
         if (!identity) {
             // TODO: handle this properly
             // Calculate size of initial cd struct and place teamID after that
@@ -246,16 +246,8 @@ void csd_code_directory_set_hash_type(CS_DecodedBlob *codeDirBlob, uint8_t hashT
 int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, bool printSlots, bool verifySlots)
 {
     CS_CodeDirectory codeDir;
-    char teamID[12];
-    char ident[256];
-
     csd_blob_read(codeDirBlob, 0, sizeof(codeDir), &codeDir);
     CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDir, HOST_TO_BIG_APPLIER);
-    csd_blob_read(codeDirBlob, codeDir.teamOffset, 12, &teamID);
-    csd_blob_read(codeDirBlob, codeDir.identOffset, 256, &ident);
-
-    if (codeDir.teamOffset > 0) printf("Team ID: %s\n", teamID);
-    if (codeDir.identOffset > 0) printf("Identifier: %s\n", ident);
 
     // Version 0x20000
     printf("Code directory:\n");
@@ -264,7 +256,14 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
     printf("\tVersion: 0x%x\n", codeDir.version);
     printf("\tFlags: 0x%x\n", codeDir.flags);
     printf("\tHash offset: 0x%x\n", codeDir.hashOffset);
-    printf("\tIdentity offset: 0x%x\n", codeDir.identOffset);
+
+    uint32_t identifierOffset = 0;
+    char *identifier = csd_code_directory_copy_identifier(codeDirBlob, &identifierOffset);
+    if (identifier) {
+        printf("\tIdentifier: \"%s\" (@ 0x%x)\n", identifier, identifierOffset);
+        free(identifier);
+    }
+
     printf("\tNumber of special slots: %u\n", codeDir.nSpecialSlots);
     printf("\tNumber of code slots: %u\n", codeDir.nCodeSlots);
     printf("\tCode limit: 0x%x\n", codeDir.codeLimit);
@@ -274,31 +273,36 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
     printf("\tPage size: 0x%x\n", codeDir.pageSize);
 
     // Version 0x20100
-    if ((codeDir.version & 0x20100) == 0x20100) {
+    if (codeDir.version >= 0x20100) {
         printf("\tScatter offset: 0x%x\n", codeDir.scatterOffset);
-        printf("\tTeam offset: 0x%x\n", codeDir.teamOffset);
+        uint32_t teamOffset = 0;
+        char *teamId = csd_code_directory_copy_team_id(codeDirBlob, &teamOffset);
+        if (teamId) {
+            printf("\tTeam ID: \"%s\" (@ 0x%x)\n", teamId, teamOffset);
+            free(teamId);
+        }
     }
 
     // Version 0x20300
-    if ((codeDir.version & 0x20300) == 0x20300) {
+    if (codeDir.version >= 0x20300) {
         printf("\tCode limit: 0x%llx\n", codeDir.codeLimit64);
     }
 
     // Version 0x20400
-    if ((codeDir.version & 0x20400) == 0x20400) {
+    if (codeDir.version >= 0x20400) {
         printf("\tExecutable segment base: 0x%llx\n", codeDir.execSegBase);
         printf("\tExecutable segment limit: 0x%llx\n", codeDir.execSegLimit);
         printf("\tExecutable segment flags: 0x%llx\n", codeDir.execSegFlags);
     }
 
     // Version 0x20500
-    if ((codeDir.version & 0x20500) == 0x20500) {
+    if (codeDir.version >= 0x20500) {
         printf("\tRuntime: 0x%x\n", codeDir.runtime);
         printf("\tPre-Encryption offset: 0x%x\n", codeDir.preEncryptOffset);
     }
 
     // Version 0x20600
-    if ((codeDir.version & 0x20600) == 0x20600) {
+    if (codeDir.version >= 0x20600) {
         printf("\tLinkage hash type: 0x%x\n", codeDir.linkageHashType);
         printf("\tLinkage application type: 0x%x\n", codeDir.linkageHashType);
         printf("\tLinkage application subtype: 0x%x\n", codeDir.linkageApplicationSubType);
