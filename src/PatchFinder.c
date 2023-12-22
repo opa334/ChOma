@@ -212,7 +212,7 @@ uint64_t pf_section_find_next_inst(PFSection *section, uint64_t startAddr, uint3
 uint64_t pf_section_find_function_start(PFSection *section, uint64_t midAddr)
 {
     if (section->macho->machHeader.cputype == CPU_TYPE_ARM64) {
-        if ((section->macho->machHeader.cpusubtype & ~CPU_SUBTYPE_ARM64_PTR_AUTH_MASK) == CPU_SUBTYPE_ARM64E) {
+        if ((section->macho->machHeader.cpusubtype & 0xff) == CPU_SUBTYPE_ARM64E) {
             uint64_t addr = midAddr;
             while (addr > section->vmaddr) {
                 uint32_t curInst = pf_section_read32(section, addr);
