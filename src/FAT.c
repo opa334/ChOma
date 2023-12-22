@@ -103,7 +103,7 @@ int fat_parse_slices(FAT *fat)
         if (!singleSlice) return -1;
         fat->slices[0] = singleSlice;
     }
-    printf("Found %u MachO slices.\n", fat->slicesCount);
+    printf("Found %u MachO slice%s\n", fat->slicesCount, fat->slicesCount > 1 ? "s." : ".");
     return 0;
 }
 

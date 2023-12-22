@@ -131,11 +131,23 @@
     applier(cd, codeLimit); \
     applier(cd, hashSize); \
     applier(cd, hashType); \
-    applier(cd, spare1); \
+    applier(cd, platform); \
     applier(cd, pageSize); \
     applier(cd, spare2); \
     applier(cd, scatterOffset); \
-    applier(cd, teamOffset);
+    applier(cd, teamOffset); \
+    applier(cd, spare3); \
+    applier(cd, codeLimit64); \
+    applier(cd, execSegBase); \
+    applier(cd, execSegLimit); \
+    applier(cd, execSegFlags); \
+    applier(cd, runtime); \
+    applier(cd, preEncryptOffset); \
+    applier(cd, linkageHashType); \
+    applier(cd, linkageApplicationType); \
+    applier(cd, linkageApplicationSubType); \
+    applier(cd, linkageOffset); \
+    applier(cd, linkageSize);
 
 #define SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(sc64, applier) \
     applier(sc64, cmd); \
