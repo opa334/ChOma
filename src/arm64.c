@@ -8,7 +8,7 @@
 int arm64_gen_b_l(optional_bool optIsBl, optional_uint64_t optOrigin, optional_uint64_t optTarget, uint32_t *bytesOut, uint32_t *maskOut)
 {
     bool isBl = false;
-    if (!OPT_BOOL_IS_SET(optIsBl)) {
+    if (OPT_BOOL_IS_SET(optIsBl)) {
         isBl = OPT_BOOL_GET_VAL(optIsBl);
     }
 
