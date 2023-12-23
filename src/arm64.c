@@ -126,6 +126,107 @@ int arm64_dec_adr_p(uint32_t inst, uint64_t origin, uint64_t *targetOut, arm64_r
     return 0;
 }
 
+int arm64_gen_mov_imm(char type, arm64_register destinationReg, optional_uint64_t optImm, optional_uint64_t optShift, uint32_t *bytesOut, uint32_t *maskOut)
+{
+    uint32_t bytes = 0x12800000;
+    uint32_t mask =  0x7f800000;
+
+    switch (type) {
+        case 'k': {
+            bytes |= (1 << 30) | (1 << 29);
+            break;
+        }
+
+        case 'n': {
+            break;
+        }
+
+        case 'z': {
+            bytes |= (1 << 30);
+            break;
+        }
+
+        default: {
+            return -1;
+        }
+    }
+
+    if (ARM64_REG_IS_SET(destinationReg)) {
+        mask |= (1 << 31);
+        if (ARM64_REG_IS_32(destinationReg)) {
+            if (OPT_UINT64_IS_SET(optShift)) {
+                uint64_t shift = OPT_UINT64_GET_VAL(optShift);
+                if (shift != 0 && shift != 16) return -1;
+            }
+        }
+        else {
+            bytes |= (1 << 31);
+            if (OPT_UINT64_IS_SET(optShift)) {
+                uint64_t shift = OPT_UINT64_GET_VAL(optShift);
+                if (shift != 0 && shift != 16 && shift != 32 && shift != 48) return -1;
+            }
+        }
+
+        mask |= 0x1f;
+        bytes |= ARM64_REG_GET_NUM(destinationReg);
+    }
+
+    if (OPT_UINT64_IS_SET(optImm)) {
+        uint64_t imm = OPT_UINT64_GET_VAL(optImm);
+        if (imm > UINT16_MAX) return -1;
+        mask |= 0x1fffe0;
+        bytes |= ((uint32_t)imm << 5);
+    }
+
+    if (OPT_UINT64_IS_SET(optShift)) {
+        uint64_t shift = OPT_UINT64_GET_VAL(optShift);
+        bytes |= ((shift / 16) & 0b11) << 21;
+        mask |= (0b11 << 21);
+    }
+
+    if (bytesOut) *bytesOut = bytes;
+    if (maskOut) *maskOut = mask;
+    return 0;
+}
+
+int arm64_dec_mov_imm(uint32_t inst, arm64_register *destinationRegOut, uint64_t *immOut, uint64_t *shiftOut, char *typeOut)
+{
+    if ((inst & 0x7f800000) != 0x11000000) return -1;
+
+    char type = 0;
+    uint8_t opc = ((inst >> 29) & 0b11);
+    switch (opc) {
+        case 0b11: {
+            type = 'k';
+        }
+        case 0b00: {
+            type = 'n';
+        }
+        case 0b10: {
+            type = 'z';
+        }
+        default: {
+            return -1;
+        }
+    } 
+
+    if (destinationRegOut) {
+        bool is64 = inst & (1 << 31);
+        *destinationRegOut = ARM64_REG(!is64, inst & 0x1f);
+    }
+    if (immOut) {
+        *immOut = (inst >> 5) & 0xffff;
+    }
+    if (shiftOut) {
+        *shiftOut = ((inst >> 21) & 0b11) * 16;
+    }
+    if (typeOut) {
+        *typeOut = type;
+    }
+
+    return 0;
+}
+
 int arm64_gen_add_imm(arm64_register destinationReg, arm64_register sourceReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut)
 {
     if (ARM64_REG_IS_SET(destinationReg) && ARM64_REG_IS_SET(sourceReg)) {
