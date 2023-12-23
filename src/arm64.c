@@ -437,8 +437,8 @@ int arm64_gen_cb_n_z(optional_bool isCbnz, arm64_register reg, optional_uint64_t
     }
 
     if (ARM64_REG_IS_SET(reg)) {
-        mask |= 0x1f;
-        mask |= (!ARM64_REG_IS_32(reg) << 31);
+        mask |= 0x1f | (1 << 31);
+        inst |= (!ARM64_REG_IS_32(reg) << 31);
         inst |= ARM64_REG_GET_NUM(reg);
     }
 
