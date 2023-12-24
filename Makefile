@@ -6,6 +6,7 @@ ifeq ($(DEBUG), 1)
 endif
 
 LIB_NAME := libchoma
+INSTALL_PATH ?= /usr/local/
 
 ifeq ($(TARGET), ios)
 BUILD_DIR := build/ios
@@ -84,9 +85,9 @@ clean-test:
 clean-output:
 	@rm -rf $(OUTPUT_DIR)/*
 
-install:
+install: all
 	@mkdir -p $(INSTALL_PATH)/include
 	@rm -rf $(INSTALL_PATH)/include/choma
 	@cp -r $(OUTPUT_DIR)/include/choma $(INSTALL_PATH)/include
-	@rm -rf $(INSTALL_PATH)/lib
+	@rm -rf $(INSTALL_PATH)/lib/libchoma.*
 	@cp -r $(OUTPUT_DIR)/lib $(INSTALL_PATH)
