@@ -424,6 +424,47 @@ int arm64_dec_str_imm(uint32_t inst, arm64_register *sourceReg, arm64_register *
     return _arm64_dec_str_ldr_imm(inst, sourceReg, addrReg, immOut, typeOut);
 }
 
+int arm64_gen_ldr_lit(arm64_register destinationReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut)
+{
+    uint32_t inst = 0x18000000;
+    uint32_t mask = 0xbf000000;
+
+    if (ARM64_REG_IS_SET(destinationReg)) {
+        mask |= (1 << 30);
+        inst |= (!ARM64_REG_IS_32(destinationReg) << 30);
+
+        mask |= 0x1f;
+        inst |= ARM64_REG_GET_NUM(destinationReg);
+    }
+
+    if (OPT_UINT64_IS_SET(optImm)) {
+        uint64_t imm = OPT_UINT64_GET_VAL(optImm);
+        mask |= 0xffffe0;
+        inst |= ((imm / 4) & 0x7ffff) << 5;
+    }
+
+    if (bytesOut) *bytesOut = inst;
+    if (maskOut) *maskOut = mask;
+
+    return 0;
+}
+
+int arm64_dec_ldr_lit(uint32_t inst, arm64_register *destinationReg, int64_t *immOut)
+{
+    if ((inst & 0xbf000000) != 0x18000000) return -1;
+
+    if (destinationReg) {
+        *destinationReg = ARM64_REG(!(inst & (1 << 30)), inst & 0x1f);
+    }
+
+    if (immOut) {
+        uint64_t imm = (inst >> 5) & 0x7ffff;
+        *immOut = (sxt64(imm, 19) * 4);
+    }
+
+    return 0;
+}
+
 int arm64_gen_cb_n_z(optional_bool isCbnz, arm64_register reg, optional_uint64_t optTarget, uint32_t *bytesOut, uint32_t *maskOut)
 {
     uint32_t inst = 0x34000000;
