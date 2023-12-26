@@ -116,6 +116,7 @@ void print_usage(const char *self)
     printf("\t-o: output file\n");
     printf("\t-r: replace input file / replace output file if it already exists\n");
     printf("\t-a: input is an .app bundle\n");
+    printf("\t-t: optional 10-character team ID to use\n");
     printf("\t-h: print this help message\n");
     printf("Examples:\n");
     printf("\t%s -i <path to input MachO/FAT file> (-r) (-o <path to output MachO file>)\n", self);
@@ -222,7 +223,7 @@ int update_signature_blob(CS_DecodedSuperBlob *superblob)
     return ret;
 }
 
-int apply_coretrust_bypass(const char *machoPath)
+int apply_coretrust_bypass(const char *machoPath, char *teamID)
 {
     MachO *macho = macho_init_for_writing(machoPath);
     if (!macho) return -1;
@@ -322,7 +323,7 @@ int apply_coretrust_bypass(const char *machoPath)
     }
 
     // Set the team ID of the real code directory to the AppStore one
-    if (csd_code_directory_set_team_id(realCodeDirBlob, appStoreTeamID) != 0) {
+    if (csd_code_directory_set_team_id(realCodeDirBlob, teamID ? teamID : appStoreTeamID) != 0) {
         printf("Error: Failed to set Team ID\n");
         return -1;
     }
@@ -368,7 +369,7 @@ int apply_coretrust_bypass(const char *machoPath)
     return 0;
 }
 
-int apply_coretrust_bypass_wrapper(const char *inputPath, const char *outputPath)
+int apply_coretrust_bypass_wrapper(const char *inputPath, const char *outputPath, char *teamID)
 {
     char *machoPath = extract_preferred_slice(inputPath);
     if (!machoPath) {
@@ -377,7 +378,7 @@ int apply_coretrust_bypass_wrapper(const char *inputPath, const char *outputPath
     }
     printf("extracted best slice to %s\n", machoPath);
 
-    int r = apply_coretrust_bypass(machoPath);
+    int r = apply_coretrust_bypass(machoPath, teamID);
     if (r != 0) {
         free(machoPath);
         return r;
@@ -396,7 +397,7 @@ int apply_coretrust_bypass_wrapper(const char *inputPath, const char *outputPath
     return r;
 }
 
-int apply_coretrust_bypass_to_app_bundle(const char *appBundlePath) {
+int apply_coretrust_bypass_to_app_bundle(const char *appBundlePath, char *teamID) {
     // Recursively find all MachO files in the app bundle
     DIR *dir;
     struct dirent *entry;
@@ -420,7 +421,7 @@ int apply_coretrust_bypass_to_app_bundle(const char *appBundlePath) {
         if (S_ISDIR(statbuf.st_mode)) {
             if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
                 // Recursive call for subdirectories
-                r = apply_coretrust_bypass_to_app_bundle(fullpath);
+                r = apply_coretrust_bypass_to_app_bundle(fullpath, teamID);
             }
         } else {
             // Process file
@@ -433,7 +434,7 @@ int apply_coretrust_bypass_to_app_bundle(const char *appBundlePath) {
             memory_stream_read(stream, 0, sizeof(magic), &magic);
             if (magic == FAT_MAGIC_64 || magic == MH_MAGIC_64) {
                 printf("Applying bypass to %s.\n", fullpath);
-                r = apply_coretrust_bypass_wrapper(fullpath, fullpath);
+                r = apply_coretrust_bypass_wrapper(fullpath, fullpath, teamID);
                 if (r != 0) {
                     printf("Error: failed to apply bypass to %s\n", fullpath);
                     closedir(dir);
@@ -458,6 +459,13 @@ int main(int argc, char *argv[]) {
     char *output = get_argument_value(argc, argv, "-o");
     bool replace = argument_exists(argc, argv, "-r");
     bool appBundle = argument_exists(argc, argv, "-a");
+    char *teamID = get_argument_value(argc, argv, "-t");
+    if (teamID) {
+        if (strlen(teamID) != 10) {
+            printf("Error: Team ID must be 10 characters long!\n");
+            return -1;
+        }
+    }
     if (appBundle) {
         if (replace || output) {
             print_usage(argv[0]);
@@ -478,7 +486,7 @@ int main(int argc, char *argv[]) {
 
         printf("Applying CoreTrust bypass to app bundle.\n");
         printf("CoreTrust bypass eta s0n!!\n");
-        return apply_coretrust_bypass_to_app_bundle(input);
+        return apply_coretrust_bypass_to_app_bundle(input, teamID);
     }
     
     if (!output && !replace) {
@@ -502,5 +510,5 @@ int main(int argc, char *argv[]) {
     }
 
     printf("CoreTrust bypass eta s0n!!\n");
-    return apply_coretrust_bypass_wrapper(input, output);
+    return apply_coretrust_bypass_wrapper(input, output, teamID);
 }
