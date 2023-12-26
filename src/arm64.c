@@ -292,7 +292,7 @@ int arm64_dec_add_imm(uint32_t inst, arm64_register *destinationRegOut, arm64_re
     return 0;
 }
 
-static int _arm64_gen_str_ldr_imm(uint32_t inst, uint32_t mask, char type, arm64_register destinationReg, arm64_register sourceReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut)
+static int _arm64_gen_str_ldr_imm(uint32_t inst, uint32_t mask, char type, arm64_register sourceDestinationReg, arm64_register addrReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut)
 {
     uint8_t width = 0;
 
@@ -312,9 +312,9 @@ static int _arm64_gen_str_ldr_imm(uint32_t inst, uint32_t mask, char type, arm64
             mask |= (0b10 << 30); 
             inst |= (0b10 << 30);
         }
-        if (ARM64_REG_IS_SET(destinationReg)) {
+        if (ARM64_REG_IS_SET(sourceDestinationReg)) {
             mask |= (0b01 << 30); 
-            if (ARM64_REG_IS_32(destinationReg)) {
+            if (ARM64_REG_IS_32(sourceDestinationReg)) {
                 inst |= (0 << 30);
                 width = 4;
             }
@@ -326,18 +326,18 @@ static int _arm64_gen_str_ldr_imm(uint32_t inst, uint32_t mask, char type, arm64
     }
 
     bool is64 = false;
-    if (ARM64_REG_IS_SET(destinationReg)) {
-        inst |= ARM64_REG_GET_NUM(destinationReg);
+    if (ARM64_REG_IS_SET(sourceDestinationReg)) {
+        inst |= ARM64_REG_GET_NUM(sourceDestinationReg);
         mask |= 0x1f;
 
-        is64 = !ARM64_REG_IS_32(destinationReg);
+        is64 = !ARM64_REG_IS_32(sourceDestinationReg);
         inst |= (is64 << 30);
         mask |= (1 << 30);
     }
 
-    if (ARM64_REG_IS_SET(sourceReg)) {
-        if (ARM64_REG_IS_32(sourceReg)) return -1;
-        inst |= ((uint32_t)(ARM64_REG_GET_NUM(sourceReg)) << 5);
+    if (ARM64_REG_IS_SET(addrReg)) {
+        if (ARM64_REG_IS_32(addrReg)) return -1;
+        inst |= ((uint32_t)(ARM64_REG_GET_NUM(addrReg)) << 5);
         mask |= (0x1f << 5);
     }
 
@@ -353,7 +353,7 @@ static int _arm64_gen_str_ldr_imm(uint32_t inst, uint32_t mask, char type, arm64
     return 0;
 }
 
-static int _arm64_dec_str_ldr_imm(uint32_t inst, arm64_register *destinationReg, arm64_register *sourceReg, uint64_t *immOut, char *typeOut)
+static int _arm64_dec_str_ldr_imm(uint32_t inst, arm64_register *sourceDestinationReg, arm64_register *sourceReg, uint64_t *immOut, char *typeOut)
 {
     uint8_t size = (inst >> 30);
     uint8_t targetWidth = 0;
@@ -386,8 +386,8 @@ static int _arm64_dec_str_ldr_imm(uint32_t inst, arm64_register *destinationReg,
         }
     }
 
-    if (destinationReg) {
-        *destinationReg = ARM64_REG((targetWidth != 8), inst & 0x1f);
+    if (sourceDestinationReg) {
+        *sourceDestinationReg = ARM64_REG((targetWidth != 8), inst & 0x1f);
     }
 
     if (sourceReg) {
@@ -402,26 +402,26 @@ static int _arm64_dec_str_ldr_imm(uint32_t inst, arm64_register *destinationReg,
     return 0;
 }
 
-int arm64_gen_ldr_imm(char type, arm64_register destinationReg, arm64_register sourceReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut)
+int arm64_gen_ldr_imm(char type, arm64_register destinationReg, arm64_register addrReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut)
 {
-    return _arm64_gen_str_ldr_imm(0x39400000, 0x3fc00000, type, destinationReg, sourceReg, optImm, bytesOut, maskOut);
+    return _arm64_gen_str_ldr_imm(0x39400000, 0x3fc00000, type, destinationReg, addrReg, optImm, bytesOut, maskOut);
 }
 
-int arm64_dec_ldr_imm(uint32_t inst, arm64_register *destinationReg, arm64_register *sourceReg, uint64_t *immOut, char *typeOut)
+int arm64_dec_ldr_imm(uint32_t inst, arm64_register *destinationReg, arm64_register *addrReg, uint64_t *immOut, char *typeOut)
 {
     if ((inst & 0x3fc00000) != 0x39400000) return -1;
-    return _arm64_dec_str_ldr_imm(inst, destinationReg, sourceReg, immOut, typeOut);
+    return _arm64_dec_str_ldr_imm(inst, destinationReg, addrReg, immOut, typeOut);
 }
 
-int arm64_gen_str_imm(char type, arm64_register destinationReg, arm64_register sourceReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut)
+int arm64_gen_str_imm(char type, arm64_register sourceReg, arm64_register addrReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut)
 {
-    return _arm64_gen_str_ldr_imm(0x39000000, 0x3fc00000, type, destinationReg, sourceReg, optImm, bytesOut, maskOut);
+    return _arm64_gen_str_ldr_imm(0x39000000, 0x3fc00000, type, sourceReg, addrReg, optImm, bytesOut, maskOut);
 }
 
-int arm64_dec_str_imm(uint32_t inst, arm64_register *destinationReg, arm64_register *sourceReg, uint64_t *immOut, char *typeOut)
+int arm64_dec_str_imm(uint32_t inst, arm64_register *sourceReg, arm64_register *addrReg, uint64_t *immOut, char *typeOut)
 {
     if ((inst & 0x3fc00000) != 0x39000000) return -1;
-    return _arm64_dec_str_ldr_imm(inst, destinationReg, sourceReg, immOut, typeOut);
+    return _arm64_dec_str_ldr_imm(inst, sourceReg, addrReg, immOut, typeOut);
 }
 
 int arm64_gen_cb_n_z(optional_bool isCbnz, arm64_register reg, optional_uint64_t optTarget, uint32_t *bytesOut, uint32_t *maskOut)
