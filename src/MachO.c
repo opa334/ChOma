@@ -3,6 +3,7 @@
 #include "MachO.h"
 #include "MachOByteOrder.h"
 #include "MachOLoadCommand.h"
+#include "CSBlob.h"
 #include "MemoryStream.h"
 
 #include <mach-o/loader.h>
