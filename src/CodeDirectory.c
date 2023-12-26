@@ -283,33 +283,6 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
         }
     }
 
-    // Version 0x20300
-    if (codeDir.version >= 0x20300) {
-        printf("\tCode limit: 0x%llx\n", codeDir.codeLimit64);
-    }
-
-    // Version 0x20400
-    if (codeDir.version >= 0x20400) {
-        printf("\tExecutable segment base: 0x%llx\n", codeDir.execSegBase);
-        printf("\tExecutable segment limit: 0x%llx\n", codeDir.execSegLimit);
-        printf("\tExecutable segment flags: 0x%llx\n", codeDir.execSegFlags);
-    }
-
-    // Version 0x20500
-    if (codeDir.version >= 0x20500) {
-        printf("\tRuntime: 0x%x\n", codeDir.runtime);
-        printf("\tPre-Encryption offset: 0x%x\n", codeDir.preEncryptOffset);
-    }
-
-    // Version 0x20600
-    if (codeDir.version >= 0x20600) {
-        printf("\tLinkage hash type: 0x%x\n", codeDir.linkageHashType);
-        printf("\tLinkage application type: 0x%x\n", codeDir.linkageHashType);
-        printf("\tLinkage application subtype: 0x%x\n", codeDir.linkageApplicationSubType);
-        printf("\tLinkage offset: 0x%x\n", codeDir.linkageOffset);
-        printf("\tLinkage size: 0x%x\n", codeDir.linkageSize);
-    }
-
     printf("\n");
     int maxdigits = count_digits(codeDir.nCodeSlots);
     bool codeSlotsCorrect = true;

@@ -32,26 +32,6 @@ typedef struct __CodeDirectory {
 	/* Version 0x20100 */
 	uint32_t scatterOffset;
 	uint32_t teamOffset;
-
-	/* Version 0x20300 */
-	uint32_t spare3;
-	uint64_t codeLimit64;
-
-	/* Version 0x20400 */
-	uint64_t execSegBase;
-	uint64_t execSegLimit;
-	uint64_t execSegFlags;
-
-	/* Version 0x20500 */
-	uint32_t runtime;
-	uint32_t preEncryptOffset;
-
-	/* Version 0x20600 */
-	uint8_t linkageHashType;
-	uint8_t linkageApplicationType;
-	uint16_t linkageApplicationSubType;
-	uint32_t linkageOffset;
-	uint32_t linkageSize;
 } CS_CodeDirectory
 __attribute__ ((aligned(1)));
 
