@@ -19,7 +19,7 @@ int raw_buffer_find_memory(uint8_t *buf, uint64_t searchOffset, size_t searchSiz
     return -1;
 }
 
-PFSection *pf_section_init_from_macho(MachO *macho, const char *filesetEntryId, const char *segName, const char *sectName)
+PFSection *pfsec_init_from_macho(MachO *macho, const char *filesetEntryId, const char *segName, const char *sectName)
 {
     PFSection *pfSection = NULL;
     MachO *machoToUse = NULL;
@@ -81,7 +81,7 @@ PFSection *pf_section_init_from_macho(MachO *macho, const char *filesetEntryId, 
     return pfSection;
 }
 
-int pf_section_read_reloff(PFSection *section, uint64_t rel, size_t size, void *outBuf)
+int pfsec_read_reloff(PFSection *section, uint64_t rel, size_t size, void *outBuf)
 {
     if (rel > section->size) return -1;
 
@@ -94,14 +94,14 @@ int pf_section_read_reloff(PFSection *section, uint64_t rel, size_t size, void *
     }
 }
 
-uint32_t pf_section_read32_reloff(PFSection *section, uint64_t rel)
+uint32_t pfsec_read32_reloff(PFSection *section, uint64_t rel)
 {
     uint32_t r = 0;
-    pf_section_read_reloff(section, rel, sizeof(r), &r);
+    pfsec_read_reloff(section, rel, sizeof(r), &r);
     return r;
 }
 
-int pf_section_read_string_reloff(PFSection *section, uint64_t rel, char **outString)
+int pfsec_read_string_reloff(PFSection *section, uint64_t rel, char **outString)
 {
     if (rel > section->size) return -1;
 
@@ -121,30 +121,30 @@ int pf_section_read_string_reloff(PFSection *section, uint64_t rel, char **outSt
     }
 }
 
-int pf_section_read_at_address(PFSection *section, uint64_t vmaddr, void *outBuf, size_t size)
+int pfsec_read_at_address(PFSection *section, uint64_t vmaddr, void *outBuf, size_t size)
 {
     if (vmaddr < section->vmaddr) return -1;
     if (vmaddr + size > section->vmaddr + section->size) return -1;
 
     uint64_t rel = vmaddr - section->vmaddr;
-    return pf_section_read_reloff(section, rel, size, outBuf);
+    return pfsec_read_reloff(section, rel, size, outBuf);
 }
 
-uint32_t pf_section_read32(PFSection *section, uint64_t vmaddr)
+uint32_t pfsec_read32(PFSection *section, uint64_t vmaddr)
 {
     uint32_t r = 0;
-    pf_section_read_at_address(section, vmaddr, &r, sizeof(r));
+    pfsec_read_at_address(section, vmaddr, &r, sizeof(r));
     return r;
 }
 
-uint64_t pf_section_read64(PFSection *section, uint64_t vmaddr)
+uint64_t pfsec_read64(PFSection *section, uint64_t vmaddr)
 {
     uint64_t r = 0;
-    pf_section_read_at_address(section, vmaddr, &r, sizeof(r));
+    pfsec_read_at_address(section, vmaddr, &r, sizeof(r));
     return r;
 }
 
-int pf_section_set_cached(PFSection *section, bool cached)
+int pfsec_set_cached(PFSection *section, bool cached)
 {
     bool isCachedAlready = (bool)section->cache;
     if (cached != isCachedAlready) {
@@ -155,7 +155,7 @@ int pf_section_set_cached(PFSection *section, bool cached)
             }
             else {
                 void *cache = malloc(section->size);
-                int r = pf_section_read_reloff(section, 0, section->size, cache);
+                int r = pfsec_read_reloff(section, 0, section->size, cache);
                 if (r != 0) {
                     free(cache);
                     return r;
@@ -174,7 +174,7 @@ int pf_section_set_cached(PFSection *section, bool cached)
     return 0;
 }
 
-int pf_section_find_memory(PFSection *section, uint64_t searchOffset, size_t searchSize, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundOffsetOut)
+int pfsec_find_memory(PFSection *section, uint64_t searchOffset, size_t searchSize, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundOffsetOut)
 {
     if (section->cache) {
         return raw_buffer_find_memory(section->cache, searchOffset, searchSize, bytes, mask, nbytes, alignment, foundOffsetOut);
@@ -189,10 +189,10 @@ int pf_section_find_memory(PFSection *section, uint64_t searchOffset, size_t sea
     }
 }
 
-uint64_t pf_section_find_prev_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask)
+uint64_t pfsec_find_prev_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask)
 {
     for (uint64_t addr = startAddr; addr >= section->vmaddr && (searchCount > 0 ? (addr >= (startAddr - (searchCount*4))) : true); addr -= 4) {
-        uint32_t curInst = pf_section_read32(section, addr);
+        uint32_t curInst = pfsec_read32(section, addr);
         if ((curInst & mask) == inst) {
             return addr;
         }
@@ -200,22 +200,22 @@ uint64_t pf_section_find_prev_inst(PFSection *section, uint64_t startAddr, uint3
     return 0;
 }
 
-uint64_t pf_section_find_next_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask)
+uint64_t pfsec_find_next_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask)
 {
     for (uint64_t addr = startAddr; addr < (section->vmaddr + section->size) && (searchCount > 0 ? (addr < (startAddr + (searchCount*4))) : true); addr += 4) {
-        uint32_t curInst = pf_section_read32(section, addr);
+        uint32_t curInst = pfsec_read32(section, addr);
         if ((curInst & mask) == inst) return addr;
     }
     return 0;
 }
 
-uint64_t pf_section_find_function_start(PFSection *section, uint64_t midAddr)
+uint64_t pfsec_find_function_start(PFSection *section, uint64_t midAddr)
 {
     if (section->macho->machHeader.cputype == CPU_TYPE_ARM64) {
         if ((section->macho->machHeader.cpusubtype & 0xff) == CPU_SUBTYPE_ARM64E) {
             uint64_t addr = midAddr;
             while (addr > section->vmaddr) {
-                uint32_t curInst = pf_section_read32(section, addr);
+                uint32_t curInst = pfsec_read32(section, addr);
                 if (curInst == 0xd503237f) return addr;
                 addr -= 4;
             }
@@ -224,13 +224,13 @@ uint64_t pf_section_find_function_start(PFSection *section, uint64_t midAddr)
     return 0;
 }
 
-void pf_section_free(PFSection *section)
+void pfsec_free(PFSection *section)
 {
-    pf_section_set_cached(section, false);
+    pfsec_set_cached(section, false);
     free(section);
 }
 
-void _pf_section_run_bytepatter_metric(PFSection *section, PFBytePatternMetric *bytePatternMetric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
+void _pfsec_run_bytepatter_metric(PFSection *section, uint64_t customStart, PFPatternMetric *bytePatternMetric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
 {
     uint16_t alignment = 0;
     switch (bytePatternMetric->alignment) {
@@ -253,7 +253,14 @@ void _pf_section_run_bytepatter_metric(PFSection *section, PFBytePatternMetric *
     }
 
     uint64_t searchOffset = 0;
-    while (pf_section_find_memory(section, searchOffset, (section->size - searchOffset), bytePatternMetric->bytes, bytePatternMetric->mask, bytePatternMetric->nbytes, alignment, &searchOffset) == 0) {
+    if (customStart) {
+        searchOffset = customStart - section->vmaddr;
+        if (searchOffset > section->size) {
+            return;
+        }
+    }
+
+    while (pfsec_find_memory(section, searchOffset, (section->size - searchOffset), bytePatternMetric->bytes, bytePatternMetric->mask, bytePatternMetric->nbytes, alignment, &searchOffset) == 0) {
         bool stop = false;
         matchBlock(section->vmaddr + searchOffset, &stop);
         if (stop) break;
@@ -261,9 +268,9 @@ void _pf_section_run_bytepatter_metric(PFSection *section, PFBytePatternMetric *
     }
 }
 
-PFBytePatternMetric *pf_create_byte_pattern_metric(void *bytes, void *mask, size_t nbytes, BytePatternAlignment alignment)
+PFPatternMetric *pfmetric_pattern_init(void *bytes, void *mask, size_t nbytes, PFBytePatternAlignment alignment)
 {
-    PFBytePatternMetric *metric = malloc(sizeof(PFBytePatternMetric));
+    PFPatternMetric *metric = malloc(sizeof(PFPatternMetric));
 
     metric->shared.type = METRIC_TYPE_PATTERN;
     metric->bytes = bytes;
@@ -274,16 +281,16 @@ PFBytePatternMetric *pf_create_byte_pattern_metric(void *bytes, void *mask, size
     return metric;
 }
 
-void pf_byte_pattern_metric_free(PFBytePatternMetric *metric)
+void pfmetric_pattern_free(PFPatternMetric *metric)
 {
     free(metric);
 }
 
-void _pf_section_run_string_metric(PFSection *section, PFStringMetric *stringMetric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
+void _pfsec_run_string_metric(PFSection *section, uint64_t customStart, PFStringMetric *stringMetric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
 {
     char *str = NULL;
     uint64_t searchOffset = 0;
-    while (pf_section_read_string_reloff(section, searchOffset, &str) == 0) {
+    while (pfsec_read_string_reloff(section, searchOffset, &str) == 0) {
         if (!strcmp(str, stringMetric->string)) {
             bool stop = false;
             matchBlock(section->vmaddr + searchOffset, &stop);
@@ -294,7 +301,7 @@ void _pf_section_run_string_metric(PFSection *section, PFStringMetric *stringMet
     }
 }
 
-PFStringMetric *pf_create_string_metric(const char *string)
+PFStringMetric *pfmetric_string_init(const char *string)
 {
     PFStringMetric *metric = malloc(sizeof(PFStringMetric));
 
@@ -304,13 +311,13 @@ PFStringMetric *pf_create_string_metric(const char *string)
     return metric;
 }
 
-void pf_string_metric_free(PFStringMetric *metric)
+void pfmetric_string_free(PFStringMetric *metric)
 {
     free(metric->string);
     free(metric);
 }
 
-void _pf_section_run_arm64_xref_metric(PFSection *section, PFXrefMetric *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
+void _pfsec_run_arm64_xref_metric(PFSection *section, uint64_t customStart, PFXrefMetric *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
 {
     Arm64XrefTypeMask arm64Types = 0;
     if (metric->typeMask == 0) return;
@@ -321,23 +328,23 @@ void _pf_section_run_arm64_xref_metric(PFSection *section, PFXrefMetric *metric,
         arm64Types |= ARM64_XREF_TYPE_MASK_REFERENCE;
     }
 
-    pf_section_enumerate_arm64_xrefs(section, arm64Types, ^(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop) {
+    pfsec_enumerate_arm64_xrefs(section, arm64Types, ^(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop) {
         if (target == metric->address) {
             matchBlock(source, stop);
         }
     });
 }
 
-void _pf_section_run_xref_metric(PFSection *section, PFXrefMetric *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
+void _pfsec_run_xref_metric(PFSection *section, uint64_t customStart, PFXrefMetric *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
 {
     switch(section->macho->machHeader.cputype) {
         case CPU_TYPE_ARM64:
-        _pf_section_run_arm64_xref_metric(section, metric, matchBlock);
+        _pfsec_run_arm64_xref_metric(section, customStart, metric, matchBlock);
         break;
     }
 }
 
-PFXrefMetric *pf_create_xref_metric(uint64_t address, XrefTypeMask types)
+PFXrefMetric *pfmetric_xref_init(uint64_t address, PFXrefTypeMask types)
 {
     PFXrefMetric *metric = malloc(sizeof(PFXrefMetric));
 
@@ -348,28 +355,33 @@ PFXrefMetric *pf_create_xref_metric(uint64_t address, XrefTypeMask types)
     return metric;
 }
 
-void pf_xref_metric_free(PFXrefMetric *metric)
+void pfmetric_xref_free(PFXrefMetric *metric)
 {
     free(metric);
 }
 
-void pf_section_run_metric(PFSection *section, void *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
+void pfmetric_run_from(PFSection *section, uint64_t customStart, void *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
 {
     MetricShared *shared = metric;
     switch (shared->type) {
         case METRIC_TYPE_PATTERN: {
-            _pf_section_run_bytepatter_metric(section, metric, matchBlock);
+            _pfsec_run_bytepatter_metric(section, customStart, metric, matchBlock);
             break;
         }
         case METRIC_TYPE_STRING: {
-            _pf_section_run_string_metric(section, metric, matchBlock);
+            _pfsec_run_string_metric(section, customStart, metric, matchBlock);
             break;
         }
         case METRIC_TYPE_XREF: {
-            _pf_section_run_xref_metric(section, metric, matchBlock);
+            _pfsec_run_xref_metric(section, customStart, metric, matchBlock);
             break;
         }
     }
+}
+
+void pfmetric_run(PFSection *section, void *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
+{
+    return pfmetric_run_from(section, 0, metric, matchBlock);
 }
 
 

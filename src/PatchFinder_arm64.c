@@ -2,11 +2,11 @@
 #include "PatchFinder.h"
 #include "arm64.h"
 
-void pf_section_enumerate_arm64_xrefs(PFSection *section, Arm64XrefTypeMask types, void (^xrefBlock)(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop))
+void pfsec_enumerate_arm64_xrefs(PFSection *section, Arm64XrefTypeMask types, void (^xrefBlock)(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop))
 {
 	bool stop = false;
 	for (uint64_t addr = section->vmaddr; addr < (section->vmaddr + section->size) && !stop; addr += 4) {
-		uint32_t inst = pf_section_read32(section, addr);
+		uint32_t inst = pfsec_read32(section, addr);
 		if ((types & ARM64_XREF_TYPE_MASK_B) || (types & ARM64_XREF_TYPE_MASK_BL)) {
 			uint64_t target = 0;
 			bool isBl = 0;
@@ -40,10 +40,10 @@ void pf_section_enumerate_arm64_xrefs(PFSection *section, Arm64XrefTypeMask type
 				uint32_t adrpInst = 0;
 				uint32_t adrpMask = 0;
 				if (arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, addSourceReg, &adrpInst, &adrpMask) == 0) {
-					uint64_t adrpAddr = pf_section_find_prev_inst(section, addr, ADRP_SEEK_BACK, adrpInst, adrpMask);
+					uint64_t adrpAddr = pfsec_find_prev_inst(section, addr, ADRP_SEEK_BACK, adrpInst, adrpMask);
 					if (adrpAddr != 0) {
 						uint64_t adrpTarget = 0;
-						arm64_dec_adr_p(pf_section_read32(section, adrpAddr), adrpAddr, &adrpTarget, NULL, NULL);
+						arm64_dec_adr_p(pfsec_read32(section, adrpAddr), adrpAddr, &adrpTarget, NULL, NULL);
 						xrefBlock(ARM64_XREF_TYPE_ADRP_ADD, addr, adrpTarget + addImm, &stop);
 					}
 				}
@@ -58,13 +58,13 @@ void pf_section_enumerate_arm64_xrefs(PFSection *section, Arm64XrefTypeMask type
 				uint32_t adrpInst = 0;
 				uint32_t adrpMask = 0;
 				if (arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, ldrSourceReg, &adrpInst, &adrpMask) == 0) {
-					uint64_t adrpAddr = pf_section_find_prev_inst(section, addr, ADRP_SEEK_BACK, adrpInst, adrpMask);
+					uint64_t adrpAddr = pfsec_find_prev_inst(section, addr, ADRP_SEEK_BACK, adrpInst, adrpMask);
 					if (adrpAddr != 0) {
 						// TODO: Check if between adrp and ldr is either an instruction indicating a function start or something overwriting the source register of ldr
 						// Due to this inaccuracy, there are some false positives atm
 						// Probably applies to the ADRP+ADD and ADRP+STR cases as well
 						uint64_t adrpTarget = 0;
-						arm64_dec_adr_p(pf_section_read32(section, adrpAddr), adrpAddr, &adrpTarget, NULL, NULL);
+						arm64_dec_adr_p(pfsec_read32(section, adrpAddr), adrpAddr, &adrpTarget, NULL, NULL);
 						xrefBlock(ARM64_XREF_TYPE_ADRP_LDR, addr, adrpTarget + ldrImm, &stop);
 					}
 				}
@@ -79,10 +79,10 @@ void pf_section_enumerate_arm64_xrefs(PFSection *section, Arm64XrefTypeMask type
 				uint32_t adrpInst = 0;
 				uint32_t adrpMask = 0;
 				if (arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, strSourceReg, &adrpInst, &adrpMask) == 0) {
-					uint64_t adrpAddr = pf_section_find_prev_inst(section, addr, ADRP_SEEK_BACK, adrpInst, adrpMask);
+					uint64_t adrpAddr = pfsec_find_prev_inst(section, addr, ADRP_SEEK_BACK, adrpInst, adrpMask);
 					if (adrpAddr != 0) {
 						uint64_t adrpTarget = 0;
-						arm64_dec_adr_p(pf_section_read32(section, adrpAddr), adrpAddr, &adrpTarget, NULL, NULL);
+						arm64_dec_adr_p(pfsec_read32(section, adrpAddr), adrpAddr, &adrpTarget, NULL, NULL);
 						xrefBlock(ARM64_XREF_TYPE_ADRP_STR, addr, adrpTarget + strImm, &stop);
 					}
 				}

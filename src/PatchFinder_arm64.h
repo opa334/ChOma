@@ -26,5 +26,5 @@ typedef enum {
     ARM64_XREF_TYPE_ALL = (ARM64_XREF_TYPE_MASK_CALL | ARM64_XREF_TYPE_MASK_REFERENCE),
 } Arm64XrefTypeMask;
 
-void pf_section_enumerate_arm64_xrefs(PFSection *section, Arm64XrefTypeMask types, void (^xrefBlock)(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop));
+void pfsec_enumerate_arm64_xrefs(PFSection *section, Arm64XrefTypeMask types, void (^xrefBlock)(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop));
 #endif
