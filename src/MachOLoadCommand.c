@@ -1,5 +1,6 @@
 #include "MachOLoadCommand.h"
 #include "Util.h"
+#include "CSBlob.h"
 
 char *load_command_to_string(int loadCommand) {
     switch (loadCommand) {
