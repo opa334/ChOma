@@ -112,7 +112,7 @@ MachO *fat_find_slice(FAT *fat, cpu_type_t cputype, cpu_subtype_t cpusubtype)
     for (uint32_t i = 0; i < fat->slicesCount; i++) {
         MachO *curMacho = fat->slices[i];
         if (curMacho) {
-            if (curMacho->machHeader.cputype == cputype && curMacho->machHeader.cpusubtype == cpusubtype) {
+            if (curMacho->machHeader.cputype == cputype && (curMacho->machHeader.cpusubtype & ~CPU_SUBTYPE_MASK) == cpusubtype) {
                 return curMacho;
             }
         }
