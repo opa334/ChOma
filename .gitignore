@@ -1,15 +1,3 @@
-# Ignore all
-*
-
-# Unignore all with extensions
-!*.*
-
-# Unignore Makefile
-!Makefile
-
-# Unignore all dirs
-!*/
-
 # Ignore build/
 build/
 output/
