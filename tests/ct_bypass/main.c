@@ -15,6 +15,8 @@
 #include "DERTemplate.h"
 #include "TemplateSignatureBlob.h"
 #include "CADetails.h"
+#include <openssl/pem.h>
+#include <openssl/err.h>
 #include <choma/CSBlob.h>
 #include <copyfile.h>
 #include <TargetConditionals.h>
@@ -176,8 +178,6 @@ int update_signature_blob(CS_DecodedSuperBlob *superblob)
     if (!cms) {
         printf("Failed to parse CMS blob: %s!\n", ERR_error_string(ERR_get_error(), NULL));
         return -1;
-    } else {
-        printf("CMS blob parsed successfully!\n");
     }
 
     // Load private key
@@ -211,8 +211,6 @@ int update_signature_blob(CS_DecodedSuperBlob *superblob)
     if (!newSigner) {
         printf("Failed to add signer: %s!\n", ERR_error_string(ERR_get_error(), NULL));
         return -1;
-    } else {
-        printf("Signer added successfully!\n");
     }
 
     CFMutableArrayRef cdHashesArray = CFArrayCreateMutable(NULL, 2, &kCFTypeArrayCallBacks);
@@ -253,6 +251,7 @@ int update_signature_blob(CS_DecodedSuperBlob *superblob)
     CFDataRef cdHashesDictionaryData = CFPropertyListCreateData(NULL, cdHashesDictionary, kCFPropertyListXMLFormat_v1_0, 0, &error);
     CFRelease(cdHashesDictionary);
     if (!cdHashesDictionaryData) {
+        // CFStringGetCStringPtr, unfortunately, does not always work
         CFStringRef errorString = CFErrorCopyDescription(error);
         CFIndex maxSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(errorString), kCFStringEncodingUTF8) + 1;
         char *buffer = (char *)malloc(maxSize);
@@ -263,8 +262,6 @@ int update_signature_blob(CS_DecodedSuperBlob *superblob)
         }
         free(buffer);
         return -1;
-    } else {
-        printf("Encoded CDHashes plist successfully!\n");
     }
 
     // Add text CDHashes attribute
