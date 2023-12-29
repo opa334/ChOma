@@ -9,7 +9,6 @@
 #include <choma/Host.h>
 #include <choma/FileStream.h>
 #include <choma/BufferedStream.h>
-#include <choma/SignOSSL.h>
 #include <choma/CodeDirectory.h>
 #include <choma/Base64.h>
 #include "AppStoreCodeDirectory.h"
