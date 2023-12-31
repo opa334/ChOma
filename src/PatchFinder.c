@@ -328,7 +328,7 @@ void _pfsec_run_arm64_xref_metric(PFSection *section, uint64_t customStart, PFXr
         arm64Types |= ARM64_XREF_TYPE_MASK_REFERENCE;
     }
 
-    pfsec_enumerate_arm64_xrefs(section, arm64Types, ^(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop) {
+    pfsec_arm64_enumerate_xrefs(section, arm64Types, ^(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop) {
         if (target == metric->address) {
             matchBlock(source, stop);
         }

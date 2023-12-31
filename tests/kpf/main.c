@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
             }
         });
 
-        pfsec_enumerate_arm64_xrefs(kernelTextSection, ARM64_XREF_TYPE_ALL, ^(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop) {
+        pfsec_arm64_enumerate_xrefs(kernelTextSection, ARM64_XREF_TYPE_ALL, ^(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop) {
             if (type == ARM64_XREF_TYPE_ADRP_ADD) {
                 printf("ADRL %llx -> %llx\n", source, target);
             }

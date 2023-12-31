@@ -2,7 +2,50 @@
 #include "PatchFinder.h"
 #include "arm64.h"
 
-void pfsec_enumerate_arm64_xrefs(PFSection *section, Arm64XrefTypeMask types, void (^xrefBlock)(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop))
+uint64_t pfsec_arm64_resolve_adrp_ldr_str_add_reference(PFSection *section, uint64_t adrpAddr, uint64_t ldrStrAddAddr)
+{
+	uint32_t ldrStrAddInst = pfsec_read32(section, ldrStrAddAddr);
+	
+	uint64_t imm = 0;
+	if (arm64_dec_ldr_imm(ldrStrAddInst, NULL, NULL, &imm, NULL) != 0) {
+		if (arm64_dec_str_imm(ldrStrAddInst, NULL, NULL, &imm, NULL) != 0) {
+			uint16_t addImm = 0;
+			if (arm64_dec_add_imm(ldrStrAddInst, NULL, NULL, &addImm) == 0) {
+				imm = (uint64_t)addImm;
+			}
+			else {
+				return 0;
+			}
+		}
+	}
+
+	uint64_t adrpTarget = 0;
+	arm64_dec_adr_p(pfsec_read32(section, adrpAddr), adrpAddr, &adrpTarget, NULL, NULL);
+
+	return adrpTarget + imm;
+}
+
+uint64_t pfsec_arm64_resolve_adrp_ldr_str_add_reference_auto(PFSection *section, uint64_t ldrStrAddAddr)
+{
+	uint32_t inst = pfsec_read32(section, ldrStrAddAddr);
+
+	arm64_register reg;
+	if (arm64_dec_ldr_imm(inst, NULL, &reg, NULL, NULL) != 0) {
+		if (arm64_dec_str_imm(inst, NULL, &reg, NULL, NULL) != 0) {
+			if (arm64_dec_add_imm(inst, NULL, &reg, NULL) != 0) {
+				return 0;
+			}
+		}
+	}
+
+	uint32_t adrpInst = 0, adrpInstMask = 0;
+	arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, reg, &adrpInst, &adrpInstMask);
+	uint64_t adrpAddr = pfsec_find_prev_inst(section, ldrStrAddAddr, 20, adrpInst, adrpInstMask);
+	if (!adrpAddr) return -1;
+	return pfsec_arm64_resolve_adrp_ldr_str_add_reference(section, adrpAddr, ldrStrAddAddr);
+}
+
+void pfsec_arm64_enumerate_xrefs(PFSection *section, Arm64XrefTypeMask types, void (^xrefBlock)(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop))
 {
 	bool stop = false;
 	for (uint64_t addr = section->vmaddr; addr < (section->vmaddr + section->size) && !stop; addr += 4) {
