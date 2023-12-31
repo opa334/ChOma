@@ -85,7 +85,7 @@ int arm64_gen_adr_p(optional_bool optIsAdrp, optional_uint64_t optOrigin, option
         }
 
         inst |= ((offset & 0x3) << 29);
-        inst |= ((offset & 0x7FFFC) << 5);
+        inst |= ((offset & 0x7FFFC) << 3);
     }
 
     if (ARM64_REG_IS_SET(reg)) {
@@ -113,12 +113,13 @@ int arm64_dec_adr_p(uint32_t inst, uint64_t origin, uint64_t *targetOut, arm64_r
     }
 
     if (targetOut) {
-        int64_t offset = ((inst >> 29) & 0x3) | ((inst >> 3) & 0x1ffffc);
+        uint64_t offset = ((inst >> 29) & 0x3) | ((inst >> 3) & 0x1ffffc);
         if (isAdrp) {
             offset = (offset << 12);
             origin &= ~ADRP_PAGE_MASK;
         }
-        *targetOut = origin + sxt64(offset, 26);
+        int64_t signedOffset = sxt64(offset, 33);
+        *targetOut = origin + signedOffset;
     }
 
     if (registerOut) *registerOut = ARM64_REG_X(inst & 0x1f);
