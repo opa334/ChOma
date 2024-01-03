@@ -121,6 +121,12 @@ int pfsec_read_string_reloff(PFSection *section, uint64_t rel, char **outString)
     }
 }
 
+int pfsec_read_string(PFSection *section, uint64_t vmaddr, char **outString)
+{
+    if (vmaddr < section->vmaddr) return -1;
+    return pfsec_read_string_reloff(section, vmaddr - section->vmaddr, outString);
+}
+
 int pfsec_read_at_address(PFSection *section, uint64_t vmaddr, void *outBuf, size_t size)
 {
     if (vmaddr < section->vmaddr) return -1;
@@ -212,9 +218,9 @@ uint64_t pfsec_find_next_inst(PFSection *section, uint64_t startAddr, uint32_t s
 uint64_t pfsec_find_function_start(PFSection *section, uint64_t midAddr)
 {
     if (section->macho->machHeader.cputype == CPU_TYPE_ARM64) {
-        if ((section->macho->machHeader.cpusubtype & 0xff) == CPU_SUBTYPE_ARM64E) {
+        if ((section->macho->machHeader.cpusubtype & ~CPU_SUBTYPE_MASK) == CPU_SUBTYPE_ARM64E) {
             uint64_t addr = midAddr;
-            while (addr > section->vmaddr) {
+            while (addr > section->vmaddr && addr < (section->vmaddr + section->size)) {
                 uint32_t curInst = pfsec_read32(section, addr);
                 if (curInst == 0xd503237f) return addr;
                 addr -= 4;
@@ -272,18 +278,13 @@ PFPatternMetric *pfmetric_pattern_init(void *bytes, void *mask, size_t nbytes, P
 {
     PFPatternMetric *metric = malloc(sizeof(PFPatternMetric));
 
-    metric->shared.type = METRIC_TYPE_PATTERN;
+    metric->shared.type = PF_METRIC_TYPE_PATTERN;
     metric->bytes = bytes;
     metric->mask = mask;
     metric->nbytes = nbytes;
     metric->alignment = alignment;
 
     return metric;
-}
-
-void pfmetric_pattern_free(PFPatternMetric *metric)
-{
-    free(metric);
 }
 
 void _pfsec_run_string_metric(PFSection *section, uint64_t customStart, PFStringMetric *stringMetric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
@@ -305,16 +306,10 @@ PFStringMetric *pfmetric_string_init(const char *string)
 {
     PFStringMetric *metric = malloc(sizeof(PFStringMetric));
 
-    metric->shared.type = METRIC_TYPE_STRING;
+    metric->shared.type = PF_METRIC_TYPE_STRING;
     metric->string = strdup(string);
 
     return metric;
-}
-
-void pfmetric_string_free(PFStringMetric *metric)
-{
-    free(metric->string);
-    free(metric);
 }
 
 void _pfsec_run_arm64_xref_metric(PFSection *section, uint64_t customStart, PFXrefMetric *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
@@ -348,15 +343,19 @@ PFXrefMetric *pfmetric_xref_init(uint64_t address, PFXrefTypeMask types)
 {
     PFXrefMetric *metric = malloc(sizeof(PFXrefMetric));
 
-    metric->shared.type = METRIC_TYPE_XREF;
+    metric->shared.type = PF_METRIC_TYPE_XREF;
     metric->address = address;
     metric->typeMask = types;
 
     return metric;
 }
 
-void pfmetric_xref_free(PFXrefMetric *metric)
+void pfmetric_free(void *metric)
 {
+    uint32_t type = ((PFPatternMetric *)metric)->shared.type;
+    if (type == PF_METRIC_TYPE_STRING) {
+        free(((PFStringMetric *)metric)->string);
+    }
     free(metric);
 }
 
@@ -364,15 +363,15 @@ void pfmetric_run_from(PFSection *section, uint64_t customStart, void *metric, v
 {
     MetricShared *shared = metric;
     switch (shared->type) {
-        case METRIC_TYPE_PATTERN: {
+        case PF_METRIC_TYPE_PATTERN: {
             _pfsec_run_bytepatter_metric(section, customStart, metric, matchBlock);
             break;
         }
-        case METRIC_TYPE_STRING: {
+        case PF_METRIC_TYPE_STRING: {
             _pfsec_run_string_metric(section, customStart, metric, matchBlock);
             break;
         }
-        case METRIC_TYPE_XREF: {
+        case PF_METRIC_TYPE_XREF: {
             _pfsec_run_xref_metric(section, customStart, metric, matchBlock);
             break;
         }

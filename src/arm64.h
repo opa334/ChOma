@@ -16,8 +16,19 @@ typedef struct s_arm64_register {
 #define ARM64_REG_GET_NUM(x) (x.number & 0x1f)
 #define ARM64_REG_IS_SET(x) (x.isSet)
 
+typedef struct s_arm64_cond {
+	bool isSet;
+	uint8_t value;
+} arm64_cond;
+#define ARM64_COND(x) (arm64_cond){.isSet = true, .value = x}
+#define ARM64_COND_ANY (arm64_cond){.isSet = false, .value = 0}
+#define ARM64_COND_GET_VAL(x) (x.value & 0xf)
+#define ARM64_COND_IS_SET(x) x.isSet
+
 int arm64_gen_b_l(optional_bool optIsBl, optional_uint64_t optOrigin, optional_uint64_t optTarget, uint32_t *bytesOut, uint32_t *maskOut);
 int arm64_dec_b_l(uint32_t inst, uint64_t origin, uint64_t *targetOut, bool *isBlOut);
+int arm64_gen_b_c_cond(optional_bool optIsBc, optional_uint64_t optOrigin, optional_uint64_t optTarget, arm64_cond optCond, uint32_t *bytesOut, uint32_t *maskOut);
+int arm64_dec_b_c_cond(uint32_t inst, uint64_t origin, uint64_t *targetOut, arm64_cond *condOut, bool *isBcOut);
 int arm64_gen_adr_p(optional_bool optIsAdrp, optional_uint64_t optOrigin, optional_uint64_t optTarget, arm64_register reg, uint32_t *bytesOut, uint32_t *maskOut);
 int arm64_dec_adr_p(uint32_t inst, uint64_t origin, uint64_t *targetOut, arm64_register *registerOut, bool *isAdrpOut);
 int arm64_gen_mov_imm(char type, arm64_register destinationReg, optional_uint64_t optImm, optional_uint64_t optShift, uint32_t *bytesOut, uint32_t *maskOut);

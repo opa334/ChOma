@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
         pfmetric_run(kernelTextSection, pacibspMetric, ^(uint64_t vmaddr, bool *stop) {
             printf("PACIBSP: 0x%llx (%x)\n", vmaddr, pfsec_read32(kernelTextSection, vmaddr+4));
         });
-        pfmetric_pattern_free(pacibspMetric);
+        pfmetric_free(pacibspMetric);
 
         uint32_t bBytes = 0;
         uint32_t bMask = 0;
@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
                 }
             }
         });
-        pfmetric_pattern_free(bMetric);
+        pfmetric_free(bMetric);
 
         uint32_t adrBytes = 0;
         uint32_t adrMask = 0;
@@ -164,9 +164,9 @@ int main(int argc, char *argv[]) {
                 *stop1 = true;
                 *stop2 = true;
             });
-            pfmetric_xref_free(refMetric);
+            pfmetric_free(refMetric);
         });
-        pfmetric_string_free(stringMetric);
+        pfmetric_free(stringMetric);
 
         t = clock() - t; 
         double time_taken = ((double)t)/CLOCKS_PER_SEC;

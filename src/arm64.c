@@ -50,6 +50,55 @@ int arm64_dec_b_l(uint32_t inst, uint64_t origin, uint64_t *targetOut, bool *isB
     return 0;
 }
 
+int arm64_gen_b_c_cond(optional_bool optIsBc, optional_uint64_t optOrigin, optional_uint64_t optTarget, arm64_cond optCond, uint32_t *bytesOut, uint32_t *maskOut)
+{
+    uint32_t inst = 0x54000000;
+    uint32_t mask = 0xff000000;
+
+    if (OPT_BOOL_IS_SET(optIsBc)) {
+        mask |= (1 << 4);
+        inst |= (OPT_BOOL_GET_VAL(optIsBc) << 4);
+    }
+
+    if (OPT_UINT64_IS_SET(optOrigin) && OPT_UINT64_IS_SET(optTarget)) {
+        uint64_t origin = OPT_UINT64_GET_VAL(optOrigin);
+        uint64_t target = OPT_UINT64_GET_VAL(optTarget);
+        int64_t offset = (int64_t)target - (int64_t)origin;
+        if (offset < -0x100000 || offset > 0x100000) return -1; // +/-1MB max
+        inst |= ((offset / 4) << 5);
+        mask |= (0x7ffff << 5);
+    }
+
+    if (ARM64_COND_IS_SET(optCond)) {
+        mask |= 0xf;
+        inst |= ARM64_COND_GET_VAL(optCond);
+    }
+
+    if (bytesOut) *bytesOut = inst;
+    if (maskOut) *maskOut = mask;
+    return 0;
+}
+
+int arm64_dec_b_c_cond(uint32_t inst, uint64_t origin, uint64_t *targetOut, arm64_cond *condOut, bool *isBcOut)
+{
+    if ((inst & 0xff000000) != 0x54000000) return -1;
+
+    if (targetOut) {
+        int64_t offset = sxt64(((inst >> 5) & 0x7ffff), 19);
+        *targetOut = origin + (offset * 4);
+    }
+
+    if (condOut) {
+        *condOut = ARM64_COND(inst & 0xf);
+    }
+
+    if (isBcOut) {
+        *isBcOut = inst & (1 << 4);
+    }
+
+    return 0;
+}
+
 int arm64_gen_adr_p(optional_bool optIsAdrp, optional_uint64_t optOrigin, optional_uint64_t optTarget, arm64_register reg, uint32_t *bytesOut, uint32_t *maskOut)
 {
     bool isAdrp = false;
@@ -66,7 +115,7 @@ int arm64_gen_adr_p(optional_bool optIsAdrp, optional_uint64_t optOrigin, option
     }
 
     if (OPT_UINT64_IS_SET(optOrigin) && OPT_UINT64_IS_SET(optTarget)) {
-        mask |= 0x60FFFFE0;
+        mask |= 0x60ffffe0;
         
         uint64_t origin = OPT_UINT64_GET_VAL(optOrigin);
         uint64_t target = OPT_UINT64_GET_VAL(optTarget);
@@ -79,13 +128,13 @@ int arm64_gen_adr_p(optional_bool optIsAdrp, optional_uint64_t optOrigin, option
             offset = (offset >> 12);
         }
 
-        if ((offset & ~0x7FFFF)) {
+        if ((offset & ~0x7ffff)) {
             // Offset too big
             return -1;
         }
 
         inst |= ((offset & 0x3) << 29);
-        inst |= ((offset & 0x7FFFC) << 3);
+        inst |= ((offset & 0x7fffc) << 3);
     }
 
     if (ARM64_REG_IS_SET(reg)) {
@@ -129,12 +178,12 @@ int arm64_dec_adr_p(uint32_t inst, uint64_t origin, uint64_t *targetOut, arm64_r
 
 int arm64_gen_mov_imm(char type, arm64_register destinationReg, optional_uint64_t optImm, optional_uint64_t optShift, uint32_t *bytesOut, uint32_t *maskOut)
 {
-    uint32_t bytes = 0x12800000;
+    uint32_t inst = 0x12800000;
     uint32_t mask =  0x7f800000;
 
     switch (type) {
         case 'k': {
-            bytes |= (1 << 30) | (1 << 29);
+            inst |= (1 << 30) | (1 << 29);
             break;
         }
 
@@ -143,7 +192,7 @@ int arm64_gen_mov_imm(char type, arm64_register destinationReg, optional_uint64_
         }
 
         case 'z': {
-            bytes |= (1 << 30);
+            inst |= (1 << 30);
             break;
         }
 
@@ -161,7 +210,7 @@ int arm64_gen_mov_imm(char type, arm64_register destinationReg, optional_uint64_
             }
         }
         else {
-            bytes |= (1 << 31);
+            inst |= (1 << 31);
             if (OPT_UINT64_IS_SET(optShift)) {
                 uint64_t shift = OPT_UINT64_GET_VAL(optShift);
                 if (shift != 0 && shift != 16 && shift != 32 && shift != 48) return -1;
@@ -169,23 +218,23 @@ int arm64_gen_mov_imm(char type, arm64_register destinationReg, optional_uint64_
         }
 
         mask |= 0x1f;
-        bytes |= ARM64_REG_GET_NUM(destinationReg);
+        inst |= ARM64_REG_GET_NUM(destinationReg);
     }
 
     if (OPT_UINT64_IS_SET(optImm)) {
         uint64_t imm = OPT_UINT64_GET_VAL(optImm);
         if (imm > UINT16_MAX) return -1;
         mask |= 0x1fffe0;
-        bytes |= ((uint32_t)imm << 5);
+        inst |= ((uint32_t)imm << 5);
     }
 
     if (OPT_UINT64_IS_SET(optShift)) {
         uint64_t shift = OPT_UINT64_GET_VAL(optShift);
-        bytes |= ((shift / 16) & 0b11) << 21;
+        inst |= ((shift / 16) & 0b11) << 21;
         mask |= (0b11 << 21);
     }
 
-    if (bytesOut) *bytesOut = bytes;
+    if (bytesOut) *bytesOut = inst;
     if (maskOut) *maskOut = mask;
     return 0;
 }
@@ -235,36 +284,36 @@ int arm64_gen_add_imm(arm64_register destinationReg, arm64_register sourceReg, o
         if (ARM64_REG_IS_32(destinationReg) != ARM64_REG_IS_32(sourceReg)) return -1;
     }
 
-    uint32_t bytes = 0x11000000;
+    uint32_t inst = 0x11000000;
     uint32_t mask = 0x7f800000;
 
-    // if one is set and 32 bit, include 32 bit in mask and set it in bytes
+    // if one is set and 32 bit, include 32 bit in mask and set it in inst
     if (ARM64_REG_IS_SET(destinationReg)) {
         mask |= (1 << 31);
-        bytes |= ((uint32_t)(!ARM64_REG_IS_32(destinationReg)) << 31);
+        inst |= ((uint32_t)(!ARM64_REG_IS_32(destinationReg)) << 31);
     }
     else if (ARM64_REG_IS_SET(sourceReg)) {
         mask |= (1 << 31);
-        bytes |= ((uint32_t)(!ARM64_REG_IS_32(sourceReg)) << 31);
+        inst |= ((uint32_t)(!ARM64_REG_IS_32(sourceReg)) << 31);
     }
 
     if (ARM64_REG_IS_SET(destinationReg)) {
         mask |= 0x1F;
-        bytes |= (uint32_t)(ARM64_REG_GET_NUM(destinationReg));
+        inst |= (uint32_t)(ARM64_REG_GET_NUM(destinationReg));
     }
     if (ARM64_REG_IS_SET(sourceReg)) {
         mask |= (0x1F << 5);
-        bytes |= ((uint32_t)(ARM64_REG_GET_NUM(destinationReg)) << 5);
+        inst |= ((uint32_t)(ARM64_REG_GET_NUM(destinationReg)) << 5);
     }
 
     if (OPT_UINT64_IS_SET(optImm)) {
         uint64_t imm = OPT_UINT64_GET_VAL(optImm);
         if (imm & ~0xFFF) return -1;
         mask |= (0xFFF << 10);
-        bytes |= (imm << 10);
+        inst |= (imm << 10);
     }
 
-    if (bytesOut) *bytesOut = bytes;
+    if (bytesOut) *bytesOut = inst;
     if (maskOut) *maskOut = mask;
     return 0;
 }

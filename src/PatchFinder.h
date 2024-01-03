@@ -4,9 +4,11 @@
 #include <stdint.h>
 #include "MachO.h"
 
-#define METRIC_TYPE_PATTERN 1
-#define METRIC_TYPE_STRING 2
-#define METRIC_TYPE_XREF 3
+enum {
+	PF_METRIC_TYPE_PATTERN,
+	PF_METRIC_TYPE_STRING,
+	PF_METRIC_TYPE_XREF,
+};
 
 typedef struct s_PFSection {
 	MachO *macho;
@@ -23,6 +25,7 @@ uint32_t pfsec_read32_reloff(PFSection *section, uint64_t rel);
 int pfsec_read_at_address(PFSection *section, uint64_t vmaddr, void *outBuf, size_t size);
 uint32_t pfsec_read32(PFSection *section, uint64_t vmaddr);
 uint64_t pfsec_read64(PFSection *section, uint64_t vmaddr);
+int pfsec_read_string(PFSection *section, uint64_t vmaddr, char **outString);
 int pfsec_set_cached(PFSection *section, bool cached);
 uint64_t pfsec_find_prev_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask);
 uint64_t pfsec_find_next_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask);
@@ -71,13 +74,9 @@ typedef struct s_PFXrefMetric {
 } PFXrefMetric;
 
 PFPatternMetric *pfmetric_pattern_init(void *bytes, void *mask, size_t nbytes, PFBytePatternAlignment alignment);
-void pfmetric_pattern_free(PFPatternMetric *metric);
-
 PFStringMetric *pfmetric_string_init(const char *string);
-void pfmetric_string_free(PFStringMetric *metric);
-
 PFXrefMetric *pfmetric_xref_init(uint64_t address, PFXrefTypeMask types);
-void pfmetric_xref_free(PFXrefMetric *metric);
+void pfmetric_free(void *metric);
 
 void pfmetric_run_from(PFSection *section, uint64_t customStart, void *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop));
 void pfmetric_run(PFSection *section, void *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop));
