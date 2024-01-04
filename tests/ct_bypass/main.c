@@ -47,6 +47,12 @@ char *extract_preferred_slice(const char *fatPath)
         return NULL;
     }
 #endif // TARGET_OS_MAC && !TARGET_OS_IPHONE
+
+    if (macho->machHeader.filetype == MH_OBJECT) {
+        printf("Error: MachO is an object file, please use a MachO executable or dynamic library!\n");
+        fat_free(fat);
+        return NULL;
+    }
     
     char *temp = strdup("/tmp/XXXXXX");
     int fd = mkstemp(temp);
