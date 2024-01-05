@@ -197,6 +197,7 @@ int pfsec_find_memory(PFSection *section, uint64_t searchOffset, size_t searchSi
 
 uint64_t pfsec_find_prev_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask)
 {
+    if (startAddr < section->vmaddr) return 0;
     for (uint64_t addr = startAddr; addr >= section->vmaddr && (searchCount > 0 ? (addr >= (startAddr - (searchCount*4))) : true); addr -= 4) {
         uint32_t curInst = pfsec_read32(section, addr);
         if ((curInst & mask) == inst) {
@@ -208,6 +209,7 @@ uint64_t pfsec_find_prev_inst(PFSection *section, uint64_t startAddr, uint32_t s
 
 uint64_t pfsec_find_next_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask)
 {
+    if (startAddr < section->vmaddr) return 0;
     for (uint64_t addr = startAddr; addr < (section->vmaddr + section->size) && (searchCount > 0 ? (addr < (startAddr + (searchCount*4))) : true); addr += 4) {
         uint32_t curInst = pfsec_read32(section, addr);
         if ((curInst & mask) == inst) return addr;
@@ -224,6 +226,17 @@ uint64_t pfsec_find_function_start(PFSection *section, uint64_t midAddr)
                 uint32_t curInst = pfsec_read32(section, addr);
                 if (curInst == 0xd503237f) return addr;
                 addr -= 4;
+            }
+        }
+        else if ((section->macho->machHeader.cpusubtype & ~CPU_SUBTYPE_MASK) == CPU_SUBTYPE_ARM64_ALL) {
+            // Technique adapted from pongoOS
+            uint64_t frameAddr = pfsec_find_prev_inst(section, midAddr, 0, 0x910003fd, 0xff8003ff); // add x29, sp, ?
+            if (frameAddr) {
+                uint64_t start = pfsec_find_prev_inst(section, frameAddr, 10, 0xa9a003e0, 0xffe003e0); // stp ?, ?, [sp, ?]!
+                if (!start) {
+                    start = pfsec_find_prev_inst(section, frameAddr, 10, 0xd10003ff, 0xff8003ff); // sub sp, sp, ?
+                }
+                return start;
             }
         }
     }
