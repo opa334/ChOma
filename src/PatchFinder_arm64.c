@@ -45,6 +45,34 @@ uint64_t pfsec_arm64_resolve_adrp_ldr_str_add_reference_auto(PFSection *section,
 	return pfsec_arm64_resolve_adrp_ldr_str_add_reference(section, adrpAddr, ldrStrAddAddr);
 }
 
+uint64_t pfsec_arm64_resolve_stub(PFSection *section, uint64_t stubAddr)
+{
+	// A stub is usually:
+	// adrp x16, ?
+	// ldr x16, ?
+	// br x16
+
+	// First, check if what we have actually is a stub
+	uint32_t inst[3];
+	pfsec_read_at_address(section, stubAddr, inst, sizeof(inst));
+
+	uint32_t stubInst[3], stubMask[3];
+	arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, ARM64_REG_X(16), &stubInst[0], &stubMask[0]);
+	arm64_gen_ldr_imm(0, ARM64_REG_X(16), ARM64_REG_X(16), OPT_UINT64_NONE, &stubInst[1], &stubMask[1]);
+	stubInst[2] = 0xd61f0200;
+	stubMask[2] = 0xffffffff;
+
+	if ((inst[0] & stubMask[0]) == stubInst[0] ||
+		(inst[1] & stubMask[1]) == stubInst[1] ||
+		(inst[2] & stubMask[2]) == stubInst[2]) {
+		// This is a stub, resolve it
+		return pfsec_arm64_resolve_adrp_ldr_str_add_reference(section, stubAddr, stubAddr + 4);
+	}
+
+	// Not a stub, just return original address
+	return stubAddr;
+}
+
 void pfsec_arm64_enumerate_xrefs(PFSection *section, Arm64XrefTypeMask types, void (^xrefBlock)(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop))
 {
 	bool stop = false;
