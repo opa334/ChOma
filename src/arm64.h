@@ -16,6 +16,8 @@ typedef struct s_arm64_register {
 #define ARM64_REG_GET_NUM(x) (x.number & 0x1f)
 #define ARM64_REG_IS_SET(x) (x.isSet)
 
+#define ARM64_REG_NUM_SP 31
+
 typedef struct s_arm64_cond {
 	bool isSet;
 	uint8_t value;
