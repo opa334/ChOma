@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
             uint16_t imm = 0;
             uint32_t inst = pfsec_read32(kernelTextSection, vmaddr);
             if (arm64_dec_add_imm(inst, &destinationReg, &sourceReg, &imm) == 0) {
-                printf("%llx: \"add %s%u, %s%u, 0x%x\"\n", vmaddr, ARM64_REG_IS_32(destinationReg) ? "w" : "x", ARM64_REG_GET_NUM(destinationReg), ARM64_REG_IS_32(sourceReg) ? "w" : "x", ARM64_REG_GET_NUM(sourceReg), imm);
+                printf("%llx: \"add %s%u, %s%u, 0x%x\"\n", vmaddr, arm64_reg_get_type_string(destinationReg), ARM64_REG_GET_NUM(destinationReg), arm64_reg_get_type_string(sourceReg), ARM64_REG_GET_NUM(sourceReg), imm);
             }
         });
 
@@ -114,10 +114,10 @@ int main(int argc, char *argv[]) {
             char type = 0;
             if (arm64_dec_ldr_imm(inst, &destinationReg, &sourceReg, &imm, &type) == 0) {
                 if (type == 0) {
-                    printf("%llx: \"ldr %s%u, [%s%u, 0x%llx]\"\n", vmaddr, ARM64_REG_IS_32(destinationReg) ? "w" : "x", ARM64_REG_GET_NUM(destinationReg), ARM64_REG_IS_32(sourceReg) ? "w" : "x", ARM64_REG_GET_NUM(sourceReg), imm);
+                    printf("%llx: \"ldr %s%u, [%s%u, 0x%llx]\"\n", vmaddr, arm64_reg_get_type_string(destinationReg), ARM64_REG_GET_NUM(destinationReg), arm64_reg_get_type_string(sourceReg), ARM64_REG_GET_NUM(sourceReg), imm);
                 }
                 else {
-                    printf("%llx: \"ldr%c %s%u, [%s%u, 0x%llx]\"\n", vmaddr, type, ARM64_REG_IS_32(destinationReg) ? "w" : "x", ARM64_REG_GET_NUM(destinationReg), ARM64_REG_IS_32(sourceReg) ? "w" : "x", ARM64_REG_GET_NUM(sourceReg), imm);
+                    printf("%llx: \"ldr%c %s%u, [%s%u, 0x%llx]\"\n", vmaddr, type, arm64_reg_get_type_string(destinationReg), ARM64_REG_GET_NUM(destinationReg), arm64_reg_get_type_string(sourceReg), ARM64_REG_GET_NUM(sourceReg), imm);
                 }
             }
         });
@@ -134,10 +134,10 @@ int main(int argc, char *argv[]) {
             char type = 0;
             if (arm64_dec_str_imm(inst, &destinationReg, &sourceReg, &imm, &type) == 0) {
                 if (type == 0) {
-                    printf("%llx: \"str %s%u, [%s%u, 0x%llx]\"\n", vmaddr, ARM64_REG_IS_32(destinationReg) ? "w" : "x", ARM64_REG_GET_NUM(destinationReg), ARM64_REG_IS_32(sourceReg) ? "w" : "x", ARM64_REG_GET_NUM(sourceReg), imm);
+                    printf("%llx: \"str %s%u, [%s%u, 0x%llx]\"\n", vmaddr, arm64_reg_get_type_string(destinationReg), ARM64_REG_GET_NUM(destinationReg), arm64_reg_get_type_string(sourceReg), ARM64_REG_GET_NUM(sourceReg), imm);
                 }
                 else {
-                    printf("%llx: \"str%c %s%u, [%s%u, 0x%llx]\"\n", vmaddr, type, ARM64_REG_IS_32(destinationReg) ? "w" : "x", ARM64_REG_GET_NUM(destinationReg), ARM64_REG_IS_32(sourceReg) ? "w" : "x", ARM64_REG_GET_NUM(sourceReg), imm);
+                    printf("%llx: \"str%c %s%u, [%s%u, 0x%llx]\"\n", vmaddr, type, arm64_reg_get_type_string(destinationReg), ARM64_REG_GET_NUM(destinationReg), arm64_reg_get_type_string(sourceReg), ARM64_REG_GET_NUM(sourceReg), imm);
                 }                
             }
         });

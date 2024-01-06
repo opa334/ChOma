@@ -3,18 +3,57 @@
 
 #include "Util.h"
 
+typedef enum {
+	// registers
+	ARM64_REG_TYPE_X,
+	ARM64_REG_TYPE_W,
+
+	// vector shit
+	ARM64_REG_TYPE_Q,
+	ARM64_REG_TYPE_D,
+	ARM64_REG_TYPE_S,
+	ARM64_REG_TYPE_H,
+	ARM64_REG_TYPE_B,
+} arm64_register_type;
+
+enum {
+	ARM64_REG_MASK_ANY_FLAG = (1 << 0),
+	ARM64_REG_MASK_X_W = (1 << 1),
+	ARM64_REG_MASK_VECTOR = (1 << 2),
+	ARM64_REG_MASK_ALL = (ARM64_REG_MASK_X_W | ARM64_REG_MASK_VECTOR),
+
+	ARM64_REG_MASK_ANY_X_W = (ARM64_REG_MASK_X_W | ARM64_REG_MASK_ANY_FLAG),
+	ARM64_REG_MASK_ANY_VECTOR = (ARM64_REG_MASK_VECTOR | ARM64_REG_MASK_ANY_FLAG),
+	ARM64_REG_MASK_ANY_ALL = (ARM64_REG_MASK_ALL | ARM64_REG_MASK_ANY_FLAG),
+};
+
 typedef struct s_arm64_register {
-	bool isSet;
-	bool is32;
-	uint8_t number;
+	uint8_t mask;
+	arm64_register_type type;
+	uint8_t num;
 } arm64_register;
-#define ARM64_REG(s_is32, x) (arm64_register){.isSet = true, .is32 = s_is32, .number = x}
-#define ARM64_REG_X(x) ARM64_REG(false, x)
-#define ARM64_REG_W(x) ARM64_REG(true, x)
-#define ARM64_REG_ANY (arm64_register){.isSet = false, .is32 = false, .number = 0}
-#define ARM64_REG_IS_32(x) (x.is32)
-#define ARM64_REG_GET_NUM(x) (x.number & 0x1f)
-#define ARM64_REG_IS_SET(x) (x.isSet)
+
+#define ARM64_REG(type_, num_) (arm64_register){.mask = ARM64_REG_MASK_ALL, .type = type_, .num = num_}
+#define ARM64_REG_X(x) ARM64_REG(ARM64_REG_TYPE_X, x)
+#define ARM64_REG_W(x) ARM64_REG(ARM64_REG_TYPE_W, x)
+#define ARM64_REG_Q(x) ARM64_REG(ARM64_REG_TYPE_Q, x)
+#define ARM64_REG_S(x) ARM64_REG(ARM64_REG_TYPE_S, x)
+#define ARM64_REG_H(x) ARM64_REG(ARM64_REG_TYPE_H, x)
+#define ARM64_REG_B(x) ARM64_REG(ARM64_REG_TYPE_B, x)
+#define ARM64_REG_ANY (arm64_register){.mask = ARM64_REG_MASK_ANY_ALL, .type = 0, .num = 0}
+#define ARM64_REG_ANY_X_W (arm64_register){.mask = ARM64_REG_MASK_ANY_X_W, .type = 0, .num = 0}
+#define ARM64_REG_ANY_VECTOR (arm64_register){.mask = ARM64_REG_MASK_ANY_VECTOR, .type = 0, .num = 0}
+#define ARM64_REG_GET_TYPE(x) (x.type)
+#define ARM64_REG_IS_X(x) (x.type == ARM64_REG_TYPE_X)
+#define ARM64_REG_IS_W(x) (x.type == ARM64_REG_TYPE_W)
+#define ARM64_REG_IS_VECTOR(x) (x.type == ARM64_REG_TYPE_Q || x.type == ARM64_REG_TYPE_D || x.type == ARM64_REG_TYPE_S || x.type == ARM64_REG_TYPE_H || x.type == ARM64_REG_TYPE_B)
+#define ARM64_REG_GET_NUM(x) (x.num & 0x1f)
+#define ARM64_REG_IS_ANY(x) (x.mask == ARM64_REG_MASK_ANY_ALL)
+#define ARM64_REG_IS_ANY_X_W(x) (x.mask == ARM64_REG_MASK_ANY_X_W)
+#define ARM64_REG_IS_ANY_VECTOR(x) (x.mask == ARM64_REG_MASK_ANY_VECTOR)
+uint8_t arm64_reg_type_get_width(arm64_register_type type);
+const char *arm64_reg_type_get_string(arm64_register_type type);
+const char *arm64_reg_get_type_string(arm64_register reg);
 
 #define ARM64_REG_NUM_SP 31
 
