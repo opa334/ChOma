@@ -66,9 +66,16 @@ $(STATIC_LIB): $(OBJ_FILES)
 	@mkdir -p $(LIB_DIR)
 	ar rcs $@ $^
 
+ifeq ($(TARGET), ios)
 $(DYNAMIC_LIB): $(OBJ_FILES)
 	@mkdir -p $(LIB_DIR)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(DYLIB_LDFLAGS) -shared -o $@ $^
+	@ldid -S $@
+else
+$(DYNAMIC_LIB): $(OBJ_FILES)
+	@mkdir -p $(LIB_DIR)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(DYLIB_LDFLAGS) -shared -o $@ $^
+endif
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(dir $@)
