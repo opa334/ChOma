@@ -9,6 +9,7 @@ ifeq ($(DEBUG), 1)
 	CFLAGS += -fsanitize=address -static-libsan
 endif
 DISABLE_SIGNING ?= 0
+DISABLE_TESTS ?= 0
 
 LIB_NAME := libchoma
 INSTALL_PATH ?= /usr/local/
@@ -49,8 +50,10 @@ DYNAMIC_LIB := $(LIB_DIR)/$(LIB_NAME).dylib
 SRC_FILES := $(wildcard $(SRC_DIR)/*.c)
 OBJ_FILES := $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRC_FILES))
 
+ifeq ($(DISABLE_TESTS), 0)
 TESTS_SUBDIRS := $(wildcard $(TESTS_SRC_DIR)/*)
 TESTS_BINARIES := $(patsubst $(TESTS_SRC_DIR)/%,$(TESTS_OUTPUT_DIR)/%,$(TESTS_SUBDIRS))
+endif
 
 CHOMA_HEADERS_SRC_DIR := $(SRC_DIR)
 CHOMA_HEADERS_DST_DIR := $(HEADER_OUTPUT_DIR)/choma
@@ -71,6 +74,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(LDFLAGS) -c $< -o $@
 
+ifeq ($(DISABLE_TESTS), 0)
 ifeq ($(TARGET), ios)
 $(TESTS_OUTPUT_DIR)/%: $(TESTS_SRC_DIR)/%
 	@mkdir -p $(dir $@)
@@ -82,6 +86,7 @@ $(TESTS_OUTPUT_DIR)/%: $(TESTS_SRC_DIR)/%
 	@mkdir -p $(dir $@)
 	@rm -rf $@
 	$(CC) $(CFLAGS) $(LDFLAGS) -I$(OUTPUT_DIR)/include -o $@ $</*.c $(OUTPUT_DIR)/lib/libchoma.a
+endif
 endif
 
 copy-choma-headers: $(CHOMA_HEADERS)
