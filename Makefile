@@ -1,5 +1,8 @@
 CC := clang
-CFLAGS := -Wall -Werror $(shell pkg-config --cflags libcrypto) -fPIC -Wno-pointer-to-int-cast -Wno-unused-command-line-argument -Wno-deprecated-declarations -framework CoreFoundation
+
+CFLAGS ?= -Wall -Werror $(shell pkg-config --cflags libcrypto) -fPIC -Wno-pointer-to-int-cast -Wno-unused-command-line-argument -Wno-deprecated-declarations -framework CoreFoundation
+LDFLAGS ?= 
+
 DEBUG ?= 0
 ifeq ($(DEBUG), 1)
 	CFLAGS += -fsanitize=address -static-libsan
@@ -61,23 +64,23 @@ $(STATIC_LIB): $(OBJ_FILES)
 
 $(DYNAMIC_LIB): $(OBJ_FILES)
 	@mkdir -p $(LIB_DIR)
-	$(CC) $(CFLAGS) -shared -o $@ $^
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ $^
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) -c $< -o $@
 
 ifeq ($(TARGET), ios)
 $(TESTS_OUTPUT_DIR)/%: $(TESTS_SRC_DIR)/%
 	@mkdir -p $(dir $@)
 	@rm -rf $@
-	$(CC) $(CFLAGS) -I$(OUTPUT_DIR)/include -o $@ $</*.c $(OUTPUT_DIR)/lib/libchoma.a
+	$(CC) $(CFLAGS) $(LDFLAGS) -I$(OUTPUT_DIR)/include -o $@ $</*.c $(OUTPUT_DIR)/lib/libchoma.a
 	@ldid -Sexternal/ios/entitlements.plist $@
 else
 $(TESTS_OUTPUT_DIR)/%: $(TESTS_SRC_DIR)/%
 	@mkdir -p $(dir $@)
 	@rm -rf $@
-	$(CC) $(CFLAGS) -I$(OUTPUT_DIR)/include -o $@ $</*.c $(OUTPUT_DIR)/lib/libchoma.a
+	$(CC) $(CFLAGS) $(LDFLAGS) -I$(OUTPUT_DIR)/include -o $@ $</*.c $(OUTPUT_DIR)/lib/libchoma.a
 endif
 
 copy-choma-headers: $(CHOMA_HEADERS)
