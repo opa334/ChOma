@@ -4,6 +4,7 @@ DEBUG ?= 0
 ifeq ($(DEBUG), 1)
 	CFLAGS += -fsanitize=address -static-libsan
 endif
+DISABLE_SIGNING ?= 0
 
 LIB_NAME := libchoma
 INSTALL_PATH ?= /usr/local/
@@ -11,11 +12,21 @@ INSTALL_PATH ?= /usr/local/
 ifeq ($(TARGET), ios)
 BUILD_DIR := build/ios
 OUTPUT_DIR := output/ios
-CFLAGS += -arch arm64 -isysroot $(shell xcrun --sdk iphoneos --show-sdk-path) -miphoneos-version-min=14.0 external/ios/libcrypto.a
+CFLAGS += -arch arm64 -isysroot $(shell xcrun --sdk iphoneos --show-sdk-path) -miphoneos-version-min=14.0
+ifeq ($(DISABLE_SIGNING), 0)
+CFLAGS += external/ios/libcrypto.a
+endif
 else
 BUILD_DIR := build
 OUTPUT_DIR := output
-CFLAGS += $(shell pkg-config --libs libcrypto) -mmacosx-version-min=10.13
+ifeq ($(DISABLE_SIGNING), 0)
+CFLAGS += $(shell pkg-config --libs libcrypto)
+endif
+CFLAGS += -mmacosx-version-min=10.13
+endif
+
+ifeq ($(DISABLE_SIGNING), 1)
+CFLAGS += -DDISABLE_SIGNING=1
 endif
 
 SRC_DIR := src

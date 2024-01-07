@@ -1,5 +1,7 @@
 #include "SignOSSL.h"
 
+#ifndef DISABLE_SIGNING
+
 unsigned char *signWithRSA(unsigned char *inputData, size_t inputDataLength, unsigned char *key, size_t key_len, size_t *outputDataLength)
 {
     // Create EVP_PKEY from private key data
@@ -38,3 +40,5 @@ unsigned char *signWithRSA(unsigned char *inputData, size_t inputDataLength, uns
     *outputDataLength = signatureLength;
     return signature;
 }
+
+#endif

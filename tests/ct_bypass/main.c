@@ -18,6 +18,8 @@
 #include <copyfile.h>
 #include <TargetConditionals.h>
 
+#ifndef DISABLE_SIGNING
+
 char *extract_preferred_slice(const char *fatPath)
 {
     FAT *fat = fat_init_from_path(fatPath);
@@ -518,3 +520,11 @@ int main(int argc, char *argv[]) {
     printf("CoreTrust bypass eta s0n!!\n");
     return apply_coretrust_bypass_wrapper(input, output, teamID);
 }
+
+#else
+
+int main(int argc, char *argv[]) {
+    return 0;
+}
+
+#endif
