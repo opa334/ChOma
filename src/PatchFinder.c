@@ -229,9 +229,7 @@ uint64_t pfsec_find_next_inst(PFSection *section, uint64_t startAddr, uint32_t s
 
 uint64_t pfsec_find_function_start(PFSection *section, uint64_t midAddr)
 {
-    printf("pfsec_find_function_start 1\n");
     if (section->macho->machHeader.cputype == CPU_TYPE_ARM64) {
-        printf("pfsec_find_function_start 2.1\n");
         if ((section->macho->machHeader.cpusubtype & ~CPU_SUBTYPE_MASK) == CPU_SUBTYPE_ARM64E) {
             uint64_t addr = midAddr;
             while (addr > section->vmaddr && addr < (section->vmaddr + section->size)) {
@@ -241,16 +239,12 @@ uint64_t pfsec_find_function_start(PFSection *section, uint64_t midAddr)
             }
         }
         else if ((section->macho->machHeader.cpusubtype & ~CPU_SUBTYPE_MASK) == CPU_SUBTYPE_ARM64_ALL) {
-            printf("pfsec_find_function_start 2.2\n");
             // Technique adapted from pongoOS
             uint64_t frameAddr = pfsec_find_prev_inst(section, midAddr, 0, 0x910003fd, 0xff8003ff); // add x29, sp, ?
-            printf("frameAddr: 0x%llx\n", frameAddr);
             if (frameAddr) {
                 uint64_t start = pfsec_find_prev_inst(section, frameAddr, 10, 0xa9a003e0, 0xffe003e0); // stp ?, ?, [sp, ?]!
-                printf("start1: 0x%llx\n", start);
                 if (!start) {
                     start = pfsec_find_prev_inst(section, frameAddr, 10, 0xd10003ff, 0xff8003ff); // sub sp, sp, ?
-                    printf("start1: 0x%llx\n", start);
                 }
                 return start;
             }
