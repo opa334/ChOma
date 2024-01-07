@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
 
         uint32_t ldrBytes = 0;
         uint32_t ldrMask = 0;
-        arm64_gen_ldr_imm(-1, ARM64_REG_ANY, ARM64_REG_ANY, OPT_UINT64_NONE, &ldrBytes, &ldrMask);
+        arm64_gen_ldr_imm(-1, LDR_STR_TYPE_ANY, ARM64_REG_ANY, ARM64_REG_ANY, OPT_UINT64_NONE, &ldrBytes, &ldrMask);
         PFPatternMetric *ldrMetric = pfmetric_pattern_init(&ldrBytes, &ldrMask, sizeof(ldrBytes), sizeof(uint32_t));
         pfmetric_run(kernelTextSection, ldrMetric, ^(uint64_t vmaddr, bool *stop) {
             arm64_register destinationReg;
@@ -111,19 +111,20 @@ int main(int argc, char *argv[]) {
             uint64_t imm = 0;
             uint32_t inst = pfsec_read32(kernelTextSection, vmaddr);
             char type = 0;
-            if (arm64_dec_ldr_imm(inst, &destinationReg, &sourceReg, &imm, &type) == 0) {
+            arm64_ldr_str_type instType;
+            if (arm64_dec_ldr_imm(inst, &destinationReg, &sourceReg, &imm, &type, &instType) == 0) {
                 if (type == 0) {
-                    printf("%llx: \"ldr %s%u, [%s%u, 0x%llx]\"\n", vmaddr, arm64_reg_get_type_string(destinationReg), ARM64_REG_GET_NUM(destinationReg), arm64_reg_get_type_string(sourceReg), ARM64_REG_GET_NUM(sourceReg), imm);
+                    printf("%llx: \"ldr %s%u, [%s%u, 0x%llx]%s\"\n", vmaddr, arm64_reg_get_type_string(destinationReg), ARM64_REG_GET_NUM(destinationReg), arm64_reg_get_type_string(sourceReg), ARM64_REG_GET_NUM(sourceReg), imm, instType == LDR_STR_TYPE_PRE_INDEX ? "!" : "");
                 }
                 else {
-                    printf("%llx: \"ldr%c %s%u, [%s%u, 0x%llx]\"\n", vmaddr, type, arm64_reg_get_type_string(destinationReg), ARM64_REG_GET_NUM(destinationReg), arm64_reg_get_type_string(sourceReg), ARM64_REG_GET_NUM(sourceReg), imm);
+                    printf("%llx: \"ldr%c %s%u, [%s%u, 0x%llx]%s\"\n", vmaddr, type, arm64_reg_get_type_string(destinationReg), ARM64_REG_GET_NUM(destinationReg), arm64_reg_get_type_string(sourceReg), ARM64_REG_GET_NUM(sourceReg), imm, instType == LDR_STR_TYPE_PRE_INDEX ? "!" : "");
                 }
             }
         });
 
         uint32_t strBytes = 0;
         uint32_t strMask = 0;
-        arm64_gen_str_imm(-1, ARM64_REG_ANY, ARM64_REG_ANY, OPT_UINT64_NONE, &strBytes, &strMask);
+        arm64_gen_str_imm(-1, LDR_STR_TYPE_ANY, ARM64_REG_ANY, ARM64_REG_ANY, OPT_UINT64_NONE, &strBytes, &strMask);
         PFPatternMetric *strMetric = pfmetric_pattern_init(&strBytes, &strMask, sizeof(strBytes), sizeof(uint32_t));
         pfmetric_run(kernelTextSection, strMetric, ^(uint64_t vmaddr, bool *stop) {
             arm64_register destinationReg;
@@ -131,12 +132,13 @@ int main(int argc, char *argv[]) {
             uint64_t imm = 0;
             uint32_t inst = pfsec_read32(kernelTextSection, vmaddr);
             char type = 0;
-            if (arm64_dec_str_imm(inst, &destinationReg, &sourceReg, &imm, &type) == 0) {
+            arm64_ldr_str_type instType;
+            if (arm64_dec_str_imm(inst, &destinationReg, &sourceReg, &imm, &type, &instType) == 0) {
                 if (type == 0) {
-                    printf("%llx: \"str %s%u, [%s%u, 0x%llx]\"\n", vmaddr, arm64_reg_get_type_string(destinationReg), ARM64_REG_GET_NUM(destinationReg), arm64_reg_get_type_string(sourceReg), ARM64_REG_GET_NUM(sourceReg), imm);
+                    printf("%llx: \"str %s%u, [%s%u, 0x%llx]%s\"\n", vmaddr, arm64_reg_get_type_string(destinationReg), ARM64_REG_GET_NUM(destinationReg), arm64_reg_get_type_string(sourceReg), ARM64_REG_GET_NUM(sourceReg), imm, instType == LDR_STR_TYPE_PRE_INDEX ? "!" : "");
                 }
                 else {
-                    printf("%llx: \"str%c %s%u, [%s%u, 0x%llx]\"\n", vmaddr, type, arm64_reg_get_type_string(destinationReg), ARM64_REG_GET_NUM(destinationReg), arm64_reg_get_type_string(sourceReg), ARM64_REG_GET_NUM(sourceReg), imm);
+                    printf("%llx: \"str%c %s%u, [%s%u, 0x%llx]%s\"\n", vmaddr, type, arm64_reg_get_type_string(destinationReg), ARM64_REG_GET_NUM(destinationReg), arm64_reg_get_type_string(sourceReg), ARM64_REG_GET_NUM(sourceReg), imm, instType == LDR_STR_TYPE_PRE_INDEX ? "!" : "");
                 }                
             }
         });

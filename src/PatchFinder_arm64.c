@@ -7,8 +7,8 @@ uint64_t pfsec_arm64_resolve_adrp_ldr_str_add_reference(PFSection *section, uint
 	uint32_t ldrStrAddInst = pfsec_read32(section, ldrStrAddAddr);
 	
 	uint64_t imm = 0;
-	if (arm64_dec_ldr_imm(ldrStrAddInst, NULL, NULL, &imm, NULL) != 0) {
-		if (arm64_dec_str_imm(ldrStrAddInst, NULL, NULL, &imm, NULL) != 0) {
+	if (arm64_dec_ldr_imm(ldrStrAddInst, NULL, NULL, &imm, NULL, NULL) != 0) {
+		if (arm64_dec_str_imm(ldrStrAddInst, NULL, NULL, &imm, NULL, NULL) != 0) {
 			uint16_t addImm = 0;
 			if (arm64_dec_add_imm(ldrStrAddInst, NULL, NULL, &addImm) == 0) {
 				imm = (uint64_t)addImm;
@@ -30,8 +30,8 @@ uint64_t pfsec_arm64_resolve_adrp_ldr_str_add_reference_auto(PFSection *section,
 	uint32_t inst = pfsec_read32(section, ldrStrAddAddr);
 
 	arm64_register reg;
-	if (arm64_dec_ldr_imm(inst, NULL, &reg, NULL, NULL) != 0) {
-		if (arm64_dec_str_imm(inst, NULL, &reg, NULL, NULL) != 0) {
+	if (arm64_dec_ldr_imm(inst, NULL, &reg, NULL, NULL, NULL) != 0) {
+		if (arm64_dec_str_imm(inst, NULL, &reg, NULL, NULL, NULL) != 0) {
 			if (arm64_dec_add_imm(inst, NULL, &reg, NULL) != 0) {
 				return 0;
 			}
@@ -58,7 +58,7 @@ uint64_t pfsec_arm64_resolve_stub(PFSection *section, uint64_t stubAddr)
 
 	uint32_t stubInst[3], stubMask[3];
 	arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, ARM64_REG_X(16), &stubInst[0], &stubMask[0]);
-	arm64_gen_ldr_imm(0, ARM64_REG_X(16), ARM64_REG_X(16), OPT_UINT64_NONE, &stubInst[1], &stubMask[1]);
+	arm64_gen_ldr_imm(0, LDR_STR_TYPE_UNSIGNED, ARM64_REG_X(16), ARM64_REG_X(16), OPT_UINT64_NONE, &stubInst[1], &stubMask[1]);
 	stubInst[2] = 0xd61f0200;
 	stubMask[2] = 0xffffffff;
 
@@ -125,7 +125,8 @@ void pfsec_arm64_enumerate_xrefs(PFSection *section, Arm64XrefTypeMask types, vo
 			arm64_register ldrSourceReg;
 			uint64_t ldrImm = 0;
 			char ldrType = -1;
-			if (arm64_dec_ldr_imm(inst, &ldrDestinationReg, &ldrSourceReg, &ldrImm, &ldrType) == 0) {
+			arm64_ldr_str_type instType = 0;
+			if (arm64_dec_ldr_imm(inst, &ldrDestinationReg, &ldrSourceReg, &ldrImm, &ldrType, &instType) == 0) {
 				uint32_t adrpInst = 0;
 				uint32_t adrpMask = 0;
 				if (arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, ldrSourceReg, &adrpInst, &adrpMask) == 0) {
@@ -146,7 +147,8 @@ void pfsec_arm64_enumerate_xrefs(PFSection *section, Arm64XrefTypeMask types, vo
 			arm64_register strSourceReg;
 			uint64_t strImm = 0;
 			char strType = -1;
-			if (arm64_dec_str_imm(inst, &strDestinationReg, &strSourceReg, &strImm, &strType) == 0) {
+			arm64_ldr_str_type instType = 0;
+			if (arm64_dec_str_imm(inst, &strDestinationReg, &strSourceReg, &strImm, &strType, &instType) == 0) {
 				uint32_t adrpInst = 0;
 				uint32_t adrpMask = 0;
 				if (arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, strSourceReg, &adrpInst, &adrpMask) == 0) {

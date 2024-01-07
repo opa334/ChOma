@@ -27,6 +27,13 @@ enum {
 	ARM64_REG_MASK_ANY_ALL = (ARM64_REG_MASK_ALL | ARM64_REG_MASK_ANY_FLAG),
 };
 
+typedef enum {
+	LDR_STR_TYPE_ANY, // NOTE: "ANY" will inevitably also match STUR and LDUR instructions
+	LDR_STR_TYPE_POST_INDEX,
+	LDR_STR_TYPE_PRE_INDEX,
+	LDR_STR_TYPE_UNSIGNED,
+} arm64_ldr_str_type;
+
 typedef struct s_arm64_register {
 	uint8_t mask;
 	arm64_register_type type;
@@ -76,10 +83,10 @@ int arm64_gen_mov_imm(char type, arm64_register destinationReg, optional_uint64_
 int arm64_dec_mov_imm(uint32_t inst, arm64_register *destinationRegOut, uint64_t *immOut, uint64_t *shiftOut, char *typeOut);
 int arm64_gen_add_imm(arm64_register destinationReg, arm64_register sourceReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut);
 int arm64_dec_add_imm(uint32_t inst, arm64_register *destinationRegOut, arm64_register *sourceRegOut, uint16_t *immOut);
-int arm64_gen_ldr_imm(char type, arm64_register destinationReg, arm64_register addrReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut);
-int arm64_dec_ldr_imm(uint32_t inst, arm64_register *destinationReg, arm64_register *addrReg, uint64_t *immOut, char *typeOut);
-int arm64_gen_str_imm(char type, arm64_register sourceReg, arm64_register addrReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut);
-int arm64_dec_str_imm(uint32_t inst, arm64_register *sourceReg, arm64_register *addrReg, uint64_t *immOut, char *typeOut);
+int arm64_gen_ldr_imm(char type, arm64_ldr_str_type instType, arm64_register destinationReg, arm64_register addrReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut);
+int arm64_dec_ldr_imm(uint32_t inst, arm64_register *destinationReg, arm64_register *addrReg, uint64_t *immOut, char *typeOut, arm64_ldr_str_type *instTypeOut);
+int arm64_gen_str_imm(char type, arm64_ldr_str_type instType, arm64_register sourceReg, arm64_register addrReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut);
+int arm64_dec_str_imm(uint32_t inst, arm64_register *sourceRegOut, arm64_register *addrRegOut, uint64_t *immOut, char *typeOut, arm64_ldr_str_type *instTypeOut);
 int arm64_gen_ldr_lit(arm64_register destinationReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut);
 int arm64_dec_ldr_lit(uint32_t inst, arm64_register *destinationReg, int64_t *immOut);
 int arm64_gen_cb_n_z(optional_bool isCbnz, arm64_register reg, optional_uint64_t optTarget, uint32_t *bytesOut, uint32_t *maskOut);
