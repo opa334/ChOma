@@ -2,6 +2,7 @@ CC := clang
 
 CFLAGS ?= -Wall -Werror $(shell pkg-config --cflags libcrypto) -fPIC -Wno-pointer-to-int-cast -Wno-unused-command-line-argument -Wno-deprecated-declarations -framework CoreFoundation
 LDFLAGS ?= 
+DYLIB_LDFLAGS ?= 
 
 DEBUG ?= 0
 ifeq ($(DEBUG), 1)
@@ -64,7 +65,7 @@ $(STATIC_LIB): $(OBJ_FILES)
 
 $(DYNAMIC_LIB): $(OBJ_FILES)
 	@mkdir -p $(LIB_DIR)
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ $^
+	$(CC) $(CFLAGS) $(LDFLAGS) $(DYLIB_LDFLAGS) -shared -o $@ $^
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(dir $@)
