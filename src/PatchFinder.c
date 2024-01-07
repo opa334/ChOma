@@ -259,21 +259,15 @@ void pfsec_free(PFSection *section)
     free(section);
 }
 
-void _pfsec_run_pattern_metric(PFSection *section, uint64_t customStartAddr, PFPatternMetric *patternMetric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
+void _pfsec_run_pattern_metric(PFSection *section, uint64_t startAddr, uint64_t endAddr, PFPatternMetric *patternMetric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
 {
     uint16_t alignment = patternMetric->alignment;
 
-    uint64_t searchStartAddr = section->vmaddr;
-    uint64_t searchEndAddr = searchStartAddr + section->size;
-    if (customStartAddr && (customStartAddr >= searchStartAddr) && (customStartAddr < searchEndAddr)) {
-        searchStartAddr = customStartAddr;
-    }
-
-    while (pfsec_find_memory(section, searchStartAddr, searchEndAddr, patternMetric->bytes, patternMetric->mask, patternMetric->nbytes, alignment, &searchStartAddr) == 0) {
+    while (pfsec_find_memory(section, startAddr, endAddr, patternMetric->bytes, patternMetric->mask, patternMetric->nbytes, alignment, &startAddr) == 0) {
         bool stop = false;
-        matchBlock(searchStartAddr, &stop);
+        matchBlock(startAddr, &stop);
         if (stop) break;
-        searchStartAddr += alignment;
+        startAddr += alignment;
     }
 }
 
@@ -290,7 +284,7 @@ PFPatternMetric *pfmetric_pattern_init(void *bytes, void *mask, size_t nbytes, u
     return metric;
 }
 
-void _pfsec_run_string_metric(PFSection *section, uint64_t customStart, PFStringMetric *stringMetric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
+void _pfsec_run_string_metric(PFSection *section, uint64_t startAddr, uint64_t endAddr, PFStringMetric *stringMetric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
 {
     char *str = NULL;
     uint64_t searchOffset = 0;
@@ -315,7 +309,7 @@ PFStringMetric *pfmetric_string_init(const char *string)
     return metric;
 }
 
-void _pfsec_run_arm64_xref_metric(PFSection *section, uint64_t customStart, PFXrefMetric *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
+void _pfsec_run_arm64_xref_metric(PFSection *section, uint64_t startAddr, uint64_t endAddr, PFXrefMetric *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
 {
     Arm64XrefTypeMask arm64Types = 0;
     if (metric->typeMask == 0) return;
@@ -333,11 +327,11 @@ void _pfsec_run_arm64_xref_metric(PFSection *section, uint64_t customStart, PFXr
     });
 }
 
-void _pfsec_run_xref_metric(PFSection *section, uint64_t customStart, PFXrefMetric *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
+void _pfsec_run_xref_metric(PFSection *section, uint64_t startAddr, uint64_t endAddr, PFXrefMetric *xrefMetric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
 {
     switch(section->macho->machHeader.cputype) {
         case CPU_TYPE_ARM64:
-        _pfsec_run_arm64_xref_metric(section, customStart, metric, matchBlock);
+        _pfsec_run_arm64_xref_metric(section, startAddr, endAddr, xrefMetric, matchBlock);
         break;
     }
 }
@@ -362,20 +356,23 @@ void pfmetric_free(void *metric)
     free(metric);
 }
 
-void pfmetric_run_from(PFSection *section, uint64_t customStart, void *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
+void pfmetric_run_in_range(PFSection *section, uint64_t startAddr, uint64_t endAddr, void *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
 {
+    if (startAddr == -1ULL) startAddr = section->vmaddr;
+    if (endAddr == -1ULL) endAddr = section->vmaddr + section->size;
+
     MetricShared *shared = metric;
     switch (shared->type) {
         case PF_METRIC_TYPE_PATTERN: {
-            _pfsec_run_pattern_metric(section, customStart, metric, matchBlock);
+            _pfsec_run_pattern_metric(section, startAddr, endAddr, metric, matchBlock);
             break;
         }
         case PF_METRIC_TYPE_STRING: {
-            _pfsec_run_string_metric(section, customStart, metric, matchBlock);
+            _pfsec_run_string_metric(section, startAddr, endAddr, metric, matchBlock);
             break;
         }
         case PF_METRIC_TYPE_XREF: {
-            _pfsec_run_xref_metric(section, customStart, metric, matchBlock);
+            _pfsec_run_xref_metric(section, startAddr, endAddr, metric, matchBlock);
             break;
         }
     }
@@ -383,7 +380,7 @@ void pfmetric_run_from(PFSection *section, uint64_t customStart, void *metric, v
 
 void pfmetric_run(PFSection *section, void *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
 {
-    return pfmetric_run_from(section, 0, metric, matchBlock);
+    return pfmetric_run_in_range(section, -1, -1, metric, matchBlock);
 }
 
 

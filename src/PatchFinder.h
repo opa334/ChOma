@@ -70,6 +70,6 @@ PFStringMetric *pfmetric_string_init(const char *string);
 PFXrefMetric *pfmetric_xref_init(uint64_t address, PFXrefTypeMask types);
 void pfmetric_free(void *metric);
 
-void pfmetric_run_from(PFSection *section, uint64_t customStart, void *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop));
+void pfmetric_run_in_range(PFSection *section, uint64_t startAddr, uint64_t endAddr, void *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop));
 void pfmetric_run(PFSection *section, void *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop));
 #endif
