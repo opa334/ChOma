@@ -56,3 +56,26 @@ void print_hash(uint8_t *hash, size_t size)
         printf("%02x", hash[j]);
     }
 }
+
+void enumerate_range(uint64_t start, uint64_t end, uint16_t alignment, size_t nbytes, bool (^enumerator)(uint64_t))
+{
+    if (start == end) return;
+    if (alignment == 0) return;
+    if (nbytes == 0) return;
+    if (nbytes % alignment) return;
+
+    int dir = start < end ? 1 : -1;
+
+    if (dir == 1) {
+        end -= nbytes;
+        if (start >= end) return;
+    }
+    else {
+        start -= nbytes;
+        if (start <= end) return;
+    }
+
+    for (uint64_t cur = start; (cur + (alignment * dir)) != end; cur += (dir * alignment)) {
+        if (!enumerator(cur)) break;
+    }
+}

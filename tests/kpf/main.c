@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
 
         uint32_t pacibspBytes = 0xD503237F;
         uint32_t pacibspMask = 0xFFFFFFFF;
-        PFPatternMetric *pacibspMetric = pfmetric_pattern_init(&pacibspBytes, &pacibspMask, sizeof(pacibspBytes), BYTE_PATTERN_ALIGN_32_BIT);
+        PFPatternMetric *pacibspMetric = pfmetric_pattern_init(&pacibspBytes, &pacibspMask, sizeof(pacibspBytes), sizeof(uint32_t));
         pfmetric_run(kernelTextSection, pacibspMetric, ^(uint64_t vmaddr, bool *stop) {
             printf("PACIBSP: 0x%llx (%x)\n", vmaddr, pfsec_read32(kernelTextSection, vmaddr+4));
         });
@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
         uint32_t bBytes = 0;
         uint32_t bMask = 0;
         arm64_gen_b_l(OPT_BOOL_NONE, OPT_UINT64_NONE, OPT_UINT64_NONE, &bBytes, &bMask);
-        PFPatternMetric *bMetric = pfmetric_pattern_init(&bBytes, &bMask, sizeof(bBytes), BYTE_PATTERN_ALIGN_32_BIT);
+        PFPatternMetric *bMetric = pfmetric_pattern_init(&bBytes, &bMask, sizeof(bBytes), sizeof(uint32_t));
         pfmetric_run(kernelTextSection, bMetric, ^(uint64_t vmaddr, bool *stop) {
             uint64_t target = 0;
             bool isBl = false;
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
         uint32_t adrBytes = 0;
         uint32_t adrMask = 0;
         arm64_gen_adr_p(OPT_BOOL_NONE, OPT_UINT64_NONE, OPT_UINT64_NONE, ARM64_REG_ANY, &adrBytes, &adrMask);
-        PFPatternMetric *adrMetric = pfmetric_pattern_init(&adrBytes, &adrMask, sizeof(adrBytes), BYTE_PATTERN_ALIGN_32_BIT);
+        PFPatternMetric *adrMetric = pfmetric_pattern_init(&adrBytes, &adrMask, sizeof(adrBytes), sizeof(uint32_t));
         pfmetric_run(kernelTextSection, adrMetric, ^(uint64_t vmaddr, bool *stop) {
             uint64_t target = 0;
             bool isAdrp = false;
@@ -89,8 +89,7 @@ int main(int argc, char *argv[]) {
         uint32_t addBytes = 0;
         uint32_t addMask = 0;
         arm64_gen_add_imm(ARM64_REG_ANY, ARM64_REG_ANY, OPT_UINT64_NONE, &addBytes, &addMask);
-        //printf("addBytes: %x, addMask: %x\n", addBytes, addMask);
-        PFPatternMetric *addMetric = pfmetric_pattern_init(&addBytes, &addMask, sizeof(addBytes), BYTE_PATTERN_ALIGN_32_BIT);
+        PFPatternMetric *addMetric = pfmetric_pattern_init(&addBytes, &addMask, sizeof(addBytes), sizeof(uint32_t));
         pfmetric_run(kernelTextSection, addMetric, ^(uint64_t vmaddr, bool *stop) {
             arm64_register destinationReg;
             arm64_register sourceReg;
@@ -105,7 +104,7 @@ int main(int argc, char *argv[]) {
         uint32_t ldrBytes = 0;
         uint32_t ldrMask = 0;
         arm64_gen_ldr_imm(-1, ARM64_REG_ANY, ARM64_REG_ANY, OPT_UINT64_NONE, &ldrBytes, &ldrMask);
-        PFPatternMetric *ldrMetric = pfmetric_pattern_init(&ldrBytes, &ldrMask, sizeof(ldrBytes), BYTE_PATTERN_ALIGN_32_BIT);
+        PFPatternMetric *ldrMetric = pfmetric_pattern_init(&ldrBytes, &ldrMask, sizeof(ldrBytes), sizeof(uint32_t));
         pfmetric_run(kernelTextSection, ldrMetric, ^(uint64_t vmaddr, bool *stop) {
             arm64_register destinationReg;
             arm64_register sourceReg;
@@ -125,7 +124,7 @@ int main(int argc, char *argv[]) {
         uint32_t strBytes = 0;
         uint32_t strMask = 0;
         arm64_gen_str_imm(-1, ARM64_REG_ANY, ARM64_REG_ANY, OPT_UINT64_NONE, &strBytes, &strMask);
-        PFPatternMetric *strMetric = pfmetric_pattern_init(&strBytes, &strMask, sizeof(strBytes), BYTE_PATTERN_ALIGN_32_BIT);
+        PFPatternMetric *strMetric = pfmetric_pattern_init(&strBytes, &strMask, sizeof(strBytes), sizeof(uint32_t));
         pfmetric_run(kernelTextSection, strMetric, ^(uint64_t vmaddr, bool *stop) {
             arm64_register destinationReg;
             arm64_register sourceReg;

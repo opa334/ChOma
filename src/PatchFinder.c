@@ -5,18 +5,18 @@
 #include "PatchFinder_arm64.h"
 #include <mach/machine.h>
 
-int raw_buffer_find_memory(uint8_t *buf, uint64_t searchOffset, size_t searchSize, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundOffsetOut)
+int raw_buffer_find_memory(uint8_t *buf, uint64_t searchStartOffset, uint64_t searchEndOffset, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundOffsetOut)
 {
-    if (nbytes % alignment != 0) return 0;
-    if (nbytes == 0) return 0;
-
-    for (uint64_t i = 0; i < (searchSize - nbytes); i += alignment) {
-        if (!memcmp_masked(&buf[searchOffset + i], bytes, mask, nbytes)) {
-            *foundOffsetOut = searchOffset + i;
-            return 0;
+    __block int r = -1;
+    enumerate_range(searchStartOffset, searchEndOffset, alignment, nbytes, ^bool(uint64_t cur) {
+        if (!memcmp_masked(&buf[cur], bytes, mask, nbytes)) {
+            *foundOffsetOut = cur;
+            r = 0;
+            return false;
         }
-    }
-    return -1;
+        return true;
+    });
+    return r;
 }
 
 PFSection *pfsec_init_from_macho(MachO *macho, const char *filesetEntryId, const char *segName, const char *sectName)
@@ -180,41 +180,51 @@ int pfsec_set_cached(PFSection *section, bool cached)
     return 0;
 }
 
-int pfsec_find_memory(PFSection *section, uint64_t searchOffset, size_t searchSize, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundOffsetOut)
+int pfsec_find_memory_rel(PFSection *section, uint64_t searchStartOffset, uint64_t searchEndOffset, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundRelOffsetOut)
 {
     if (section->cache) {
-        return raw_buffer_find_memory(section->cache, searchOffset, searchSize, bytes, mask, nbytes, alignment, foundOffsetOut);
+        return raw_buffer_find_memory(section->cache, searchStartOffset, searchEndOffset, bytes, mask, nbytes, alignment, foundRelOffsetOut);
     }
     else {
         uint64_t foundFileoff = 0;
-        int r = memory_stream_find_memory(macho_get_stream(section->macho), section->fileoff + searchOffset, searchSize, bytes, mask, nbytes, alignment, &foundFileoff);
+        int r = memory_stream_find_memory(macho_get_stream(section->macho), section->fileoff + searchStartOffset, section->fileoff + searchEndOffset, bytes, mask, nbytes, alignment, &foundFileoff);
         if (r == 0) {
-            *foundOffsetOut = foundFileoff - section->fileoff;
+            *foundRelOffsetOut = foundFileoff - section->fileoff;
         }
         return r;
     }
 }
 
+int pfsec_find_memory(PFSection *section, uint64_t searchStartAddr, uint64_t searchEndAddr, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundAddrOut)
+{
+    if (searchStartAddr < section->vmaddr || searchStartAddr > (section->vmaddr + section->size)) return -1;
+    if (searchEndAddr < section->vmaddr   || searchEndAddr > (section->vmaddr + section->size)) return -1;
+
+    uint64_t foundRelOff = 0;
+    int r = pfsec_find_memory_rel(section, searchStartAddr - section->vmaddr, searchEndAddr - section->vmaddr, bytes, mask, nbytes, alignment, &foundRelOff);
+    if (r == 0) {
+        *foundAddrOut = section->vmaddr + foundRelOff;
+    }
+
+    return r;
+}
+
 uint64_t pfsec_find_prev_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask)
 {
-    if (startAddr < section->vmaddr) return 0;
-    for (uint64_t addr = startAddr; addr >= section->vmaddr && (searchCount > 0 ? (addr >= (startAddr - (searchCount*4))) : true); addr -= 4) {
-        uint32_t curInst = pfsec_read32(section, addr);
-        if ((curInst & mask) == inst) {
-            return addr;
-        }
-    }
-    return 0;
+    uint64_t out = 0;
+    uint64_t endAddr = searchCount ? (startAddr - (sizeof(uint32_t) * searchCount)) : (section->vmaddr + section->size);
+    pfsec_find_memory(section, startAddr, endAddr, &inst, &mask, sizeof(inst), sizeof(uint32_t), &out);
+    if (!out) return 0;
+    return out;
 }
 
 uint64_t pfsec_find_next_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask)
 {
-    if (startAddr < section->vmaddr) return 0;
-    for (uint64_t addr = startAddr; addr < (section->vmaddr + section->size) && (searchCount > 0 ? (addr < (startAddr + (searchCount*4))) : true); addr += 4) {
-        uint32_t curInst = pfsec_read32(section, addr);
-        if ((curInst & mask) == inst) return addr;
-    }
-    return 0;
+    uint64_t out = 0;
+    uint64_t endAddr = searchCount ? (startAddr + (sizeof(uint32_t) * searchCount)) : (section->vmaddr + section->size);
+    pfsec_find_memory(section, startAddr, endAddr, &inst, &mask, sizeof(inst), sizeof(uint32_t), &out);
+    if (!out) return 0;
+    return out;
 }
 
 uint64_t pfsec_find_function_start(PFSection *section, uint64_t midAddr)
@@ -249,45 +259,25 @@ void pfsec_free(PFSection *section)
     free(section);
 }
 
-void _pfsec_run_bytepatter_metric(PFSection *section, uint64_t customStart, PFPatternMetric *bytePatternMetric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
+void _pfsec_run_pattern_metric(PFSection *section, uint64_t customStartAddr, PFPatternMetric *patternMetric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
 {
-    uint16_t alignment = 0;
-    switch (bytePatternMetric->alignment) {
-        case BYTE_PATTERN_ALIGN_8_BIT: {
-            alignment = 1;
-            break;
-        }
-        case BYTE_PATTERN_ALIGN_16_BIT: {
-            alignment = 2;
-            break;
-        }
-        case BYTE_PATTERN_ALIGN_32_BIT: {
-            alignment = 4;
-            break;
-        }
-        case BYTE_PATTERN_ALIGN_64_BIT: {
-            alignment = 8;
-            break;
-        }
+    uint16_t alignment = patternMetric->alignment;
+
+    uint64_t searchStartAddr = section->vmaddr;
+    uint64_t searchEndAddr = searchStartAddr + section->size;
+    if (customStartAddr && (customStartAddr >= searchStartAddr) && (customStartAddr < searchEndAddr)) {
+        searchStartAddr = customStartAddr;
     }
 
-    uint64_t searchOffset = 0;
-    if (customStart) {
-        searchOffset = customStart - section->vmaddr;
-        if (searchOffset > section->size) {
-            return;
-        }
-    }
-
-    while (pfsec_find_memory(section, searchOffset, (section->size - searchOffset), bytePatternMetric->bytes, bytePatternMetric->mask, bytePatternMetric->nbytes, alignment, &searchOffset) == 0) {
+    while (pfsec_find_memory(section, searchStartAddr, searchEndAddr, patternMetric->bytes, patternMetric->mask, patternMetric->nbytes, alignment, &searchStartAddr) == 0) {
         bool stop = false;
-        matchBlock(section->vmaddr + searchOffset, &stop);
+        matchBlock(searchStartAddr, &stop);
         if (stop) break;
-        searchOffset += alignment;
+        searchStartAddr += alignment;
     }
 }
 
-PFPatternMetric *pfmetric_pattern_init(void *bytes, void *mask, size_t nbytes, PFBytePatternAlignment alignment)
+PFPatternMetric *pfmetric_pattern_init(void *bytes, void *mask, size_t nbytes, uint16_t alignment)
 {
     PFPatternMetric *metric = malloc(sizeof(PFPatternMetric));
 
@@ -377,7 +367,7 @@ void pfmetric_run_from(PFSection *section, uint64_t customStart, void *metric, v
     MetricShared *shared = metric;
     switch (shared->type) {
         case PF_METRIC_TYPE_PATTERN: {
-            _pfsec_run_bytepatter_metric(section, customStart, metric, matchBlock);
+            _pfsec_run_pattern_metric(section, customStart, metric, matchBlock);
             break;
         }
         case PF_METRIC_TYPE_STRING: {

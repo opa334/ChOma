@@ -37,21 +37,13 @@ typedef struct s_MetricShared {
 	uint32_t type;
 } MetricShared;
 
-
-typedef enum {
-	BYTE_PATTERN_ALIGN_8_BIT,
-	BYTE_PATTERN_ALIGN_16_BIT,
-	BYTE_PATTERN_ALIGN_32_BIT,
-	BYTE_PATTERN_ALIGN_64_BIT,
-} PFBytePatternAlignment;
-
 typedef struct s_PFPatternMetric {
 	MetricShared shared;
 
 	void *bytes;
 	void *mask;
 	size_t nbytes;
-	PFBytePatternAlignment alignment;
+	uint16_t alignment;
 } PFPatternMetric;
 
 typedef struct s_PFStringMetric {
@@ -73,7 +65,7 @@ typedef struct s_PFXrefMetric {
 	PFXrefTypeMask typeMask;
 } PFXrefMetric;
 
-PFPatternMetric *pfmetric_pattern_init(void *bytes, void *mask, size_t nbytes, PFBytePatternAlignment alignment);
+PFPatternMetric *pfmetric_pattern_init(void *bytes, void *mask, size_t nbytes, uint16_t alignment);
 PFStringMetric *pfmetric_string_init(const char *string);
 PFXrefMetric *pfmetric_xref_init(uint64_t address, PFXrefTypeMask types);
 void pfmetric_free(void *metric);
