@@ -413,11 +413,10 @@ static int _arm64_gen_str_ldr_imm(uint32_t inst, uint32_t mask, char type, arm64
         else {
             bool isVector = ARM64_REG_IS_VECTOR(sourceDestinationReg);
             if (isVector && type != 0) return -1;
-            mask |= (1 << 26);
+            mask |= (1 << 23) | (1 << 26) | (0b11 << 30);
             inst |= (isVector << 26);
 
             uint8_t size = 0b00;
-            uint8_t opc = 0b00;
 
             arm64_register_type regType = ARM64_REG_GET_TYPE(sourceDestinationReg);
 
@@ -425,30 +424,25 @@ static int _arm64_gen_str_ldr_imm(uint32_t inst, uint32_t mask, char type, arm64
                 switch (regType) {
                     case ARM64_REG_TYPE_Q:
                     size = 0b00;
-                    opc = 0b11;
+                    inst |= (1 << 23);
                     break;
                     case ARM64_REG_TYPE_D:
                     size = 0b11;
-                    opc = 0b01;
                     break;
                     case ARM64_REG_TYPE_S:
                     size = 0b10;
-                    opc = 0b01;
                     break;
                     case ARM64_REG_TYPE_H:
                     size = 0b01;
-                    opc = 0b01;
                     break;
                     case ARM64_REG_TYPE_B:
                     size = 0b00;
-                    opc = 0b01;
                     break;
                     default:
                     break;
                 }
             }
             else {
-                opc = 0b01;
                 if (regType == ARM64_REG_TYPE_X) {
                     size = 0b11;
                 }
@@ -462,9 +456,7 @@ static int _arm64_gen_str_ldr_imm(uint32_t inst, uint32_t mask, char type, arm64
                     size = 0b00;
                 }
             }
-
-            mask |= (0b11 << 22) | (0b11 << 30);
-            inst |= (opc << 22) | (size << 30);
+            inst |= (size << 30);
         }
     }
 
@@ -510,13 +502,12 @@ static int _arm64_dec_str_ldr_imm(uint32_t inst, arm64_register *sourceDestinati
     }
 
     uint8_t size = (inst >> 30);
-    uint8_t opc = (inst >> 22) & 0b11;
     char instructionType = 0;
     arm64_register_type registerType = 0;
     if (isVector) {
         switch (size) {
             case 0b00:
-            if (opc & 0b10) {
+            if (inst & (1 >> 23)) {
                 registerType = ARM64_REG_TYPE_Q;
             }
             else {
