@@ -18,6 +18,8 @@
 #include <copyfile.h>
 #include <TargetConditionals.h>
 
+
+#define CPU_SUBTYPE_ARM64E_ABI_V2 0x80000000
 #ifndef DISABLE_SIGNING
 
 char *extract_preferred_slice(const char *fatPath)
@@ -34,11 +36,15 @@ char *extract_preferred_slice(const char *fatPath)
             // If that fails, check for regular arm64
             macho = fat_find_slice(fat, CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64_ALL);
             if (!macho) {
-                // If that fails, check for arm64e
-                macho = fat_find_slice(fat, CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64E);
+                // If that fails, check for arm64e with ABI v2
+                macho = fat_find_slice(fat, CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64E | CPU_SUBTYPE_ARM64E_ABI_V2);
                 if (!macho) {
-                    fat_free(fat);
-                    return NULL;
+                    // If that fails, check for arm64e
+                    macho = fat_find_slice(fat, CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64E);
+                    if (!macho) {
+                        fat_free(fat);
+                        return NULL;
+                    }
                 }
             }
         }
