@@ -144,7 +144,7 @@ FAT *fat_init_from_memory_stream(MemoryStream *stream)
 
     if (fat_parse_slices(fat) != 0) goto fail;
 
-    size_t size = memory_stream_get_size(fat->stream);
+    //size_t size = memory_stream_get_size(fat->stream);
     //printf("File size 0x%zx bytes, MachO slice count %u.\n", size, fat->slicesCount);
     return fat;
 
