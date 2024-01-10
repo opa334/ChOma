@@ -35,7 +35,7 @@ int fat_parse_slices(FAT *fat)
 
     // Check if the file is a FAT file
     if (fatHeader.magic == FAT_MAGIC || fatHeader.magic == FAT_MAGIC_64) {
-        printf("FAT header found! Magic: 0x%x.\n", fatHeader.magic);
+        //printf("FAT header found! Magic: 0x%x.\n", fatHeader.magic);
         bool is64 = fatHeader.magic == FAT_MAGIC_64;
 
         // Sanity check the number of machOs
@@ -103,7 +103,7 @@ int fat_parse_slices(FAT *fat)
         if (!singleSlice) return -1;
         fat->slices[0] = singleSlice;
     }
-    printf("Found %u MachO slice%s\n", fat->slicesCount, fat->slicesCount > 1 ? "s." : ".");
+    //printf("Found %u MachO slice%s\n", fat->slicesCount, fat->slicesCount > 1 ? "s." : ".");
     return 0;
 }
 
@@ -145,7 +145,7 @@ FAT *fat_init_from_memory_stream(MemoryStream *stream)
     if (fat_parse_slices(fat) != 0) goto fail;
 
     size_t size = memory_stream_get_size(fat->stream);
-    printf("File size 0x%zx bytes, MachO slice count %u.\n", size, fat->slicesCount);
+    //printf("File size 0x%zx bytes, MachO slice count %u.\n", size, fat->slicesCount);
     return fat;
 
 fail:
