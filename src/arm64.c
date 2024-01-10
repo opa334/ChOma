@@ -507,7 +507,7 @@ static int _arm64_dec_str_ldr_imm(uint32_t inst, arm64_register *sourceDestinati
     if (isVector) {
         switch (size) {
             case 0b00:
-            if (inst & (1 >> 23)) {
+            if (inst & (1 << 23)) {
                 registerType = ARM64_REG_TYPE_Q;
             }
             else {
