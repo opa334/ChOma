@@ -266,11 +266,7 @@ int apply_coretrust_bypass(const char *machoPath, char *teamID)
     CS_DecodedBlob *derEntitlementsBlob = csd_superblob_find_blob(decodedSuperblob, CSSLOT_DER_ENTITLEMENTS, NULL);
 
     if (!entitlementsBlob && !derEntitlementsBlob && macho->machHeader.filetype == MH_EXECUTE) {
-        printf("Error: Unable to find existing entitlements blobs in executable MachO, please make sure to ad-hoc sign with entitlements before running the bypass.\n");
-        csd_blob_free(mainCodeDirBlob);
-        if (alternateCodeDirBlob) csd_blob_free(alternateCodeDirBlob);
-        macho_free(macho);
-        return -1;
+        printf("Warning: Unable to find existing entitlements blobs in executable MachO.\n");
     }
 
     if (!mainCodeDirBlob) {
