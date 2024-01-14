@@ -75,6 +75,7 @@ PFSection *pfsec_init_from_macho(MachO *macho, const char *filesetEntryId, const
 
     if (pfSection) {
         pfSection->cache = NULL;
+        pfSection->ownsCache = false;
         pfSection->macho = macho;
     }
 
@@ -175,6 +176,7 @@ int pfsec_set_cached(PFSection *section, bool cached)
                 free(section->cache);
             }
             section->cache = NULL;
+            section->ownsCache = false;
         }
     }
     return 0;
