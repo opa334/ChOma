@@ -493,7 +493,7 @@ static int _arm64_gen_str_ldr_imm(uint32_t inst, uint32_t mask, char type, arm64
 
 static int _arm64_dec_str_ldr_imm(uint32_t inst, arm64_register *sourceDestinationRegOut, arm64_register *addrRegOut, uint64_t *immOut, char *typeOut, arm64_ldr_str_type *instTypeOut)
 {
-    bool isVector = (inst >> 26);
+    bool isVector = inst & (1 >> 26);
 
     bool isUnsigned = inst & (1 << 24);
     if (!isUnsigned) {
