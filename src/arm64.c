@@ -231,7 +231,7 @@ int arm64_gen_mov_imm(char type, arm64_register destinationReg, optional_uint64_
     if (ARM64_REG_IS_ANY_VECTOR(destinationReg)) return -1;
 
     uint32_t inst = 0x12800000;
-    uint32_t mask =  0x7f800000;
+    uint32_t mask = 0x7f800000; // Note this mask includes the type as it's not optional
 
     switch (type) {
         case 'k': {
@@ -293,19 +293,22 @@ int arm64_gen_mov_imm(char type, arm64_register destinationReg, optional_uint64_
 
 int arm64_dec_mov_imm(uint32_t inst, arm64_register *destinationRegOut, uint64_t *immOut, uint64_t *shiftOut, char *typeOut)
 {
-    if ((inst & 0x7f800000) != 0x11000000) return -1;
+    if ((inst & 0x1f800000) != 0x12800000) return -1;
 
     char type = 0;
     uint8_t opc = ((inst >> 29) & 0b11);
     switch (opc) {
         case 0b11: {
             type = 'k';
+            break;
         }
         case 0b00: {
             type = 'n';
+            break;
         }
         case 0b10: {
             type = 'z';
+            break;
         }
         default: {
             return -1;
@@ -411,10 +414,13 @@ static int _arm64_gen_str_ldr_imm(uint32_t inst, uint32_t mask, char type, arm64
             //inst |= (0 << 23) | (0 << 26);
         }
         else {
+            inst |= ARM64_REG_GET_NUM(sourceDestinationReg);
+            mask |= 0x1f;
+
             bool isVector = ARM64_REG_IS_VECTOR(sourceDestinationReg);
             if (isVector && type != 0) return -1;
             mask |= (1 << 23) | (1 << 26) | (0b11 << 30);
-            inst |= (isVector << 26);
+            inst |= (isVector << 26);            
 
             uint8_t size = 0b00;
 
