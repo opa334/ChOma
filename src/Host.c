@@ -5,8 +5,6 @@
 #include <sys/sysctl.h>
 #include <mach/machine.h>
 
-#define CPU_SUBTYPE_ARM64E_ABI_V2 0x80000000
-
 int host_get_cpu_information(cpu_type_t *cputype, cpu_subtype_t *cpusubtype)
 {
     size_t len;
