@@ -168,4 +168,19 @@
     applier(fse, entry_id.offset); \
     applier(fse, reserved); \
 
+#define SYMTAB_COMMAND_APPLY_BYTE_ORDER(symt, applier) \
+    applier(symt, cmd); \
+    applier(symt, cmdsize); \
+    applier(symt, nsyms); \
+    applier(symt, stroff); \
+    applier(symt, strsize); \
+    applier(symt, symoff);
+
+#define NLIST_64_APPLY_BYTE_ORDER(nl, applier) \
+    applier(nl, n_un.n_strx); \
+    applier(nl, n_type); \
+    applier(nl, n_sect); \
+    applier(nl, n_desc); \
+    applier(nl, n_value);
+
 #endif // MACHO_BYTE_ORDER_H

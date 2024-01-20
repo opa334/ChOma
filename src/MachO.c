@@ -7,6 +7,7 @@
 #include "MemoryStream.h"
 
 #include <mach-o/loader.h>
+#import <mach-o/nlist.h>
 #include <stdlib.h>
 
 int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBuf)
@@ -105,6 +106,34 @@ int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct l
         }
         offset += loadCommand.cmdsize;
     }
+    return 0;
+}
+
+int macho_enumerate_symbols(MachO *macho, void (^enumeratorBlock)(const char *name, uint8_t type, uint64_t vmaddr, bool *stop))
+{
+    macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
+        if (loadCommand.cmd == LC_SYMTAB) {
+            struct symtab_command *symtabCommand = (struct symtab_command *)cmd;
+            SYMTAB_COMMAND_APPLY_BYTE_ORDER(symtabCommand, LITTLE_TO_HOST_APPLIER);
+            char strtbl[symtabCommand->strsize];
+            macho_read_at_offset(macho, symtabCommand->stroff, symtabCommand->strsize, strtbl);
+
+            for (int i = 0; i < symtabCommand->nsyms; i++) {
+                struct nlist_64 entry = { 0 };
+                macho_read_at_offset(macho, symtabCommand->symoff + (i * sizeof(entry)), sizeof(entry), &entry);
+                NLIST_64_APPLY_BYTE_ORDER(&entry, LITTLE_TO_HOST_APPLIER);
+                if (entry.n_un.n_strx >= symtabCommand->strsize || entry.n_un.n_strx == 0) continue;
+
+                const char *symbolName = &strtbl[entry.n_un.n_strx];
+                if (symbolName[0] == 0) continue;
+
+                bool stopSym = false;
+                enumeratorBlock(symbolName, entry.n_type, entry.n_value, &stopSym);
+                if (stopSym) break;
+            }
+        }
+    });
+
     return 0;
 }
 
