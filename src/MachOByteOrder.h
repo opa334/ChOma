@@ -193,4 +193,8 @@
     LOAD_COMMAND_APPLY_BYTE_ORDER(dycmd, applier); \
     DYLIB_APPLY_BYTE_ORDER((&dycmd->dylib), applier);
 
+#define RPATH_COMMAND_APPLY_BYTE_ORDER(rpcmd, applier) \
+    LOAD_COMMAND_APPLY_BYTE_ORDER(rpcmd, applier); \
+    applier(rpcmd, path.offset);
+
 #endif // MACHO_BYTE_ORDER_H

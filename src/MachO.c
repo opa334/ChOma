@@ -192,6 +192,39 @@ int macho_enumerate_dependencies(MachO *macho, void (^enumeratorBlock)(const cha
     return 0;
 }
 
+int macho_enumerate_rpaths(MachO *macho, void (^enumeratorBlock)(const char *rpath, bool *stop))
+{
+    macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
+        if (loadCommand.cmd == LC_RPATH) {
+            struct rpath_command *rpathCommand = (struct rpath_command *)cmd;
+            RPATH_COMMAND_APPLY_BYTE_ORDER(rpathCommand, LITTLE_TO_HOST_APPLIER);
+
+            if (rpathCommand->path.offset >= loadCommand.cmdsize || rpathCommand->path.offset < sizeof(struct rpath_command)) {
+                printf("WARNING: Malformed rpath at 0x%llx (Path offset out of bounds)\n", offset);
+                return;
+            }
+
+            char *rpath = ((char *)cmd) + rpathCommand->path.offset;
+            size_t rpathLength = strnlen(rpath, rpathCommand->cmdsize - rpathCommand->path.offset);
+            if (!rpathLength) {
+                printf("WARNING: Malformed rpath at 0x%llx (Path has zero length)\n", offset);
+                return;
+            }
+            if (rpath[rpathLength] != 0) {
+                printf("WARNING: Malformed rpath at 0x%llx (Name has non NULL end byte)\n", offset);
+                return;
+            }
+
+            bool stopRpath = false;
+            enumeratorBlock(rpath, &stopRpath);
+            if (stopRpath) {
+                *stop = true;
+            }
+        }
+    });
+    return 0;
+}
+
 int macho_parse_segments(MachO *macho)
 {
     return macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {

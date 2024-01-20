@@ -146,9 +146,22 @@ int main(int argc, char *argv[]) {
             });
         }
         if (argument_exists(argc, argv, "-L")) {
-            printf("Dependencies:\n");
+            __block bool firstDependency = true;
             macho_enumerate_dependencies(slice, ^(const char *dylibPath, uint32_t cmd, struct dylib* dylib, bool *stop){
-                printf("%s (%s, compatibility version: %u, current version: %u)\n", dylibPath, load_command_to_string(cmd), dylib->current_version, dylib->compatibility_version);
+                if (firstDependency) {
+                    printf("Dependencies:\n");
+                    firstDependency = false;
+                }
+                printf("| %s (%s, compatibility version: %u, current version: %u)\n", dylibPath, load_command_to_string(cmd), dylib->current_version, dylib->compatibility_version);
+            });
+
+            __block bool firstRpath = true;
+            macho_enumerate_rpaths(slice, ^(const char *rpath, bool *stop){
+                if (firstRpath) {
+                    printf("Rpaths:\n");
+                    firstRpath = false;
+                }
+                printf("| %s\n", rpath);
             });
         }
     }
