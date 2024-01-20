@@ -64,7 +64,7 @@ all: $(STATIC_LIB) $(DYNAMIC_LIB) copy-choma-headers clean-test $(TESTS_BINARIES
 
 $(STATIC_LIB): $(OBJ_FILES)
 	@mkdir -p $(LIB_DIR)
-	ar rcs $@ $^
+	libtool $^ -o $@
 
 ifeq ($(TARGET), ios)
 $(DYNAMIC_LIB): $(OBJ_FILES)
