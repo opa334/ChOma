@@ -15,7 +15,7 @@ int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBu
     return memory_stream_read(macho->stream, offset, size, outBuf);
 }
 
-int macho_write_at_offset(MachO *macho, uint64_t offset, size_t size, void *inBuf)
+int macho_write_at_offset(MachO *macho, uint64_t offset, size_t size, const void *inBuf)
 {
     return memory_stream_write(macho->stream, offset, size, inBuf);
 }
@@ -75,6 +75,22 @@ int macho_read_at_vmaddr(MachO *macho, uint64_t vmaddr, size_t size, void *outBu
     }
 
     return macho_read_at_offset(macho, fileoff, size, outBuf);
+}
+
+int macho_write_at_vmaddr(MachO *macho, uint64_t vmaddr, size_t size, const void *inBuf)
+{
+    MachOSegment *segment;
+    uint64_t fileoff = 0;
+    int r = macho_translate_vmaddr_to_fileoff(macho, vmaddr, &fileoff, &segment);
+    if (r != 0) return r;
+
+    uint64_t readEnd = vmaddr + size;
+    if (readEnd >= (segment->command.vmaddr + segment->command.vmsize)) {
+        // prevent OOB
+        return -1;
+    }
+
+    return macho_write_at_offset(macho, fileoff, size, inBuf);
 }
 
 int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop))
