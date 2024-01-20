@@ -115,6 +115,4 @@ int csd_superblob_calculate_best_cdhash(CS_DecodedSuperBlob *decodedSuperblob, v
 int csd_superblob_print_content(CS_DecodedSuperBlob *decodedSuperblob, MachO *macho, bool printAllSlots, bool verifySlots);
 void csd_superblob_free(CS_DecodedSuperBlob *decodedSuperblob);
 
-int macho_calculate_cdhash(MachO *macho, void *cdhashOut);
-
 #endif // CS_BLOB_H
