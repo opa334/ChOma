@@ -1,5 +1,7 @@
 #include "choma/FileStream.h"
 #include <choma/CSBlob.h>
+#include <choma/CodeDirectory.h>
+#include <choma/MachOLoadCommand.h>
 #include <choma/Host.h>
 #include <mach-o/nlist.h>
 
@@ -34,6 +36,7 @@ void print_usage(char *executablePath) {
     printf("\t-v: Verify that the CodeDirectory hashes are correct\n");
     printf("\t-f: Parse an MH_FILESET MachO and output it's sub-files\n");
     printf("\t-y: Parse symbol table\n");
+    printf("\t-L: Parse dependency dylibs\n");
     printf("\t-d: Parse code signature data (use with -c)\n");
     printf("\t-h: Print this message\n");
     printf("Examples:\n");
@@ -62,7 +65,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    if (!argument_exists(argc, argv, "-c") && !argument_exists(argc, argv, "-f") && !argument_exists(argc, argv, "-y")) {
+    if (!argument_exists(argc, argv, "-c") && !argument_exists(argc, argv, "-f") && !argument_exists(argc, argv, "-y") && !argument_exists(argc, argv, "-L")) {
         printf("Error: no action specified.\n");
         print_usage(argv[0]);
         return -1;
@@ -127,7 +130,7 @@ int main(int argc, char *argv[]) {
             }
         }
         if (argument_exists(argc, argv, "-y")) {
-            printf("Symbols: \n");
+            printf("Symbols:\n");
             macho_enumerate_symbols(slice, ^(const char *name, uint8_t type, uint64_t vmaddr, bool *stop) {
                 const char *typeStr = NULL;
                 switch(type & N_TYPE) {
@@ -140,6 +143,12 @@ int main(int argc, char *argv[]) {
                 uint64_t fileoff = 0;
                 macho_translate_vmaddr_to_fileoff(slice, vmaddr, &fileoff, NULL);
                 printf("%s (%s): 0x%llx / 0x%llx\n", name, typeStr, fileoff, vmaddr);
+            });
+        }
+        if (argument_exists(argc, argv, "-L")) {
+            printf("Dependencies:\n");
+            macho_enumerate_dependencies(slice, ^(const char *dylibPath, uint32_t cmd, struct dylib* dylib, bool *stop){
+                printf("%s (%s, compatibility version: %u, current version: %u)\n", dylibPath, load_command_to_string(cmd), dylib->current_version, dylib->compatibility_version);
             });
         }
     }

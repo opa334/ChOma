@@ -219,7 +219,7 @@ int csd_blob_write_string(CS_DecodedBlob *blob, uint64_t offset, const char *str
     return r;
 }
 
-int csd_blob_get_size(CS_DecodedBlob *blob)
+size_t csd_blob_get_size(CS_DecodedBlob *blob)
 {
     return memory_stream_get_size(blob->stream);
 }
@@ -410,6 +410,33 @@ int csd_superblob_remove_blob_at_index(CS_DecodedSuperBlob *superblob, uint32_t 
         return -1;
     }
     return 0;
+}
+
+CS_DecodedBlob *csd_superblob_find_best_code_directory(CS_DecodedSuperBlob *decodedSuperblob)
+{
+    CS_DecodedBlob *bestCDBlob = NULL;
+    unsigned bestCDBlobRank = 0;
+
+    CS_DecodedBlob *blob = decodedSuperblob->firstBlob;
+    while (blob) {
+        if (blob->type == CSSLOT_CODEDIRECTORY || ((CSSLOT_ALTERNATE_CODEDIRECTORIES <= blob->type && blob->type < CSSLOT_ALTERNATE_CODEDIRECTORY_LIMIT))) {
+            unsigned CDBlobRank = csd_code_directory_calculate_rank(blob);
+            if (CDBlobRank > bestCDBlobRank) {
+                bestCDBlob = blob;
+                bestCDBlobRank = CDBlobRank;
+            }
+        }
+        blob = blob->next;
+    }
+
+    return bestCDBlob;
+}
+
+int csd_superblob_calculate_best_cdhash(CS_DecodedSuperBlob *decodedSuperblob, void *cdhashOut)
+{
+    if (!cdhashOut) return -1;
+    CS_DecodedBlob *bestCDBlob = csd_superblob_find_best_code_directory(decodedSuperblob);
+    return csd_code_directory_calculate_hash(bestCDBlob, cdhashOut);
 }
 
 int csd_superblob_print_content(CS_DecodedSuperBlob *decodedSuperblob, MachO *macho, bool printAllSlots, bool verifySlots)

@@ -243,6 +243,61 @@ void csd_code_directory_set_hash_type(CS_DecodedBlob *codeDirBlob, uint8_t hashT
     csd_blob_write(codeDirBlob, offsetof(CS_CodeDirectory, hashType), sizeof(hashType), &hashType);
 }
 
+unsigned csd_code_directory_calculate_rank(CS_DecodedBlob *codeDirBlob)
+{
+    // The supported hash types, ranked from least to most preferred. From XNU's
+	// bsd/kern/ubc_subr.c.
+	static uint32_t rankedHashTypes[] = {
+		CS_HASHTYPE_SHA160_160,
+		CS_HASHTYPE_SHA256_160,
+		CS_HASHTYPE_SHA256_256,
+		CS_HASHTYPE_SHA384_384,
+	};
+	// Define the rank of the code directory as its index in the array plus one.
+    uint8_t type = csd_code_directory_get_hash_type(codeDirBlob);
+	for (unsigned i = 0; i < sizeof(rankedHashTypes) / sizeof(rankedHashTypes[0]); i++) {
+		if (rankedHashTypes[i] == type) {
+			return (i + 1);
+		}
+	}
+	return 0;
+}
+
+int csd_code_directory_calculate_hash(CS_DecodedBlob *codeDirBlob, void *cdhashOut)
+{
+    if (!codeDirBlob || !cdhashOut) return -1;
+
+    // Longest possible buffer, will cut it off at the end as cdhash size is fixed
+    uint8_t cdhash[CC_SHA384_DIGEST_LENGTH];
+
+    size_t cdBlobSize = csd_blob_get_size(codeDirBlob);
+    uint8_t *cdBlob = memory_stream_get_raw_pointer(codeDirBlob->stream);
+
+    switch (csd_code_directory_get_hash_type(codeDirBlob)) {
+		case CS_HASHTYPE_SHA160_160: {
+			CC_SHA1(cdBlob, (CC_LONG)cdBlobSize, cdhash);
+			break;
+		}
+		
+		case CS_HASHTYPE_SHA256_256:
+		case CS_HASHTYPE_SHA256_160: {
+			CC_SHA256(cdBlob, (CC_LONG)cdBlobSize, cdhash);
+			break;
+		}
+
+		case CS_HASHTYPE_SHA384_384: {
+			CC_SHA384(cdBlob, (CC_LONG)cdBlobSize, cdhash);
+			break;
+		}
+
+        default:
+        return -1;
+	}
+
+    memcpy(cdhashOut, cdhash, CS_CDHASH_LEN);
+    return 0;
+}
+
 int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, bool printSlots, bool verifySlots)
 {
     CS_CodeDirectory codeDir;

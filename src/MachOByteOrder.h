@@ -183,4 +183,14 @@
     applier(nl, n_desc); \
     applier(nl, n_value);
 
+#define DYLIB_APPLY_BYTE_ORDER(dylib, applier) \
+    applier(dylib, name.offset); \
+    applier(dylib, timestamp); \
+    applier(dylib, current_version); \
+    applier(dylib, compatibility_version);
+
+#define DYLIB_COMMAND_APPLY_BYTE_ORDER(dycmd, applier) \
+    LOAD_COMMAND_APPLY_BYTE_ORDER(dycmd, applier); \
+    DYLIB_APPLY_BYTE_ORDER((&dycmd->dylib), applier);
+
 #endif // MACHO_BYTE_ORDER_H

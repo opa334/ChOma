@@ -145,11 +145,50 @@ int macho_enumerate_symbols(MachO *macho, void (^enumeratorBlock)(const char *na
 
                 bool stopSym = false;
                 enumeratorBlock(symbolName, entry.n_type, entry.n_value, &stopSym);
-                if (stopSym) break;
+                if (stopSym) {
+                    *stop = true;
+                    break;   
+                }
             }
         }
     });
 
+    return 0;
+}
+
+int macho_enumerate_dependencies(MachO *macho, void (^enumeratorBlock)(const char *dylibPath, uint32_t cmd, struct dylib* dylib, bool *stop))
+{
+    macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop){
+        if (loadCommand.cmd == LC_LOAD_DYLIB || 
+            loadCommand.cmd == LC_LOAD_WEAK_DYLIB || 
+            loadCommand.cmd == LC_REEXPORT_DYLIB || 
+            loadCommand.cmd == LC_LAZY_LOAD_DYLIB ||
+            loadCommand.cmd == LC_LOAD_UPWARD_DYLIB) {
+            struct dylib_command *dylibCommand = (struct dylib_command *)cmd;
+            DYLIB_COMMAND_APPLY_BYTE_ORDER(dylibCommand, LITTLE_TO_HOST_APPLIER);
+            if (dylibCommand->dylib.name.offset >= loadCommand.cmdsize || dylibCommand->dylib.name.offset < sizeof(struct dylib_command)) {
+                printf("WARNING: Malformed dependency at 0x%llx (Name offset out of bounds)\n", offset);
+                return;
+            }
+            char *dependencyPath = ((char *)cmd + dylibCommand->dylib.name.offset);
+            size_t dependencyLength = strnlen(dependencyPath, loadCommand.cmdsize - dylibCommand->dylib.name.offset);
+            if (!dependencyLength) {
+                printf("WARNING: Malformed dependency at 0x%llx (Name has zero length)\n", offset);
+                return;
+            }
+            if (dependencyPath[dependencyLength] != 0) {
+                printf("WARNING: Malformed dependency at 0x%llx (Name has non NULL end byte)\n", offset);
+                return;
+            }
+
+            bool stopDepdendency = false;
+            enumeratorBlock(dependencyPath, loadCommand.cmd, &dylibCommand->dylib, &stopDepdendency);
+            if (stopDepdendency) {
+                *stop = true;
+                return;
+            }
+        }
+    });
     return 0;
 }
 
