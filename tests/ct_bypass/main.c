@@ -61,6 +61,12 @@ char *extract_preferred_slice(const char *fatPath)
         fat_free(fat);
         return NULL;
     }
+
+    if (macho->machHeader.filetype == MH_DSYM) {
+        printf("Error: MachO is a dSYM file, please use a MachO executable or dynamic library!\n");
+        fat_free(fat);
+        return NULL;
+    }
     
     char *temp = strdup("/tmp/XXXXXX");
     int fd = mkstemp(temp);
