@@ -18,7 +18,7 @@ int apply_dyld_patch(const char *dyldPath)
     });
     uint32_t getAMFIPatch[] = {
         0xd2801be0, // mov x0, 0xdf
-		0xd65f03c0  // ret
+        0xd65f03c0  // ret
     };
     macho_write_at_vmaddr(dyldMacho, getAMFIAddr, sizeof(getAMFIPatch), getAMFIPatch);
 
@@ -33,7 +33,7 @@ int apply_dyld_patch(const char *dyldPath)
     });
 
     macho_free(dyldMacho);
-	return 0;
+    return 0;
 }
 
 void print_usage(char *executablePath) {
