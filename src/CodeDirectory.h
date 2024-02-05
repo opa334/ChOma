@@ -35,6 +35,7 @@ typedef struct __CodeDirectory {
 } CS_CodeDirectory
 __attribute__ ((aligned(1)));
 
+#define CS_CDHASH_LEN 20
 enum CS_HashType {
 	CS_HASHTYPE_SHA160_160 = 1,
 	CS_HASHTYPE_SHA256_256 = 2,
@@ -49,6 +50,8 @@ uint32_t csd_code_directory_get_flags(CS_DecodedBlob *codeDirBlob);
 void csd_code_directory_set_flags(CS_DecodedBlob *codeDirBlob, uint32_t flags);
 uint8_t csd_code_directory_get_hash_type(CS_DecodedBlob *codeDirBlob);
 void csd_code_directory_set_hash_type(CS_DecodedBlob *codeDirBlob, uint8_t hashType);
+unsigned csd_code_directory_calculate_rank(CS_DecodedBlob *codeDirBlob);
+int csd_code_directory_calculate_hash(CS_DecodedBlob *codeDirBlob, void *cdhashOut);
 int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, bool printSlots, bool verifySlots);
 void csd_code_directory_update(CS_DecodedBlob *codeDirBlob, MachO *macho);
 

@@ -5,8 +5,6 @@
 #include <sys/sysctl.h>
 #include <mach/machine.h>
 
-#define CPU_SUBTYPE_ARM64E_ABI_V2 0x80000000
-
 int host_get_cpu_information(cpu_type_t *cputype, cpu_subtype_t *cpusubtype)
 {
     size_t len;
@@ -56,7 +54,7 @@ MachO *fat_find_preferred_slice(FAT *fat)
     }
 
     if (!preferredMacho) {
-        printf("Error: failed to find a valid, preferred macho.\n");
+        printf("Error: failed to find a preferred MachO slice that matches the host architecture.\n");
     }
     return preferredMacho;
 }

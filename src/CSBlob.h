@@ -97,7 +97,7 @@ int csd_blob_insert(CS_DecodedBlob *blob, uint64_t offset, size_t size, const vo
 int csd_blob_delete(CS_DecodedBlob *blob, uint64_t offset, size_t size);
 int csd_blob_read_string(CS_DecodedBlob *blob, uint64_t offset, char **outString);
 int csd_blob_write_string(CS_DecodedBlob *blob, uint64_t offset, const char *string);
-int csd_blob_get_size(CS_DecodedBlob *blob);
+size_t csd_blob_get_size(CS_DecodedBlob *blob);
 uint32_t csd_blob_get_type(CS_DecodedBlob *blob);
 void csd_blob_set_type(CS_DecodedBlob *blob, uint32_t type);
 void csd_blob_free(CS_DecodedBlob *blob);
@@ -111,8 +111,8 @@ int csd_superblob_insert_blob_at_index(CS_DecodedSuperBlob *superblob, CS_Decode
 int csd_superblob_append_blob(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToAppend);
 int csd_superblob_remove_blob(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToRemove); // <- Important: When calling this, caller is responsible for freeing blobToRemove
 int csd_superblob_remove_blob_at_index(CS_DecodedSuperBlob *superblob, uint32_t atIndex);
+int csd_superblob_calculate_best_cdhash(CS_DecodedSuperBlob *decodedSuperblob, void *cdhashOut);
 int csd_superblob_print_content(CS_DecodedSuperBlob *decodedSuperblob, MachO *macho, bool printAllSlots, bool verifySlots);
 void csd_superblob_free(CS_DecodedSuperBlob *decodedSuperblob);
-
 
 #endif // CS_BLOB_H

@@ -22,6 +22,10 @@
 #include <TargetConditionals.h>
 #include <openssl/cms.h>
 
+
+#define CPU_SUBTYPE_ARM64E_ABI_V2 0x80000000
+#ifndef DISABLE_SIGNING
+
 char *extract_preferred_slice(const char *fatPath)
 {
     FAT *fat = fat_init_from_path(fatPath);
@@ -36,11 +40,15 @@ char *extract_preferred_slice(const char *fatPath)
             // If that fails, check for regular arm64
             macho = fat_find_slice(fat, CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64_ALL);
             if (!macho) {
-                // If that fails, check for arm64e
-                macho = fat_find_slice(fat, CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64E);
+                // If that fails, check for arm64e with ABI v2
+                macho = fat_find_slice(fat, CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64E | CPU_SUBTYPE_ARM64E_ABI_V2);
                 if (!macho) {
-                    fat_free(fat);
-                    return NULL;
+                    // If that fails, check for arm64e
+                    macho = fat_find_slice(fat, CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64E);
+                    if (!macho) {
+                        fat_free(fat);
+                        return NULL;
+                    }
                 }
             }
         }
@@ -51,6 +59,18 @@ char *extract_preferred_slice(const char *fatPath)
         return NULL;
     }
 #endif // TARGET_OS_MAC && !TARGET_OS_IPHONE
+
+    if (macho->machHeader.filetype == MH_OBJECT) {
+        printf("Error: MachO is an object file, please use a MachO executable or dynamic library!\n");
+        fat_free(fat);
+        return NULL;
+    }
+
+    if (macho->machHeader.filetype == MH_DSYM) {
+        printf("Error: MachO is a dSYM file, please use a MachO executable or dynamic library!\n");
+        fat_free(fat);
+        return NULL;
+    }
     
     char *temp = strdup("/tmp/XXXXXX");
     int fd = mkstemp(temp);
@@ -349,11 +369,7 @@ int apply_coretrust_bypass(const char *machoPath, char *teamID)
     CS_DecodedBlob *derEntitlementsBlob = csd_superblob_find_blob(decodedSuperblob, CSSLOT_DER_ENTITLEMENTS, NULL);
 
     if (!entitlementsBlob && !derEntitlementsBlob && macho->machHeader.filetype == MH_EXECUTE) {
-        printf("Error: Unable to find existing entitlements blobs in executable MachO, please make sure to ad-hoc sign with entitlements before running the bypass.\n");
-        csd_blob_free(mainCodeDirBlob);
-        if (alternateCodeDirBlob) csd_blob_free(alternateCodeDirBlob);
-        macho_free(macho);
-        return -1;
+        printf("Warning: Unable to find existing entitlements blobs in executable MachO.\n");
     }
 
     if (!mainCodeDirBlob) {
@@ -613,3 +629,11 @@ int main(int argc, char *argv[]) {
     printf("CoreTrust bypass eta s0n!!\n");
     return apply_coretrust_bypass_wrapper(input, output, teamID);
 }
+
+#else
+
+int main(int argc, char *argv[]) {
+    return 0;
+}
+
+#endif

@@ -203,34 +203,18 @@ int memory_stream_copy_data(MemoryStream *originStream, uint64_t originOffset, M
     return 0;
 }
 
-int memory_stream_find_memory(MemoryStream *stream, uint64_t searchOffset, size_t searchSize, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundOffsetOut)
+int memory_stream_find_memory(MemoryStream *stream, uint64_t searchStartOffset, uint64_t searchEndOffset, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundOffsetOut)
 {
-    if (nbytes % alignment != 0) return 0;
-    if (nbytes == 0) return 0;
-
-    uint8_t *bytesC = bytes;
-    uint8_t *maskC = mask;
-
-    size_t nbytesMatched = 0;
-    for (uint64_t curOffset = searchOffset; curOffset < (searchOffset + searchSize); curOffset += alignment) {
-        uint8_t *curCheckMask = NULL;
-        if (maskC) {
-            curCheckMask = &maskC[nbytesMatched];
+    __block int r = -1;
+    enumerate_range(searchStartOffset, searchEndOffset, alignment, nbytes, ^bool(uint64_t cur) {
+        uint8_t buf[nbytes];
+        memory_stream_read(stream, cur, nbytes, buf);
+        if (!memcmp_masked(buf, bytes, mask, nbytes)) {
+            *foundOffsetOut = cur;
+            r = 0;
+            return false;
         }
-        uint8_t *curCheckBytes = &bytesC[nbytesMatched];
-
-        uint8_t curReadBytes[alignment];
-        memory_stream_read(stream, curOffset, alignment, curReadBytes);
-        if (!memcmp_masked(curReadBytes, curCheckBytes, curCheckMask, alignment)) {
-            nbytesMatched += alignment;
-        }
-        else {
-            nbytesMatched = 0;
-        }
-        if (nbytesMatched >= nbytes) {
-            *foundOffsetOut = curOffset - (nbytesMatched - alignment);
-            return 0;
-        }
-    }
-    return -1;
+        return true;
+    });
+    return r;
 }

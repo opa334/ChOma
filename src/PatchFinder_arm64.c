@@ -2,7 +2,78 @@
 #include "PatchFinder.h"
 #include "arm64.h"
 
-void pfsec_enumerate_arm64_xrefs(PFSection *section, Arm64XrefTypeMask types, void (^xrefBlock)(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop))
+uint64_t pfsec_arm64_resolve_adrp_ldr_str_add_reference(PFSection *section, uint64_t adrpAddr, uint64_t ldrStrAddAddr)
+{
+	uint32_t ldrStrAddInst = pfsec_read32(section, ldrStrAddAddr);
+	
+	uint64_t imm = 0;
+	if (arm64_dec_ldr_imm(ldrStrAddInst, NULL, NULL, &imm, NULL, NULL) != 0) {
+		if (arm64_dec_str_imm(ldrStrAddInst, NULL, NULL, &imm, NULL, NULL) != 0) {
+			uint16_t addImm = 0;
+			if (arm64_dec_add_imm(ldrStrAddInst, NULL, NULL, &addImm) == 0) {
+				imm = (uint64_t)addImm;
+			}
+			else {
+				return 0;
+			}
+		}
+	}
+
+	uint64_t adrpTarget = 0;
+	arm64_dec_adr_p(pfsec_read32(section, adrpAddr), adrpAddr, &adrpTarget, NULL, NULL);
+
+	return adrpTarget + imm;
+}
+
+uint64_t pfsec_arm64_resolve_adrp_ldr_str_add_reference_auto(PFSection *section, uint64_t ldrStrAddAddr)
+{
+	uint32_t inst = pfsec_read32(section, ldrStrAddAddr);
+
+	arm64_register reg;
+	if (arm64_dec_ldr_imm(inst, NULL, &reg, NULL, NULL, NULL) != 0) {
+		if (arm64_dec_str_imm(inst, NULL, &reg, NULL, NULL, NULL) != 0) {
+			if (arm64_dec_add_imm(inst, NULL, &reg, NULL) != 0) {
+				return 0;
+			}
+		}
+	}
+
+	uint32_t adrpInst = 0, adrpInstMask = 0;
+	arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, reg, &adrpInst, &adrpInstMask);
+	uint64_t adrpAddr = pfsec_find_prev_inst(section, ldrStrAddAddr, 100, adrpInst, adrpInstMask);
+	if (!adrpAddr) return -1;
+	return pfsec_arm64_resolve_adrp_ldr_str_add_reference(section, adrpAddr, ldrStrAddAddr);
+}
+
+uint64_t pfsec_arm64_resolve_stub(PFSection *section, uint64_t stubAddr)
+{
+	// A stub is usually:
+	// adrp x16, ?
+	// ldr x16, ?
+	// br x16
+
+	// First, check if what we have actually is a stub
+	uint32_t inst[3];
+	pfsec_read_at_address(section, stubAddr, inst, sizeof(inst));
+
+	uint32_t stubInst[3], stubMask[3];
+	arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, ARM64_REG_X(16), &stubInst[0], &stubMask[0]);
+	arm64_gen_ldr_imm(0, LDR_STR_TYPE_UNSIGNED, ARM64_REG_X(16), ARM64_REG_X(16), OPT_UINT64_NONE, &stubInst[1], &stubMask[1]);
+	stubInst[2] = 0xd61f0200;
+	stubMask[2] = 0xffffffff;
+
+	if ((inst[0] & stubMask[0]) == stubInst[0] ||
+		(inst[1] & stubMask[1]) == stubInst[1] ||
+		(inst[2] & stubMask[2]) == stubInst[2]) {
+		// This is a stub, resolve it
+		return pfsec_arm64_resolve_adrp_ldr_str_add_reference(section, stubAddr, stubAddr + 4);
+	}
+
+	// Not a stub, just return original address
+	return stubAddr;
+}
+
+void pfsec_arm64_enumerate_xrefs(PFSection *section, Arm64XrefTypeMask types, void (^xrefBlock)(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop))
 {
 	bool stop = false;
 	for (uint64_t addr = section->vmaddr; addr < (section->vmaddr + section->size) && !stop; addr += 4) {
@@ -54,7 +125,8 @@ void pfsec_enumerate_arm64_xrefs(PFSection *section, Arm64XrefTypeMask types, vo
 			arm64_register ldrSourceReg;
 			uint64_t ldrImm = 0;
 			char ldrType = -1;
-			if (arm64_dec_ldr_imm(inst, &ldrDestinationReg, &ldrSourceReg, &ldrImm, &ldrType) == 0) {
+			arm64_ldr_str_type instType = 0;
+			if (arm64_dec_ldr_imm(inst, &ldrDestinationReg, &ldrSourceReg, &ldrImm, &ldrType, &instType) == 0) {
 				uint32_t adrpInst = 0;
 				uint32_t adrpMask = 0;
 				if (arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, ldrSourceReg, &adrpInst, &adrpMask) == 0) {
@@ -75,7 +147,8 @@ void pfsec_enumerate_arm64_xrefs(PFSection *section, Arm64XrefTypeMask types, vo
 			arm64_register strSourceReg;
 			uint64_t strImm = 0;
 			char strType = -1;
-			if (arm64_dec_str_imm(inst, &strDestinationReg, &strSourceReg, &strImm, &strType) == 0) {
+			arm64_ldr_str_type instType = 0;
+			if (arm64_dec_str_imm(inst, &strDestinationReg, &strSourceReg, &strImm, &strType, &instType) == 0) {
 				uint32_t adrpInst = 0;
 				uint32_t adrpMask = 0;
 				if (arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, strSourceReg, &adrpInst, &adrpMask) == 0) {

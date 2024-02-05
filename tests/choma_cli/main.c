@@ -1,6 +1,9 @@
 #include "choma/FileStream.h"
 #include <choma/CSBlob.h>
+#include <choma/CodeDirectory.h>
+#include <choma/MachOLoadCommand.h>
 #include <choma/Host.h>
+#include <mach-o/nlist.h>
 
 char *get_argument_value(int argc, char *argv[], const char *flag)
 {
@@ -32,6 +35,8 @@ void print_usage(char *executablePath) {
     printf("\t-s: Print all page hash code slots in a CodeDirectory blob\n");
     printf("\t-v: Verify that the CodeDirectory hashes are correct\n");
     printf("\t-f: Parse an MH_FILESET MachO and output it's sub-files\n");
+    printf("\t-y: Parse symbol table\n");
+    printf("\t-L: Parse dependency dylibs\n");
     printf("\t-d: Parse code signature data (use with -c)\n");
     printf("\t-h: Print this message\n");
     printf("Examples:\n");
@@ -60,7 +65,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    if (!argument_exists(argc, argv, "-c") && !argument_exists(argc, argv, "-f")) {
+    if (!argument_exists(argc, argv, "-c") && !argument_exists(argc, argv, "-f") && !argument_exists(argc, argv, "-y") && !argument_exists(argc, argv, "-L")) {
         printf("Error: no action specified.\n");
         print_usage(argv[0]);
         return -1;
@@ -123,6 +128,41 @@ int main(int argc, char *argv[]) {
                     }
                 }
             }
+        }
+        if (argument_exists(argc, argv, "-y")) {
+            printf("Symbols:\n");
+            macho_enumerate_symbols(slice, ^(const char *name, uint8_t type, uint64_t vmaddr, bool *stop) {
+                const char *typeStr = NULL;
+                switch(type & N_TYPE) {
+                    case N_UNDF: typeStr = "N_UNDF"; break;
+                    case N_ABS:  typeStr = "N_ABS"; break;
+                    case N_SECT: typeStr = "N_SECT"; break;
+                    case N_PBUD: typeStr = "N_PBUD"; break;
+                    case N_INDR: typeStr = "N_INDR"; break;
+                }
+                uint64_t fileoff = 0;
+                macho_translate_vmaddr_to_fileoff(slice, vmaddr, &fileoff, NULL);
+                printf("%s (%s): 0x%llx / 0x%llx\n", name, typeStr, fileoff, vmaddr);
+            });
+        }
+        if (argument_exists(argc, argv, "-L")) {
+            __block bool firstDependency = true;
+            macho_enumerate_dependencies(slice, ^(const char *dylibPath, uint32_t cmd, struct dylib* dylib, bool *stop){
+                if (firstDependency) {
+                    printf("Dependencies:\n");
+                    firstDependency = false;
+                }
+                printf("| %s (%s, compatibility version: %u, current version: %u)\n", dylibPath, load_command_to_string(cmd), dylib->current_version, dylib->compatibility_version);
+            });
+
+            __block bool firstRpath = true;
+            macho_enumerate_rpaths(slice, ^(const char *rpath, bool *stop){
+                if (firstRpath) {
+                    printf("Rpaths:\n");
+                    firstRpath = false;
+                }
+                printf("| %s\n", rpath);
+            });
         }
     }
 
