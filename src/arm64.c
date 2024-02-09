@@ -596,6 +596,17 @@ int arm64_dec_ldr_imm(uint32_t inst, arm64_register *destinationRegOut, arm64_re
     return _arm64_dec_str_ldr_imm(inst, destinationRegOut, addrRegOut, immOut, typeOut, instTypeOut);
 }
 
+int arm64_gen_ldrs_imm(char type, arm64_ldr_str_type instType, arm64_register destinationReg, arm64_register addrReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut)
+{
+    return _arm64_gen_str_ldr_imm(0x38800000, 0x3ac00000, type, instType, destinationReg, addrReg, optImm, bytesOut, maskOut);
+}
+
+int arm64_dec_ldrs_imm(uint32_t inst, arm64_register *destinationRegOut, arm64_register *addrRegOut, uint64_t *immOut, char *typeOut, arm64_ldr_str_type *instTypeOut)
+{
+    if ((inst & 0x3ac00000) != 0x38800000) return -1;
+	return _arm64_dec_str_ldr_imm(inst, destinationRegOut, addrRegOut, immOut, typeOut, instTypeOut);
+}
+
 int arm64_gen_str_imm(char type, arm64_ldr_str_type instType, arm64_register sourceReg, arm64_register addrReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut)
 {
     return _arm64_gen_str_ldr_imm(0x38000000, 0x3a400000, type, instType, sourceReg, addrReg, optImm, bytesOut, maskOut);

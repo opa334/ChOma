@@ -8,13 +8,15 @@ uint64_t pfsec_arm64_resolve_adrp_ldr_str_add_reference(PFSection *section, uint
 	
 	uint64_t imm = 0;
 	if (arm64_dec_ldr_imm(ldrStrAddInst, NULL, NULL, &imm, NULL, NULL) != 0) {
-		if (arm64_dec_str_imm(ldrStrAddInst, NULL, NULL, &imm, NULL, NULL) != 0) {
-			uint16_t addImm = 0;
-			if (arm64_dec_add_imm(ldrStrAddInst, NULL, NULL, &addImm) == 0) {
-				imm = (uint64_t)addImm;
-			}
-			else {
-				return 0;
+		if (arm64_dec_ldrs_imm(ldrStrAddInst, NULL, NULL, &imm, NULL, NULL) != 0) {
+			if (arm64_dec_str_imm(ldrStrAddInst, NULL, NULL, &imm, NULL, NULL) != 0) {
+				uint16_t addImm = 0;
+				if (arm64_dec_add_imm(ldrStrAddInst, NULL, NULL, &addImm) == 0) {
+					imm = (uint64_t)addImm;
+				}
+				else {
+					return 0;
+				}
 			}
 		}
 	}
