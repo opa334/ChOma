@@ -104,6 +104,30 @@ void pfsec_arm64_enumerate_xrefs(PFSection *section, Arm64XrefTypeMask types, vo
 				continue;
 			}
 		}
+		if ((types & ARM64_XREF_TYPE_MASK_B_COND) || (types & ARM64_XREF_TYPE_MASK_BC_COND)) {
+			uint64_t target = 0;
+			bool isBc = false;
+			if (arm64_dec_b_c_cond(inst, addr, &target, NULL, &isBc) == 0) {
+				if (!isBc && (types & ARM64_XREF_TYPE_MASK_B_COND)) {
+					xrefBlock(ARM64_XREF_TYPE_B_COND, addr, target, &stop);
+				}
+				if (isBc && (types & ARM64_XREF_TYPE_MASK_BC_COND)) {
+					xrefBlock(ARM64_XREF_TYPE_BC_COND, addr, target, &stop);
+				}
+			}
+		}
+		if ((types & ARM64_XREF_TYPE_MASK_CBZ) || (types & ARM64_XREF_TYPE_MASK_CBNZ)) {
+			uint64_t target = 0;
+			bool isCbnz = false;
+			if (arm64_dec_cb_n_z(inst, addr, &isCbnz, NULL, &target) == 0) {
+				if (!isCbnz && (types & ARM64_XREF_TYPE_MASK_CBZ)) {
+					xrefBlock(ARM64_XREF_TYPE_CBZ, addr, target, &stop);
+				}
+				if (isCbnz && (types & ARM64_XREF_TYPE_MASK_CBNZ)) {
+					xrefBlock(ARM64_XREF_TYPE_CBNZ, addr, target, &stop);
+				}
+			}
+		}
 		#define ADRP_SEEK_BACK 8
 		if (types & ARM64_XREF_TYPE_MASK_ADRP_ADD) {
 			uint16_t addImm = 0;

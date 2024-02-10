@@ -53,8 +53,9 @@ typedef struct s_PFStringMetric {
 } PFStringMetric;
 
 typedef enum {
-    XREF_TYPE_MASK_CALL  = (1 << 0),
-    XREF_TYPE_MASK_REFERENCE = (1 << 1),
+    XREF_TYPE_MASK_CALL      = (1 << 0),
+    XREF_TYPE_MASK_JUMP      = (1 << 1),
+    XREF_TYPE_MASK_REFERENCE = (1 << 2),
     XREF_TYPE_MASK_ALL = (XREF_TYPE_MASK_CALL | XREF_TYPE_MASK_REFERENCE),
 } PFXrefTypeMask;
 

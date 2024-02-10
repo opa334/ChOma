@@ -318,6 +318,9 @@ void _pfsec_run_arm64_xref_metric(PFSection *section, uint64_t startAddr, uint64
     if (metric->typeMask & XREF_TYPE_MASK_CALL) {
         arm64Types |= ARM64_XREF_TYPE_MASK_CALL;
     }
+    if (metric->typeMask & XREF_TYPE_MASK_JUMP) {
+        arm64Types |= ARM64_XREF_TYPE_MASK_JUMP;
+    }
     if (metric->typeMask & XREF_TYPE_MASK_REFERENCE) {
         arm64Types |= ARM64_XREF_TYPE_MASK_REFERENCE;
     }
@@ -384,5 +387,3 @@ void pfmetric_run(PFSection *section, void *metric, void (^matchBlock)(uint64_t 
 {
     return pfmetric_run_in_range(section, -1, -1, metric, matchBlock);
 }
-
-
