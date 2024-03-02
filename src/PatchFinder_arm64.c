@@ -128,6 +128,18 @@ void pfsec_arm64_enumerate_xrefs(PFSection *section, Arm64XrefTypeMask types, vo
 				}
 			}
 		}
+		if ((types & ARM64_XREF_TYPE_MASK_TBZ) || (types & ARM64_XREF_TYPE_MASK_TBNZ)) {
+			uint64_t target = 0;
+			bool isTbnz = false;
+			if (arm64_dec_tb_n_z(inst, addr, &isTbnz, NULL, &target, NULL) == 0) {
+				if (!isTbnz && (types & ARM64_XREF_TYPE_MASK_TBZ)) {
+					xrefBlock(ARM64_XREF_TYPE_CBZ, addr, target, &stop);
+				}
+				if (isTbnz && (types & ARM64_XREF_TYPE_MASK_TBNZ)) {
+					xrefBlock(ARM64_XREF_TYPE_CBNZ, addr, target, &stop);
+				}
+			}
+		}
 		#define ADRP_SEEK_BACK 8
 		if (types & ARM64_XREF_TYPE_MASK_ADRP_ADD) {
 			uint16_t addImm = 0;
