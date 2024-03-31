@@ -2,6 +2,23 @@
 
 ChOma is a simple library for parsing and manipulating MachO files and their CMS blobs. Written for exploitation of [CVE-2023-41991](https://support.apple.com/en-gb/HT213926), a vulnerability in the CoreTrust kernel extension, and for use in [TrollStore](https://github.com/opa334/TrollStore) and [XPF](https://github.com/opa334/XPF) (which is used by [Dopamine](https://github.com/opa334/Dopamine) as its kernel patchfinder)
 
+## Compilation
+
+### Building for macOS
+`make`
+
+### Building for iOS
+`make TARGET=ios`
+
+### Additional Options
+`DEBUG=1`: Build with address sanitizer
+
+`DISABLE_SIGNING=1`: Disable all features that depend on OpenSSL
+
+`DISABLE_TESTS=1`: Don't build tests
+
+`INSTALL_PATH=/some/path`: Path where ChOma gets installed to when using `make install`
+
 ## Usage
 
 To use the library, you can compile with `make all`. This will produce the `choma_cli` executable that demonstrates the abilities of this library, and then `libchoma.a` and `libchoma.dylib` which can be linked to your own project.
@@ -34,20 +51,3 @@ Inside ChOma, there are a few terms that are used to describe various parts of t
 ChOma uses the `MemoryBuffer` structure to provide a unified way to read, write, shrink and expand data buffers, that works across both files and memory. Each `MemoryBuffer` has a `context` field that determines whether the functions interpret it as a `BufferedStream` object (for regular memory buffers) or as a `FileStream` object (for files).
 
 Each `MemoryBuffer` object contains function pointers for reading, writing, retrieving the size, expanding, shrinking and then soft or hard cloning. You can inspect these inside [`src/MemoryBuffer.h`](src/MemoryStream.h), and can see how they are used by looking at how we manipulate MachO files across the library.
-
-## Building
-
-### For macOS
-`make`
-
-### For iOS
-`make TARGET=ios`
-
-### Additional Options
-`DEBUG=1`: Build with address sanitizer
-
-`DISABLE_SIGNING=1`: Disable all features that depend on OpenSSL
-
-`DISABLE_TESTS=1`: Don't build tests
-
-`INSTALL_PATH=/some/path`: Path where ChOma gets installed to when using `make install`
