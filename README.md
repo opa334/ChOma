@@ -45,6 +45,9 @@ Each `MemoryBuffer` object contains function pointers for reading, writing, retr
 
 ### Additional Options
 `DEBUG=1`: Build with address sanitizer
+
 `DISABLE_SIGNING=1`: Disable all features that depend on OpenSSL
+
 `DISABLE_TESTS=1`: Don't build tests
+
 `INSTALL_PATH=/some/path`: Path where ChOma gets installed to when using `make install`
