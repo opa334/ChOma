@@ -1,6 +1,6 @@
 # ChOma
 
-ChOma is a simple library for parsing and manipulating MachO files and their CMS blobs. Written for exploitation of [CVE-2023-41991](https://support.apple.com/en-gb/HT213926), a vulnerability in the CoreTrust kernel extension, and for use in [TrollStore](https://github.com/opa334/TrollStore), and in [Dopamine](https://github.com/opa334/Dopamine) as a kernel patchfinder.
+ChOma is a simple library for parsing and manipulating MachO files and their CMS blobs. Written for exploitation of [CVE-2023-41991](https://support.apple.com/en-gb/HT213926), a vulnerability in the CoreTrust kernel extension, and for use in [TrollStore](https://github.com/opa334/TrollStore) and [XPF](https://github.com/opa334/XPF) (which is used by [Dopamine](https://github.com/opa334/Dopamine) as its kernel patchfinder)
 
 ## Usage
 
