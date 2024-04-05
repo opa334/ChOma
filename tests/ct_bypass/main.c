@@ -521,8 +521,8 @@ int apply_coretrust_bypass(const char *machoPath, char *teamID, char *appStoreBi
         return -1;
     }
 
-    printf("TeamID set to %s!\n", appStoreTeamID);
-    free(appStoreTeamID);
+    printf("TeamID set to %s!\n", teamID ? teamID : appStoreTeamID);
+    if (appStoreTeamID) { free(appStoreTeamID); }
 
     // Set flags to 0 to remove any problematic flags (such as the 'adhoc' flag in bit 2)
     csd_code_directory_set_flags(realCodeDirBlob, 0);
