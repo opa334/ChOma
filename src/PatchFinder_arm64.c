@@ -68,7 +68,12 @@ uint64_t pfsec_arm64_resolve_stub(PFSection *section, uint64_t stubAddr)
 		(inst[1] & stubMask[1]) == stubInst[1] ||
 		(inst[2] & stubMask[2]) == stubInst[2]) {
 		// This is a stub, resolve it
-		return pfsec_arm64_resolve_adrp_ldr_str_add_reference(section, stubAddr, stubAddr + 4);
+		uint64_t ptrAddr = pfsec_arm64_resolve_adrp_ldr_str_add_reference(section, stubAddr, stubAddr + 4);
+		if (ptrAddr) {
+			uint64_t targetAddr = 0;
+			macho_read_at_vmaddr(section->macho, ptrAddr, sizeof(ptrAddr), &targetAddr);
+			return targetAddr;
+		}
 	}
 
 	// Not a stub, just return original address
