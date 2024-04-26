@@ -80,6 +80,23 @@ uint64_t pfsec_arm64_resolve_stub(PFSection *section, uint64_t stubAddr)
 	return stubAddr;
 }
 
+// Unified check for whether anything writes to a register between firstAddr and secondAddr
+bool pfsec_arm64_scan_register_write(PFSection *section, arm64_register reg, uint64_t firstAddr, uint64_t secondAddr)
+{
+	uint64_t instrBetween = ((firstAddr - secondAddr) / 4);
+
+	// check for ADD writing to it
+	uint32_t addInst = 0, addMask = 0;
+	arm64_gen_add_imm(reg, ARM64_REG_ANY, OPT_UINT64_NONE, &addInst, &addMask);
+	if (pfsec_find_prev_inst(section, firstAddr - 4, instrBetween, addInst, addMask) != 0) {
+		return true;
+	}
+
+	// TODO: other writes
+
+	return false;
+}
+
 void pfsec_arm64_enumerate_xrefs(PFSection *section, Arm64XrefTypeMask types, void (^xrefBlock)(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop))
 {
 	bool stop = false;
@@ -156,9 +173,11 @@ void pfsec_arm64_enumerate_xrefs(PFSection *section, Arm64XrefTypeMask types, vo
 				if (arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, addSourceReg, &adrpInst, &adrpMask) == 0) {
 					uint64_t adrpAddr = pfsec_find_prev_inst(section, addr, ADRP_SEEK_BACK, adrpInst, adrpMask);
 					if (adrpAddr != 0) {
-						uint64_t adrpTarget = 0;
-						arm64_dec_adr_p(pfsec_read32(section, adrpAddr), adrpAddr, &adrpTarget, NULL, NULL);
-						xrefBlock(ARM64_XREF_TYPE_ADRP_ADD, addr, adrpTarget + addImm, &stop);
+						if (!pfsec_arm64_scan_register_write(section, addSourceReg, addr, adrpAddr)) {
+							uint64_t adrpTarget = 0;
+							arm64_dec_adr_p(pfsec_read32(section, adrpAddr), adrpAddr, &adrpTarget, NULL, NULL);
+							xrefBlock(ARM64_XREF_TYPE_ADRP_ADD, addr, adrpTarget + addImm, &stop);
+						}
 					}
 				}
 			}
@@ -175,12 +194,11 @@ void pfsec_arm64_enumerate_xrefs(PFSection *section, Arm64XrefTypeMask types, vo
 				if (arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, ldrSourceReg, &adrpInst, &adrpMask) == 0) {
 					uint64_t adrpAddr = pfsec_find_prev_inst(section, addr, ADRP_SEEK_BACK, adrpInst, adrpMask);
 					if (adrpAddr != 0) {
-						// TODO: Check if between adrp and ldr is either an instruction indicating a function start or something overwriting the source register of ldr
-						// Due to this inaccuracy, there are some false positives atm
-						// Probably applies to the ADRP+ADD and ADRP+STR cases as well
-						uint64_t adrpTarget = 0;
-						arm64_dec_adr_p(pfsec_read32(section, adrpAddr), adrpAddr, &adrpTarget, NULL, NULL);
-						xrefBlock(ARM64_XREF_TYPE_ADRP_LDR, addr, adrpTarget + ldrImm, &stop);
+						if (!pfsec_arm64_scan_register_write(section, ldrSourceReg, addr, adrpAddr)) {
+							uint64_t adrpTarget = 0;
+							arm64_dec_adr_p(pfsec_read32(section, adrpAddr), adrpAddr, &adrpTarget, NULL, NULL);
+							xrefBlock(ARM64_XREF_TYPE_ADRP_LDR, addr, adrpTarget + ldrImm, &stop);
+						}
 					}
 				}
 			}
@@ -197,9 +215,11 @@ void pfsec_arm64_enumerate_xrefs(PFSection *section, Arm64XrefTypeMask types, vo
 				if (arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, strSourceReg, &adrpInst, &adrpMask) == 0) {
 					uint64_t adrpAddr = pfsec_find_prev_inst(section, addr, ADRP_SEEK_BACK, adrpInst, adrpMask);
 					if (adrpAddr != 0) {
-						uint64_t adrpTarget = 0;
-						arm64_dec_adr_p(pfsec_read32(section, adrpAddr), adrpAddr, &adrpTarget, NULL, NULL);
-						xrefBlock(ARM64_XREF_TYPE_ADRP_STR, addr, adrpTarget + strImm, &stop);
+						if (!pfsec_arm64_scan_register_write(section, strSourceReg, addr, adrpAddr)) {
+							uint64_t adrpTarget = 0;
+							arm64_dec_adr_p(pfsec_read32(section, adrpAddr), adrpAddr, &adrpTarget, NULL, NULL);
+							xrefBlock(ARM64_XREF_TYPE_ADRP_STR, addr, adrpTarget + strImm, &stop);
+						}
 					}
 				}
 			}
