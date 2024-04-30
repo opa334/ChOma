@@ -7,7 +7,8 @@
 #include "MemoryStream.h"
 
 #include <mach-o/loader.h>
-#import <mach-o/nlist.h>
+#include <mach-o/nlist.h>
+#include <mach/machine.h>
 #include <stdlib.h>
 
 int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBuf)
@@ -273,12 +274,11 @@ int macho_parse_fileset_machos(MachO *macho)
 int _macho_parse(MachO *macho)
 {
     // Determine if this arch is supported by ChOma
-    macho->isSupported = (macho->archDescriptor.cpusubtype != 0x9);
-
+    macho->isSupported = (macho->archDescriptor.cpusubtype != CPU_SUBTYPE_ARM_V7 && macho->archDescriptor.cpusubtype != CPU_SUBTYPE_ARM_V7S);
     if (macho->isSupported) {
         // Ensure that the sizeofcmds is a multiple of 8 (it would need padding otherwise)
         if (macho->machHeader.sizeofcmds % 8 != 0) {
-            printf("Error: sizeofcmds is not a multiple of 8.\n");
+            printf("Error: sizeofcmds is not a multiple of 8 (%d).\n", macho->machHeader.sizeofcmds);
             return -1;
         }
 
