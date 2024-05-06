@@ -274,7 +274,7 @@ int macho_parse_fileset_machos(MachO *macho)
 int _macho_parse(MachO *macho)
 {
     // Determine if this arch is supported by ChOma
-    macho->isSupported = (macho->archDescriptor.cpusubtype != CPU_SUBTYPE_ARM_V7 && macho->archDescriptor.cpusubtype != CPU_SUBTYPE_ARM_V7S);
+    macho->isSupported = (macho->archDescriptor.cpusubtype != CPU_SUBTYPE_ARM_V6 && macho->archDescriptor.cpusubtype != CPU_SUBTYPE_ARM_V7 && macho->archDescriptor.cpusubtype != CPU_SUBTYPE_ARM_V7S);
     if (macho->isSupported) {
         // Ensure that the sizeofcmds is a multiple of 8 (it would need padding otherwise)
         if (macho->machHeader.sizeofcmds % 8 != 0) {
