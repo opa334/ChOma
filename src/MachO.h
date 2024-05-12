@@ -22,8 +22,8 @@ typedef struct FilesetMachO {
 
 typedef struct MachO {
     MemoryStream *stream;
-    bool isSupported;
-    struct mach_header_64 machHeader;
+    bool is32Bit;
+    struct mach_header machHeader;
     struct fat_arch_64 archDescriptor;
 
     uint32_t filesetCount;
@@ -41,6 +41,7 @@ int macho_write_at_offset(MachO *macho, uint64_t offset, size_t size, const void
 
 MemoryStream *macho_get_stream(MachO *macho);
 uint32_t macho_get_filetype(MachO *macho);
+size_t macho_get_mach_header_size(MachO *macho);
 
 // Perform translation between file offsets and virtual addresses
 int macho_translate_fileoff_to_vmaddr(MachO *macho, uint64_t fileoff, uint64_t *vmaddrOut, MachOSegment **segmentOut);

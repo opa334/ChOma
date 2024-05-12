@@ -89,7 +89,7 @@ int fat_parse_slices(FAT *fat)
 
         MemoryStream *machOStream = memory_stream_softclone(fat->stream);
 
-        struct mach_header_64 machHeader;
+        struct mach_header machHeader;
         memory_stream_read(machOStream, 0, sizeof(machHeader), &machHeader);
         MACH_HEADER_APPLY_BYTE_ORDER(&machHeader, LITTLE_TO_HOST_APPLIER);
 

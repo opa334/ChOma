@@ -31,6 +31,11 @@ uint32_t macho_get_filetype(MachO *macho)
     return macho->machHeader.filetype;
 }
 
+size_t macho_get_mach_header_size(MachO *macho)
+{
+    return macho->is32Bit ? sizeof(struct mach_header) : sizeof(struct mach_header_64);
+}
+
 int macho_translate_fileoff_to_vmaddr(MachO *macho, uint64_t fileoff, uint64_t *vmaddrOut, MachOSegment **segmentOut)
 {
     for (uint32_t i = 0; i < macho->segmentCount; i++) {
@@ -102,7 +107,7 @@ int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct l
     }
 
     // First load command starts after mach header
-    uint64_t offset = sizeof(struct mach_header_64);
+    uint64_t offset = macho_get_mach_header_size(macho);
 
     for (int j = 0; j < macho->machHeader.ncmds; j++) {
         struct load_command loadCommand;
@@ -273,18 +278,13 @@ int macho_parse_fileset_machos(MachO *macho)
 
 int _macho_parse(MachO *macho)
 {
-    // Determine if this arch is supported by ChOma
-    macho->isSupported = (macho->archDescriptor.cpusubtype != CPU_SUBTYPE_ARM_V6 && macho->archDescriptor.cpusubtype != CPU_SUBTYPE_ARM_V7 && macho->archDescriptor.cpusubtype != CPU_SUBTYPE_ARM_V7S);
-    if (macho->isSupported) {
-        // Ensure that the sizeofcmds is a multiple of 8 (it would need padding otherwise)
-        if (macho->machHeader.sizeofcmds % 8 != 0) {
-            printf("Error: sizeofcmds is not a multiple of 8 (%d).\n", macho->machHeader.sizeofcmds);
-            return -1;
-        }
-
-        macho_parse_segments(macho);
-        macho_parse_fileset_machos(macho);
+    macho->is32Bit = (macho->archDescriptor.cpusubtype == CPU_SUBTYPE_ARM_V6 || macho->archDescriptor.cpusubtype == CPU_SUBTYPE_ARM_V7 || macho->archDescriptor.cpusubtype == CPU_SUBTYPE_ARM_V7S);
+    if (macho->machHeader.sizeofcmds % (macho->is32Bit ? sizeof(uint32_t) : sizeof(uint64_t)) != 0) {
+        printf("Error: sizeofcmds is not a multiple of %lu (%d).\n", macho->is32Bit ? sizeof(uint32_t) : sizeof(uint64_t), macho->machHeader.sizeofcmds);
+        return -1;
     }
+    macho_parse_segments(macho);
+    macho_parse_fileset_machos(macho);
     return 0;
 }
 
@@ -323,7 +323,7 @@ MachO *macho_init_for_writing(const char *filePath)
     if (!macho->stream) goto fail;
 
     size_t fileSize = memory_stream_get_size(macho->stream);
-    memory_stream_read(macho->stream, 0, sizeof(struct mach_header_64), &macho->machHeader);
+    memory_stream_read(macho->stream, 0, sizeof(struct mach_header), &macho->machHeader);
     MACH_HEADER_APPLY_BYTE_ORDER(&macho->machHeader, HOST_TO_LITTLE_APPLIER);
     if (macho->machHeader.magic != MH_MAGIC_64) goto fail;
 
