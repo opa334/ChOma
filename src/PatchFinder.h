@@ -12,10 +12,14 @@ enum {
 
 typedef struct s_PFSection {
 	MachO *macho;
+	char sectname[16];
+	char segname[16];
 	uint64_t fileoff;
 	uint64_t vmaddr;
 	uint64_t size;
 	uint8_t *cache;
+	uint32_t initprot;
+	uint32_t maxprot;
 	bool ownsCache;
 } PFSection;
 
@@ -56,7 +60,8 @@ typedef enum {
     XREF_TYPE_MASK_CALL      = (1 << 0),
     XREF_TYPE_MASK_JUMP      = (1 << 1),
     XREF_TYPE_MASK_REFERENCE = (1 << 2),
-    XREF_TYPE_MASK_ALL = (XREF_TYPE_MASK_CALL | XREF_TYPE_MASK_REFERENCE),
+    XREF_TYPE_MASK_POINTER   = (1 << 3),
+    XREF_TYPE_MASK_ALL = (XREF_TYPE_MASK_CALL | XREF_TYPE_MASK_REFERENCE | XREF_TYPE_MASK_POINTER),
 } PFXrefTypeMask;
 
 typedef struct s_PFXrefMetric {

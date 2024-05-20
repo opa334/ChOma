@@ -62,6 +62,10 @@ PFSection *pfsec_init_from_macho(MachO *macho, const char *filesetEntryId, const
                     pfSection->fileoff = section->offset;
                     pfSection->vmaddr = section->addr;
                     pfSection->size = section->size;
+                    pfSection->initprot = segment->command.initprot;
+                    pfSection->maxprot = segment->command.maxprot;
+                    strncpy(pfSection->segname, segment->command.segname, sizeof(pfSection->segname) / sizeof(char *));
+                    strncpy(pfSection->sectname, section->sectname, sizeof(section->sectname) / sizeof(char *));
                 }
             }
             else {
@@ -69,6 +73,9 @@ PFSection *pfsec_init_from_macho(MachO *macho, const char *filesetEntryId, const
                 pfSection->fileoff = segment->command.fileoff;
                 pfSection->vmaddr = segment->command.vmaddr;
                 pfSection->size = segment->command.vmsize;
+                pfSection->initprot = segment->command.initprot;
+                pfSection->maxprot = segment->command.maxprot;
+                strncpy(pfSection->segname, segment->command.segname, sizeof(pfSection->segname) / sizeof(char *));
             }
         }
     }
@@ -323,6 +330,9 @@ void _pfsec_run_arm64_xref_metric(PFSection *section, uint64_t startAddr, uint64
     }
     if (metric->typeMask & XREF_TYPE_MASK_REFERENCE) {
         arm64Types |= ARM64_XREF_TYPE_MASK_REFERENCE;
+    }
+    if (metric->typeMask & XREF_TYPE_MASK_POINTER) {
+        arm64Types |= ARM64_XREF_TYPE_MASK_POINTER;
     }
 
     pfsec_arm64_enumerate_xrefs(section, arm64Types, ^(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop) {
