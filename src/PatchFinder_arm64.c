@@ -240,7 +240,7 @@ void pfsec_arm64_enumerate_xrefs(PFSection *section, Arm64XrefTypeMask types, vo
 		}
 		else {
 			for (uint64_t addr = section->vmaddr; addr < (section->vmaddr + section->size) && !stop; addr += sizeof(uint64_t)) {
-				uint64_t ptr = pfsec_read64(section, addr);
+				uint64_t ptr = pfsec_read_pointer(section, addr);
 				xrefBlock(ARM64_XREF_TYPE_POINTER, addr, ptr, &stop);
 			}
 		}

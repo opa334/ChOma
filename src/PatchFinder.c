@@ -89,6 +89,11 @@ PFSection *pfsec_init_from_macho(MachO *macho, const char *filesetEntryId, const
     return pfSection;
 }
 
+void pfsec_set_pointer_decoder(PFSection *section, uint64_t (*pointerDecoder)(struct s_PFSection *section, uint64_t vmaddr, uint64_t value))
+{
+    section->pointerDecoder = pointerDecoder;
+}
+
 int pfsec_read_reloff(PFSection *section, uint64_t rel, size_t size, void *outBuf)
 {
     if (rel > section->size) return -1;
@@ -156,6 +161,15 @@ uint64_t pfsec_read64(PFSection *section, uint64_t vmaddr)
     uint64_t r = 0;
     pfsec_read_at_address(section, vmaddr, &r, sizeof(r));
     return r;
+}
+
+uint64_t pfsec_read_pointer(PFSection *section, uint64_t vmaddr)
+{
+    uint64_t value = pfsec_read64(section, vmaddr);
+    if (section->pointerDecoder) {
+        return section->pointerDecoder(section, vmaddr, value);
+    }
+    return value;
 }
 
 int pfsec_set_cached(PFSection *section, bool cached)
@@ -260,6 +274,11 @@ uint64_t pfsec_find_function_start(PFSection *section, uint64_t midAddr)
         }
     }
     return 0;
+}
+
+bool pfsec_contains_vmaddr(PFSection *section, uint64_t addr)
+{
+    return (addr >= section->vmaddr && addr < (section->vmaddr + section->size));
 }
 
 void pfsec_free(PFSection *section)
