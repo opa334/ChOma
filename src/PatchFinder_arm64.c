@@ -230,7 +230,7 @@ void pfsec_arm64_enumerate_xrefs(PFSection *section, Arm64XrefTypeMask types, vo
 	}
 
 	if ((types & ARM64_XREF_TYPE_MASK_POINTER)) {
-		if (!strncmp(section->sectname, "__cfstring", sizeof(section->sectname) / sizeof(char *))) {
+		if (!strncmp(section->sectname, "__cfstring", sizeof(section->sectname) / sizeof(char))) {
 			for (uint64_t addr = section->vmaddr; addr < (section->vmaddr + section->size) && !stop; addr += 0x20) {
 				uint32_t fileoff = pfsec_read32(section, addr + 0x10);
 				uint64_t vmaddr = 0;
