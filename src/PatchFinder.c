@@ -64,8 +64,8 @@ PFSection *pfsec_init_from_macho(MachO *macho, const char *filesetEntryId, const
                     pfSection->size = section->size;
                     pfSection->initprot = segment->command.initprot;
                     pfSection->maxprot = segment->command.maxprot;
-                    strncpy(pfSection->segname, segment->command.segname, sizeof(pfSection->segname) / sizeof(char *));
-                    strncpy(pfSection->sectname, section->sectname, sizeof(section->sectname) / sizeof(char *));
+                    strncpy(pfSection->segname, segment->command.segname, sizeof(pfSection->segname) / sizeof(char));
+                    strncpy(pfSection->sectname, section->sectname, sizeof(section->sectname) / sizeof(char));
                 }
             }
             else {
@@ -75,7 +75,7 @@ PFSection *pfsec_init_from_macho(MachO *macho, const char *filesetEntryId, const
                 pfSection->size = segment->command.vmsize;
                 pfSection->initprot = segment->command.initprot;
                 pfSection->maxprot = segment->command.maxprot;
-                strncpy(pfSection->segname, segment->command.segname, sizeof(pfSection->segname) / sizeof(char *));
+                strncpy(pfSection->segname, segment->command.segname, sizeof(pfSection->segname) / sizeof(char));
             }
         }
     }
