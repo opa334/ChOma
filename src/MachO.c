@@ -111,7 +111,7 @@ int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct l
 
     for (int j = 0; j < macho->machHeader.ncmds; j++) {
         struct load_command loadCommand;
-        macho_read_at_offset(macho, offset, sizeof(loadCommand), &loadCommand);
+        if (macho_read_at_offset(macho, offset, sizeof(loadCommand), &loadCommand) != 0) continue;
         LOAD_COMMAND_APPLY_BYTE_ORDER(&loadCommand, LITTLE_TO_HOST_APPLIER);
 
         if (strcmp(load_command_to_string(loadCommand.cmd), "LC_UNKNOWN") == 0)
@@ -121,7 +121,7 @@ int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct l
         else {
             // TODO: Check if cmdsize matches expected size for cmd
             uint8_t cmd[loadCommand.cmdsize];
-            macho_read_at_offset(macho, offset, loadCommand.cmdsize, cmd);
+            if (macho_read_at_offset(macho, offset, loadCommand.cmdsize, cmd) != 0) continue;
             bool stop = false;
             enumeratorBlock(loadCommand, offset, (void *)cmd, &stop);
             if (stop) break;
@@ -138,12 +138,13 @@ int macho_enumerate_symbols(MachO *macho, void (^enumeratorBlock)(const char *na
             struct symtab_command *symtabCommand = (struct symtab_command *)cmd;
             SYMTAB_COMMAND_APPLY_BYTE_ORDER(symtabCommand, LITTLE_TO_HOST_APPLIER);
             char strtbl[symtabCommand->strsize];
-            macho_read_at_offset(macho, symtabCommand->stroff, symtabCommand->strsize, strtbl);
+            if (macho_read_at_offset(macho, symtabCommand->stroff, symtabCommand->strsize, strtbl) != 0) return;
 
             for (int i = 0; i < symtabCommand->nsyms; i++) {
-                struct nlist_64 entry = { 0 };
-                macho_read_at_offset(macho, symtabCommand->symoff + (i * sizeof(entry)), sizeof(entry), &entry);
+                struct nlist_64 entry;
+                if (macho_read_at_offset(macho, symtabCommand->symoff + (i * sizeof(entry)), sizeof(entry), &entry) != 0) continue;
                 NLIST_64_APPLY_BYTE_ORDER(&entry, LITTLE_TO_HOST_APPLIER);
+
                 if (entry.n_un.n_strx >= symtabCommand->strsize || entry.n_un.n_strx == 0) continue;
 
                 const char *symbolName = &strtbl[entry.n_un.n_strx];
@@ -296,7 +297,7 @@ MachO *macho_init(MemoryStream *stream, struct fat_arch_64 archDescriptor)
 
     macho->stream = stream;
     macho->archDescriptor = archDescriptor;
-    macho_read_at_offset(macho, 0, sizeof(macho->machHeader), &macho->machHeader);
+    if (macho_read_at_offset(macho, 0, sizeof(macho->machHeader), &macho->machHeader) != 0) goto fail;
     MACH_HEADER_APPLY_BYTE_ORDER(&macho->machHeader, LITTLE_TO_HOST_APPLIER);
 
     // Check the magic against the expected values
