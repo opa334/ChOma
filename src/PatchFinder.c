@@ -43,7 +43,7 @@ PFSection *pfsec_init_from_macho(MachO *macho, const char *filesetEntryId, const
         MachOSegment *segment = NULL;
         for (uint32_t i = 0; i < machoToUse->segmentCount; i++) {
             MachOSegment *segmentCandidate = machoToUse->segments[i];
-            if (!strcmp(segmentCandidate->command.segname, segName)) {
+            if (!strncmp(segmentCandidate->command.segname, segName, sizeof(segmentCandidate->command.segname))) {
                 segment = segmentCandidate;
                 break;
             }
@@ -53,7 +53,7 @@ PFSection *pfsec_init_from_macho(MachO *macho, const char *filesetEntryId, const
                 struct section_64 *section = NULL;
                 for (uint32_t i = 0; i < segment->command.nsects; i++) {
                     struct section_64 *sectionCandidate = &segment->sections[i];	
-                    if (!strcmp(sectionCandidate->sectname, sectName)) {
+                    if (!strncmp(sectionCandidate->sectname, sectName, sizeof(sectionCandidate->sectname))) {
                         section = sectionCandidate;
                     }
                 }
@@ -82,11 +82,15 @@ PFSection *pfsec_init_from_macho(MachO *macho, const char *filesetEntryId, const
 
     if (pfSection) {
         pfSection->cache = NULL;
-        pfSection->ownsCache = false;
         pfSection->macho = macho;
     }
 
     return pfSection;
+}
+
+MachO *pfsec_get_macho(PFSection *section)
+{
+    return section->macho;
 }
 
 void pfsec_set_pointer_decoder(PFSection *section, uint64_t (*pointerDecoder)(struct s_PFSection *section, uint64_t vmaddr, uint64_t value))
@@ -130,6 +134,7 @@ int pfsec_read_string_reloff(PFSection *section, uint64_t rel, char **outString)
         return 0;
     }
     else {
+        // XXX: doesn't work on DSCs :/
         return memory_stream_read_string(macho_get_stream(section->macho), section->fileoff + rel, outString);
     }
 }
@@ -177,36 +182,45 @@ int pfsec_set_cached(PFSection *section, bool cached)
     bool isCachedAlready = (bool)section->cache;
     if (cached != isCachedAlready) {
         if (cached) {
-            uint8_t *rawPtr = memory_stream_get_raw_pointer(macho_get_stream(section->macho));
-            if (rawPtr) {
-                section->cache = &rawPtr[section->fileoff];
+            // If this stream is backed by a pointer, caching it is obsolete
+            if (memory_stream_get_raw_pointer(macho_get_stream(section->macho))) return 0;
+
+            void *cache = malloc(section->size);
+            int r = pfsec_read_reloff(section, 0, section->size, cache);
+            if (r != 0) {
+                free(cache);
+                return r;
             }
-            else {
-                void *cache = malloc(section->size);
-                int r = pfsec_read_reloff(section, 0, section->size, cache);
-                if (r != 0) {
-                    free(cache);
-                    return r;
-                }
-                section->cache = cache;
-                section->ownsCache = true;
-            }
+            section->cache = cache;
         }
         else {
-            if (section->ownsCache) {
-                free(section->cache);
-            }
+            free(section->cache);
             section->cache = NULL;
-            section->ownsCache = false;
         }
     }
     return 0;
 }
 
+void *pfsec_get_raw_buffer(PFSection *section)
+{
+    if (section->macho->containingCache) {
+        return dsc_find_buffer(section->macho->containingCache, section->vmaddr, section->size);
+    }
+    uint8_t *rawPtr = memory_stream_get_raw_pointer(macho_get_stream(section->macho));
+    if (rawPtr) {
+        return &rawPtr[section->fileoff];
+    }
+    else if(section->cache) {
+        return section->cache;
+    }
+    return NULL;
+}
+
 int pfsec_find_memory_rel(PFSection *section, uint64_t searchStartOffset, uint64_t searchEndOffset, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundRelOffsetOut)
 {
-    if (section->cache) {
-        return raw_buffer_find_memory(section->cache, searchStartOffset, searchEndOffset, bytes, mask, nbytes, alignment, foundRelOffsetOut);
+    void *rawBuffer = pfsec_get_raw_buffer(section);
+    if (rawBuffer) {
+        return raw_buffer_find_memory(rawBuffer, searchStartOffset, searchEndOffset, bytes, mask, nbytes, alignment, foundRelOffsetOut);
     }
     else {
         uint64_t foundFileoff = 0;

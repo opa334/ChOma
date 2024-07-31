@@ -30,5 +30,6 @@ uint64_t align_to_size(int size, int alignment);
 int count_digits(int64_t num);
 void print_hash(uint8_t *hash, size_t size);
 void enumerate_range(uint64_t start, uint64_t end, uint16_t alignment, size_t nbytes, bool (^enumerator)(uint64_t cur));
-
+bool string_has_prefix(const char *str, const char *prefix);
+bool string_has_suffix(const char *str, const char *suffix);
 #endif

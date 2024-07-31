@@ -81,6 +81,8 @@ int arm64_gen_adr_p(optional_bool optIsAdrp, optional_uint64_t optOrigin, option
 int arm64_dec_adr_p(uint32_t inst, uint64_t origin, uint64_t *targetOut, arm64_register *registerOut, bool *isAdrpOut);
 int arm64_gen_mov_imm(char type, arm64_register destinationReg, optional_uint64_t optImm, optional_uint64_t optShift, uint32_t *bytesOut, uint32_t *maskOut);
 int arm64_dec_mov_imm(uint32_t inst, arm64_register *destinationRegOut, uint64_t *immOut, uint64_t *shiftOut, char *typeOut);
+int arm64_gen_mov_reg(arm64_register destinationReg, arm64_register sourceReg, uint32_t *bytesOut, uint32_t *maskOut);
+int arm64_dec_mov_reg(uint32_t inst, arm64_register *destinationRegOut, arm64_register *sourceRegOut);
 int arm64_gen_add_imm(arm64_register destinationReg, arm64_register sourceReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut);
 int arm64_dec_add_imm(uint32_t inst, arm64_register *destinationRegOut, arm64_register *sourceRegOut, uint16_t *immOut);
 int arm64_gen_ldr_imm(char type, arm64_ldr_str_type instType, arm64_register destinationReg, arm64_register addrReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut);
