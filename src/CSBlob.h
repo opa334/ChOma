@@ -111,7 +111,7 @@ int csd_superblob_insert_blob_at_index(CS_DecodedSuperBlob *superblob, CS_Decode
 int csd_superblob_append_blob(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToAppend);
 int csd_superblob_remove_blob(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToRemove); // <- Important: When calling this, caller is responsible for freeing blobToRemove
 int csd_superblob_remove_blob_at_index(CS_DecodedSuperBlob *superblob, uint32_t atIndex);
-int csd_superblob_calculate_best_cdhash(CS_DecodedSuperBlob *decodedSuperblob, void *cdhashOut);
+int csd_superblob_calculate_best_cdhash(CS_DecodedSuperBlob *decodedSuperblob, void *cdhashOut, int *cdhashType);
 int csd_superblob_print_content(CS_DecodedSuperBlob *decodedSuperblob, MachO *macho, bool printAllSlots, bool verifySlots);
 void csd_superblob_free(CS_DecodedSuperBlob *decodedSuperblob);
 
