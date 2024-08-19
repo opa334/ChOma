@@ -64,6 +64,7 @@ void enumerate_range(uint64_t start, uint64_t end, uint16_t alignment, size_t nb
     if (alignment == 0) return;
     if (nbytes == 0) return;
     if (nbytes % alignment) return;
+    if (nbytes > (end - start)) return;
 
     int dir = start < end ? 1 : -1;
 
@@ -76,7 +77,7 @@ void enumerate_range(uint64_t start, uint64_t end, uint16_t alignment, size_t nb
         if (start <= end) return;
     }
 
-    for (uint64_t cur = start; (cur + (alignment * dir)) != end; cur += (dir * alignment)) {
+    for (uint64_t cur = start; dir == 1 ? (cur + (alignment * dir)) <= end : (cur + (alignment * dir)) >= end; cur += (dir * alignment)) {
         if (!enumerator(cur)) break;
     }
 }
