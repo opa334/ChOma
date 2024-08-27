@@ -15,15 +15,13 @@
 int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBuf)
 {
     if (macho->containingCache) {
-        if ((offset + size) >= memory_stream_get_size(macho->stream)) {
-            uint64_t vmaddr = 0;
-            macho_translate_fileoff_to_vmaddr(macho, offset, &vmaddr, NULL);
-            if (vmaddr) {
-                return macho_read_at_vmaddr(macho, vmaddr, size, outBuf);
-            }
-            else {
-                return -1;
-            }
+        uint64_t vmaddr = 0;
+        macho_translate_fileoff_to_vmaddr(macho, offset, &vmaddr, NULL);
+        if (vmaddr) {
+            return macho_read_at_vmaddr(macho, vmaddr, size, outBuf);
+        }
+        else {
+            return -1;
         }
     }
 
