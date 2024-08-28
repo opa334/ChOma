@@ -15,13 +15,13 @@
 int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBuf)
 {
     if (macho->containingCache) {
+        // When this MachO is inside the DSC, it will have segments that point to "out of macho" memory
+        // So, attempt to translate every offset we get
+        // Problem: Translation doesn't work before the segments have been loaded and loading the segments requires this function
+        // Solution: Gracefully fall back to memory_stream_read in that case translation fails
         uint64_t vmaddr = 0;
-        macho_translate_fileoff_to_vmaddr(macho, offset, &vmaddr, NULL);
-        if (vmaddr) {
+        if (macho_translate_fileoff_to_vmaddr(macho, offset, &vmaddr, NULL) == 0) {
             return macho_read_at_vmaddr(macho, vmaddr, size, outBuf);
-        }
-        else {
-            return -1;
         }
     }
 
@@ -31,15 +31,10 @@ int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBu
 int macho_read_string_at_offset(MachO *macho, uint64_t offset, char **outString)
 {
     if (macho->containingCache) {
-        if (offset >= memory_stream_get_size(macho->stream)) {
-            uint64_t vmaddr = 0;
-            macho_translate_fileoff_to_vmaddr(macho, offset, &vmaddr, NULL);
-            if (vmaddr) {
-                return macho_read_string_at_vmaddr(macho, vmaddr, outString);
-            }
-            else {
-                return -1;
-            }
+        // Same as above
+        uint64_t vmaddr = 0;
+        if (macho_translate_fileoff_to_vmaddr(macho, offset, &vmaddr, NULL) == 0) {
+            return macho_read_string_at_vmaddr(macho, vmaddr, outString);
         }
     }
     return memory_stream_read_string(macho->stream, offset, outString);
