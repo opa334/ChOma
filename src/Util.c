@@ -79,6 +79,9 @@ void enumerate_range(uint64_t start, uint64_t end, uint16_t alignment, size_t nb
 
     for (uint64_t cur = start; dir == 1 ? (cur + (alignment * dir)) <= end : (cur + (alignment * dir)) >= end; cur += (dir * alignment)) {
         if (!enumerator(cur)) break;
+
+        // Extra condition to prevent underflow when we hit 0 and the direction is backwards
+        if (dir == -1 && cur == 0) break;
     }
 }
 

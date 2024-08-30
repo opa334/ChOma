@@ -234,8 +234,11 @@ int pfsec_find_memory_rel(PFSection *section, uint64_t searchStartOffset, uint64
 
 int pfsec_find_memory(PFSection *section, uint64_t searchStartAddr, uint64_t searchEndAddr, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundAddrOut)
 {
-    if (searchStartAddr < section->vmaddr || searchStartAddr > (section->vmaddr + section->size)) return -1;
-    if (searchEndAddr < section->vmaddr   || searchEndAddr > (section->vmaddr + section->size)) return -1;
+    // Ensure searchStartAddr and searchEndAddr stay within section bounds
+    if (searchStartAddr < section->vmaddr) searchStartAddr = section->vmaddr;
+    if (searchEndAddr < section->vmaddr) searchEndAddr = section->vmaddr;
+    if (searchStartAddr > (section->vmaddr + section->size)) searchStartAddr = section->vmaddr + section->size;
+    if (searchEndAddr > (section->vmaddr + section->size)) searchEndAddr = section->vmaddr + section->size;
 
     uint64_t foundRelOff = 0;
     int r = pfsec_find_memory_rel(section, searchStartAddr - section->vmaddr, searchEndAddr - section->vmaddr, bytes, mask, nbytes, alignment, &foundRelOff);
