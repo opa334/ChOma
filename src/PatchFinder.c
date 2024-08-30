@@ -266,8 +266,23 @@ uint64_t pfsec_find_next_inst(PFSection *section, uint64_t startAddr, uint32_t s
 
 uint64_t pfsec_find_function_start(PFSection *section, uint64_t midAddr)
 {
+    // If the MachO contains function starts, use those to determine the function start
+    __block uint64_t start = 0;
+    if (macho_enumerate_function_starts(section->macho, ^(uint64_t funcAddr, bool *stop){
+        if (funcAddr < midAddr) {
+            start = funcAddr;
+        }
+        else {
+            *stop = true;
+        }
+    }) == 0) {
+        return start;
+    }
+
+    // If it doesn't contain the function starts, try to find it based on a heuristic approach
     if (section->macho->machHeader.cputype == CPU_TYPE_ARM64) {
         if ((section->macho->machHeader.cpusubtype & ~CPU_SUBTYPE_MASK) == CPU_SUBTYPE_ARM64E) {
+            // Find start of function by going back until we find a PACIBSP
             uint64_t addr = midAddr;
             while (addr > section->vmaddr && addr < (section->vmaddr + section->size)) {
                 uint32_t curInst = pfsec_read32(section, addr);
@@ -276,6 +291,7 @@ uint64_t pfsec_find_function_start(PFSection *section, uint64_t midAddr)
             }
         }
         else if ((section->macho->machHeader.cpusubtype & ~CPU_SUBTYPE_MASK) == CPU_SUBTYPE_ARM64_ALL) {
+            // Find start of function by going back until we find a stack frame push
             // Technique adapted from pongoOS
             uint64_t frameAddr = pfsec_find_prev_inst(section, midAddr, 0, 0x910003fd, 0xff8003ff); // add x29, sp, ?
             if (frameAddr) {

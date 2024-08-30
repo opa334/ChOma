@@ -169,9 +169,9 @@ int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct l
         LOAD_COMMAND_APPLY_BYTE_ORDER(&loadCommand, LITTLE_TO_HOST_APPLIER);
 
         if (strcmp(load_command_to_string(loadCommand.cmd), "LC_UNKNOWN") == 0)
-		{
-			printf("Ignoring unknown command: 0x%x.\n", loadCommand.cmd);
-		}
+        {
+            printf("Ignoring unknown command: 0x%x.\n", loadCommand.cmd);
+        }
         else {
             // TODO: Check if cmdsize matches expected size for cmd
             uint8_t cmd[loadCommand.cmdsize];
@@ -311,6 +311,64 @@ int macho_enumerate_rpaths(MachO *macho, void (^enumeratorBlock)(const char *rpa
             }
         }
     });
+    return 0;
+}
+
+uint64_t macho_get_base_address(MachO *macho)
+{
+    __block int64_t base = UINT64_MAX;
+    macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
+        if (loadCommand.cmd == LC_SEGMENT_64) {
+            struct segment_command_64 *segmentCommand = (struct segment_command_64 *)cmd;
+            SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(segmentCommand, LITTLE_TO_HOST_APPLIER);
+            if (segmentCommand->vmaddr < base) {
+                base = segmentCommand->vmaddr;
+            }
+        }
+    });
+    return base;
+}
+
+int macho_enumerate_function_starts(MachO *macho, void (^enumeratorBlock)(uint64_t funcAddr, bool *stop))
+{
+    __block uint64_t functionStartsDataOff = 0, functionStartsDataSize = 0;
+
+    macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stopLC) {
+        if (loadCommand.cmd == LC_FUNCTION_STARTS) {
+            struct linkedit_data_command *functionStartsCommand = (struct linkedit_data_command *)cmd;
+            LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(functionStartsCommand, LITTLE_TO_HOST_APPLIER);
+            functionStartsDataOff = functionStartsCommand->dataoff;
+            functionStartsDataSize = functionStartsCommand->datasize;
+            *stopLC = true;
+        }
+    });
+
+    if (!functionStartsDataOff || !functionStartsDataSize) return -1;
+
+    uint8_t *info = malloc(functionStartsDataSize);
+    if (macho_read_at_offset(macho, functionStartsDataOff, functionStartsDataSize, info) == 0) {
+        uint8_t *infoEnd = &info[functionStartsDataSize];
+        uint64_t address = macho_get_base_address(macho);
+        for (uint8_t *p = info; (*p != 0) && (p < infoEnd); ) {
+            bool stop = false;
+            uint64_t delta = 0;
+            uint32_t shift = 0;
+            bool more = true;
+            do {
+                uint8_t byte = *p++;
+                delta |= ((byte & 0x7F) << shift);
+                shift += 7;
+                if (byte < 0x80) {
+                    address += delta;
+                    enumeratorBlock(address, &stop);
+                    more = false;
+                }
+            } while (more);
+            if (stop) break;
+        }
+    }
+    free(info);
+
     return 0;
 }
 
