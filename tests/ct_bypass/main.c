@@ -663,12 +663,6 @@ int main(int argc, char *argv[]) {
     bool appBundle = argument_exists(argc, argv, "-a");
     char *teamID = get_argument_value(argc, argv, "-t");
     char *appStoreBinary = get_argument_value(argc, argv, "-A");
-    if (teamID) {
-        if (strlen(teamID) != 10) {
-            printf("Error: Team ID must be 10 characters long!\n");
-            return -1;
-        }
-    }
     if (appBundle) {
         if (replace || output) {
             print_usage(argv[0]);
