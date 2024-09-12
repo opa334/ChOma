@@ -27,7 +27,7 @@
 #include <stdint.h>
 #include <uuid/uuid.h>
 
-#include <mach-o/fixup-chains.h>
+#include "fixup-chains.h"
 
 
 struct dyld_cache_header
