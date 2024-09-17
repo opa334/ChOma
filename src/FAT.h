@@ -10,6 +10,8 @@
 
 #include "MemoryStream.h"
 typedef struct MachO MachO;
+typedef struct DyldSharedCache DyldSharedCache;
+typedef struct DyldSharedCacheImage DyldSharedCacheImage;
 
 // A Fat structure can either represent a Fat file with multiple slices, in which the slices will be loaded into the slices attribute
 // Or a single slice MachO, in which case it serves as a compatibility layer and the single slice will also be loaded into the slices attribute
@@ -28,7 +30,10 @@ MemoryStream *fat_get_stream(Fat *fat);
 // Initialise a Fat structure from a memory stream
 Fat *fat_init_from_memory_stream(MemoryStream *stream);
 
-// Initialise a Fat structure using the path to the file
+// Initialise a FAT structure from a memory stream of something that is inside a dyld shared cache
+Fat *fat_dsc_init_from_memory_stream(MemoryStream *stream, DyldSharedCache *containingCache, DyldSharedCacheImage *cacheImage);
+
+// Initialise a FAT structure using the path to the file
 Fat *fat_init_from_path(const char *filePath);
 
 // Find macho with cputype and cpusubtype in Fat, returns NULL if not found

@@ -332,6 +332,46 @@ int arm64_dec_mov_imm(uint32_t inst, arm64_register *destinationRegOut, uint64_t
     return 0;
 }
 
+int arm64_gen_mov_reg(arm64_register destinationReg, arm64_register sourceReg, uint32_t *bytesOut, uint32_t *maskOut)
+{
+    uint32_t inst = 0x2a0003e0;
+    uint32_t mask = 0x7fe0ffe0;
+
+    if (!ARM64_REG_IS_ANY(destinationReg) && !ARM64_REG_IS_ANY(sourceReg)) {
+        if (ARM64_REG_IS_W(destinationReg) != ARM64_REG_IS_W(sourceReg)) return -1;
+    }
+
+    if (!ARM64_REG_IS_ANY(destinationReg)) {
+        mask |= (ARM64_REG_IS_X(destinationReg) << 31);
+
+        inst |= (ARM64_REG_GET_NUM(destinationReg));
+        mask |= 0x1f;
+    }
+
+    if (!ARM64_REG_IS_ANY(sourceReg)) {
+        mask |= (ARM64_REG_IS_X(sourceReg) << 31);
+
+        inst |= (ARM64_REG_GET_NUM(sourceReg) << 16);
+        mask |= (0x1f << 16);
+    }
+
+    if (bytesOut) *bytesOut = inst;
+    if (maskOut) *maskOut = mask;
+
+    return 0;
+}
+
+int arm64_dec_mov_reg(uint32_t inst, arm64_register *destinationRegOut, arm64_register *sourceRegOut)
+{
+    if ((inst & 0x7fe0ffe0) != 0x2a0003e0) return -1;
+
+    bool is64 = inst & (1 << 31);
+    if (destinationRegOut) *destinationRegOut = ARM64_REG(is64 ? ARM64_REG_TYPE_X : ARM64_REG_TYPE_W, inst & 0x1f);
+    if (sourceRegOut) *sourceRegOut = ARM64_REG(is64 ? ARM64_REG_TYPE_X : ARM64_REG_TYPE_W, (inst >> 16) & 0x1f);
+
+    return 0;
+}
+
 int arm64_gen_add_imm(arm64_register destinationReg, arm64_register sourceReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut)
 {
     if (ARM64_REG_IS_ANY_VECTOR(destinationReg)) return -1;
