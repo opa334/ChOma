@@ -154,6 +154,18 @@ fail:
     return NULL;
 }
 
+FAT *fat_dsc_init_from_memory_stream(MemoryStream *stream, DyldSharedCache *containingCache, DyldSharedCacheImage *cacheImage)
+{
+    FAT *fat = fat_init_from_memory_stream(stream);
+    if (fat) {
+        for (int i = 0; i < fat->slicesCount; i++) {
+            fat->slices[i]->containingCache = containingCache;
+            fat->slices[i]->cacheImage = cacheImage;
+        }
+    }
+    return fat;
+}
+
 FAT *fat_init_from_path(const char *filePath)
 {
     MemoryStream *stream = file_stream_init_from_path(filePath, 0, FILE_STREAM_SIZE_AUTO, 0);

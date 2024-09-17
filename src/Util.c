@@ -1,5 +1,6 @@
 #include "Util.h"
 #include <stdio.h>
+#include <string.h>
 
 int64_t sxt64(int64_t value, uint8_t bits)
 {
@@ -63,6 +64,7 @@ void enumerate_range(uint64_t start, uint64_t end, uint16_t alignment, size_t nb
     if (alignment == 0) return;
     if (nbytes == 0) return;
     if (nbytes % alignment) return;
+    if (nbytes > (end - start)) return;
 
     int dir = start < end ? 1 : -1;
 
@@ -75,7 +77,42 @@ void enumerate_range(uint64_t start, uint64_t end, uint16_t alignment, size_t nb
         if (start <= end) return;
     }
 
-    for (uint64_t cur = start; (cur + (alignment * dir)) != end; cur += (dir * alignment)) {
+    for (uint64_t cur = start; dir == 1 ? (cur + (alignment * dir)) <= end : (cur + (alignment * dir)) >= end; cur += (dir * alignment)) {
         if (!enumerator(cur)) break;
+
+        // Extra condition to prevent underflow when we hit 0 and the direction is backwards
+        if (dir == -1 && cur == 0) break;
     }
+}
+
+bool string_has_prefix(const char *str, const char *prefix)
+{
+    if (!str || !prefix) {
+		return false;
+	}
+
+	size_t str_len = strlen(str);
+	size_t prefix_len = strlen(prefix);
+
+	if (str_len < prefix_len) {
+		return false;
+	}
+
+	return !strncmp(str, prefix, prefix_len);
+}
+
+bool string_has_suffix(const char *str, const char *suffix)
+{
+    if (!str || !suffix) {
+		return false;
+	}
+
+	size_t str_len = strlen(str);
+	size_t suffix_len = strlen(suffix);
+
+	if (str_len < suffix_len) {
+		return false;
+	}
+
+	return !strcmp(str + str_len - suffix_len, suffix);
 }

@@ -17,14 +17,14 @@ typedef struct s_PFSection {
 	uint64_t fileoff;
 	uint64_t vmaddr;
 	uint64_t size;
-	uint8_t *cache;
 	uint32_t initprot;
 	uint32_t maxprot;
-	bool ownsCache;
+	uint8_t *cache;
 	uint64_t (*pointerDecoder)(struct s_PFSection *section, uint64_t vmaddr, uint64_t value);
 } PFSection;
 
 PFSection *pfsec_init_from_macho(MachO *macho, const char *filesetEntryId, const char *segName, const char *sectName);
+MachO *pfsec_get_macho(PFSection *section);
 void pfsec_set_pointer_decoder(PFSection *section, uint64_t (*pointerDecoder)(struct s_PFSection *section, uint64_t vmaddr, uint64_t value));
 int pfsec_read_reloff(PFSection *section, uint64_t rel, size_t size, void *outBuf);
 uint32_t pfsec_read32_reloff(PFSection *section, uint64_t rel);

@@ -10,10 +10,34 @@
 #include <mach-o/nlist.h>
 #include <mach/machine.h>
 #include <stdlib.h>
+#include <dlfcn.h>
 
 int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBuf)
 {
+    if (macho->containingCache) {
+        // When this MachO is inside the DSC, it will have segments that point to "out of macho" memory
+        // So, attempt to translate every offset we get
+        // Problem: Translation doesn't work before the segments have been loaded and loading the segments requires this function
+        // Solution: Gracefully fall back to memory_stream_read in that case translation fails
+        uint64_t vmaddr = 0;
+        if (macho_translate_fileoff_to_vmaddr(macho, offset, &vmaddr, NULL) == 0) {
+            return macho_read_at_vmaddr(macho, vmaddr, size, outBuf);
+        }
+    }
+
     return memory_stream_read(macho->stream, offset, size, outBuf);
+}
+
+int macho_read_string_at_offset(MachO *macho, uint64_t offset, char **outString)
+{
+    if (macho->containingCache) {
+        // Same as above
+        uint64_t vmaddr = 0;
+        if (macho_translate_fileoff_to_vmaddr(macho, offset, &vmaddr, NULL) == 0) {
+            return macho_read_string_at_vmaddr(macho, vmaddr, outString);
+        }
+    }
+    return memory_stream_read_string(macho->stream, offset, outString);
 }
 
 int macho_write_at_offset(MachO *macho, uint64_t offset, size_t size, const void *inBuf)
@@ -34,6 +58,11 @@ uint32_t macho_get_filetype(MachO *macho)
 size_t macho_get_mach_header_size(MachO *macho)
 {
     return macho->is32Bit ? sizeof(struct mach_header) : sizeof(struct mach_header_64);
+}
+
+DyldSharedCache *macho_get_containing_cache(MachO *macho)
+{
+    return macho->containingCache;
 }
 
 int macho_translate_fileoff_to_vmaddr(MachO *macho, uint64_t fileoff, uint64_t *vmaddrOut, MachOSegment **segmentOut)
@@ -69,18 +98,43 @@ int macho_translate_vmaddr_to_fileoff(MachO *macho, uint64_t vmaddr, uint64_t *f
 
 int macho_read_at_vmaddr(MachO *macho, uint64_t vmaddr, size_t size, void *outBuf)
 {
-    MachOSegment *segment;
-    uint64_t fileoff = 0;
-    int r = macho_translate_vmaddr_to_fileoff(macho, vmaddr, &fileoff, &segment);
-    if (r != 0) return r;
-
-    uint64_t readEnd = vmaddr + size;
-    if (readEnd >= (segment->command.vmaddr + segment->command.vmsize)) {
-        // prevent OOB
-        return -1;
+    if (macho->containingCache) {
+        return dsc_read_from_vmaddr(macho->containingCache, vmaddr, size, outBuf);
     }
+    else {
+        MachOSegment *segment;
+        uint64_t fileoff = 0;
+        int r = macho_translate_vmaddr_to_fileoff(macho, vmaddr, &fileoff, &segment);
+        if (r != 0) return r;
 
-    return macho_read_at_offset(macho, fileoff, size, outBuf);
+        uint64_t readEnd = vmaddr + size;
+        if (readEnd >= (segment->command.vmaddr + segment->command.vmsize)) {
+            // prevent OOB
+            return -1;
+        }
+
+        return macho_read_at_offset(macho, fileoff, size, outBuf);
+    }
+}
+
+int macho_read_string_at_vmaddr(MachO *macho, uint64_t vmaddr, char **outString)
+{
+    if (macho->containingCache) {
+        return dsc_read_string_from_vmaddr(macho->containingCache, vmaddr, outString);
+    }
+    else {
+        MachOSegment *segment;
+        uint64_t fileoff = 0;
+        int r = macho_translate_vmaddr_to_fileoff(macho, vmaddr, &fileoff, &segment);
+        if (r != 0) return r;
+
+        if (vmaddr >= (segment->command.vmaddr + segment->command.vmsize)) {
+            // prevent OOB
+            return -1;
+        }
+
+        return macho_read_string_at_offset(macho, fileoff, outString);
+    }
 }
 
 int macho_write_at_vmaddr(MachO *macho, uint64_t vmaddr, size_t size, const void *inBuf)
@@ -115,9 +169,9 @@ int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct l
         LOAD_COMMAND_APPLY_BYTE_ORDER(&loadCommand, LITTLE_TO_HOST_APPLIER);
 
         if (strcmp(load_command_to_string(loadCommand.cmd), "LC_UNKNOWN") == 0)
-		{
-			printf("Ignoring unknown command: 0x%x.\n", loadCommand.cmd);
-		}
+        {
+            printf("Ignoring unknown command: 0x%x.\n", loadCommand.cmd);
+        }
         else {
             // TODO: Check if cmdsize matches expected size for cmd
             uint8_t cmd[loadCommand.cmdsize];
@@ -131,14 +185,36 @@ int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct l
     return 0;
 }
 
+int macho_enumerate_sections(MachO *macho, void (^enumeratorBlock)(struct section_64 *section, struct segment_command_64 *segment, bool *stop))
+{
+    for (uint32_t i = 0; i < macho->segmentCount; i++) {
+        for (uint32_t k = 0; k < macho->segments[i]->command.nsects; k++) {
+            bool stop = false;
+            enumeratorBlock(&macho->segments[i]->sections[k], &macho->segments[i]->command, &stop);
+            if (stop) return 0;
+        }
+    }
+    return 0;
+}
+
 int macho_enumerate_symbols(MachO *macho, void (^enumeratorBlock)(const char *name, uint8_t type, uint64_t vmaddr, bool *stop))
 {
+    if (macho->containingCache && macho->cacheImage) {
+        // For stuff inside the DSC we need to use the cache image to also be able to fetch private symbols
+        // Private symbols are normally replaced with <redacted> in the LC_SYMTAB of the MachO
+        int r = dsc_image_enumerate_symbols(macho->containingCache, macho->cacheImage, enumeratorBlock);
+        if (r != 0) return r;
+    }
+
     macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
         if (loadCommand.cmd == LC_SYMTAB) {
             struct symtab_command *symtabCommand = (struct symtab_command *)cmd;
             SYMTAB_COMMAND_APPLY_BYTE_ORDER(symtabCommand, LITTLE_TO_HOST_APPLIER);
-            char strtbl[symtabCommand->strsize];
-            if (macho_read_at_offset(macho, symtabCommand->stroff, symtabCommand->strsize, strtbl) != 0) return;
+            char *strtbl = malloc(symtabCommand->strsize);
+            if (macho_read_at_offset(macho, symtabCommand->stroff, symtabCommand->strsize, strtbl) != 0) {
+                free(strtbl);
+                return;
+            };
 
             for (int i = 0; i < symtabCommand->nsyms; i++) {
                 struct nlist_64 entry;
@@ -150,6 +226,11 @@ int macho_enumerate_symbols(MachO *macho, void (^enumeratorBlock)(const char *na
                 const char *symbolName = &strtbl[entry.n_un.n_strx];
                 if (symbolName[0] == 0) continue;
 
+                if (macho->containingCache && macho->cacheImage) {
+                    // If we already got the real private symbols from the DSC, omit any censored ones
+                    if (!strcmp(symbolName, "<redacted>")) continue;
+                }
+
                 bool stopSym = false;
                 enumeratorBlock(symbolName, entry.n_type, entry.n_value, &stopSym);
                 if (stopSym) {
@@ -157,6 +238,7 @@ int macho_enumerate_symbols(MachO *macho, void (^enumeratorBlock)(const char *na
                     break;   
                 }
             }
+            free(strtbl);
         }
     });
 
@@ -229,6 +311,64 @@ int macho_enumerate_rpaths(MachO *macho, void (^enumeratorBlock)(const char *rpa
             }
         }
     });
+    return 0;
+}
+
+uint64_t macho_get_base_address(MachO *macho)
+{
+    __block int64_t base = UINT64_MAX;
+    macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
+        if (loadCommand.cmd == LC_SEGMENT_64) {
+            struct segment_command_64 *segmentCommand = (struct segment_command_64 *)cmd;
+            SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(segmentCommand, LITTLE_TO_HOST_APPLIER);
+            if (segmentCommand->vmaddr < base) {
+                base = segmentCommand->vmaddr;
+            }
+        }
+    });
+    return base;
+}
+
+int macho_enumerate_function_starts(MachO *macho, void (^enumeratorBlock)(uint64_t funcAddr, bool *stop))
+{
+    __block uint64_t functionStartsDataOff = 0, functionStartsDataSize = 0;
+
+    macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stopLC) {
+        if (loadCommand.cmd == LC_FUNCTION_STARTS) {
+            struct linkedit_data_command *functionStartsCommand = (struct linkedit_data_command *)cmd;
+            LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(functionStartsCommand, LITTLE_TO_HOST_APPLIER);
+            functionStartsDataOff = functionStartsCommand->dataoff;
+            functionStartsDataSize = functionStartsCommand->datasize;
+            *stopLC = true;
+        }
+    });
+
+    if (!functionStartsDataOff || !functionStartsDataSize) return -1;
+
+    uint8_t *info = malloc(functionStartsDataSize);
+    if (macho_read_at_offset(macho, functionStartsDataOff, functionStartsDataSize, info) == 0) {
+        uint8_t *infoEnd = &info[functionStartsDataSize];
+        uint64_t address = macho_get_base_address(macho);
+        for (uint8_t *p = info; (*p != 0) && (p < infoEnd); ) {
+            bool stop = false;
+            uint64_t delta = 0;
+            uint32_t shift = 0;
+            bool more = true;
+            do {
+                uint8_t byte = *p++;
+                delta |= ((byte & 0x7F) << shift);
+                shift += 7;
+                if (byte < 0x80) {
+                    address += delta;
+                    enumeratorBlock(address, &stop);
+                    more = false;
+                }
+            } while (more);
+            if (stop) break;
+        }
+    }
+    free(info);
+
     return 0;
 }
 
