@@ -16,16 +16,26 @@ int string_comparator(void const *a, void const *b) {
     return r;
 }
 
+DyldSharedCacheMapping *dsc_find_mapping(DyldSharedCache *sharedCache, uint64_t vmaddr)
+{
+    for (unsigned i = 0; i < sharedCache->mappingCount; i++) {
+        DyldSharedCacheMapping *mapping = &sharedCache->mappings[i];
+        uint64_t mappingEndAddr = mapping->vmaddr + mapping->size;
+        if (vmaddr >= mapping->vmaddr && vmaddr < mappingEndAddr) {
+            return mapping;
+        }
+    }
+    return NULL;
+}
+
 void *dsc_find_buffer(DyldSharedCache *sharedCache, uint64_t vmaddr, uint64_t size)
 {
     uint64_t endAddr = vmaddr + size;
 
-    for (unsigned i = 0; i < sharedCache->mappingCount; i++) {
-        DyldSharedCacheMapping *mapping = &sharedCache->mappings[i];
-        uint64_t mappingEndAddr = mapping->vmaddr + mapping->size;
-        if (vmaddr >= mapping->vmaddr && endAddr <= mappingEndAddr) {
-            return (void *)((uintptr_t)mapping->ptr + (vmaddr - mapping->vmaddr));
-        }
+    DyldSharedCacheMapping *mapping = dsc_find_mapping(sharedCache, vmaddr);
+    uint64_t mappingEndAddr = mapping->vmaddr + mapping->size;
+    if (endAddr <= mappingEndAddr) {
+        return (void *)((uintptr_t)mapping->ptr + (vmaddr - mapping->vmaddr));
     }
 
     return NULL;
