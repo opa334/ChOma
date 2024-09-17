@@ -1,6 +1,6 @@
 # ChOma
 
-ChOma is a simple library for parsing and manipulating MachO files and their CMS blobs. Written for exploitation of [CVE-2023-41991](https://support.apple.com/en-gb/HT213926), a vulnerability in the CoreTrust kernel extension, and for use in [TrollStore](https://github.com/opa334/TrollStore) and [XPF](https://github.com/opa334/XPF) (which is used by [Dopamine](https://github.com/opa334/Dopamine) as its kernel patchfinder)
+ChOma is a simple library for parsing and manipulating MachO files and their CMS blobs. Written for exploitation of [CVE-2023-41991](https://support.apple.com/en-gb/HT213926), a vulnerability in the CoreTrust kernel extension, and for use in [TrollStore](https://github.com/opa334/TrollStore) and [XPF](https://github.com/opa334/XPF) (which is used by [Dopamine](https://github.com/opa334/Dopamine) as the kernel patchfinder)
 
 ## Compilation
 
@@ -21,25 +21,27 @@ ChOma is a simple library for parsing and manipulating MachO files and their CMS
 
 ## Usage
 
-To use the library, you can compile with `make all`. This will produce the `choma_cli` executable that demonstrates the abilities of this library, and then `libchoma.a` and `libchoma.dylib` which can be linked to your own project.
-
-In `output/tests`, you will find `choma_cli` and `ct_bypass`. `choma_cli` is a simple CLI tool that demonstrates the abilities of this library, and `ct_bypass` is a proof-of-concept exploit for CVE-2023-41991 that uses this library. `ct_bypass` only works on iOS binaries, as trying to use macOS binaries will result in the bypass being unsuccessful as we use an iOS identity to insert into the code signature.
+To use the library, you can compile with `make all`. This will produce `libchoma.a` and `libchoma.dylib`, which can be linked to your own project, as well as multiple test binaries:
+* `choma_cli` - a binary to demonstrate the features of ChOma
+* `ct_bypass` - a binary that use CVE-2023-41991 to apply a CoreTrust bypass to an iOS binary
+* `dyld_patch` - a binary that will patch an iOS 15+ dyld binary to ignore AMFI flags (used by Dopamine)
+* `fat_create` - a binary that will create a fat MachO out of a selection of MachOs, ignoring all CPU types and subtypes
+* `kpf` - a binary that was used to begin writing a kernel patchfinder used in Dopamine 2.0, superseded by [XPF](https://github.com/opa334/XPF)
 
 ## CoreTrust bypass
 
 ChOma was written primarily for the purpose of exploiting CVE-2023-41991, which allows a binary to bypass CoreTrust during code-signing and appear as an App Store-signed binary. As a result, binaries can be permanently signed on device and have arbitrary entitlements, apart from a few restricted ones that are only allowed to be used by trustcached binaries.
 
-The vulnerability is caused by CoreTrust incorrectly handling multiple SignerInfo structures in a CMS blob. By having one SignerInfo that contains a valid signature (but from an identity that is not trusted by CoreTrust), and another SignerInfo that contains an invalid signature (but from an App Store identity), we can trick CoreTrust into thinking that the binary is signed by the App Store identity, and therefore allow it to be executed.
+The vulnerability is caused by CoreTrust incorrectly handling multiple signers in a CMS signature blob. The signature blob will have two signers: the App Store certificate chain (which has a valid signature for a different code signature) and a custom certificate chain (which has a valid signature for our code signature). Due to it incorrectly validating both signers, CoreTrust will return the CD hashes from our signer but set the policy flags using the App Store signer.
 
 The exploit is implemented in `ct_bypass`, and works by:
-1. Taking a pseudo-signed binary (a binary that has been signed by `ldid`).
-2. Updating the load commands by calculating the new sizes of the __LINKEDIT segment and the code signature.
-3. Updating the page hashes in the SHA256 CodeDirectory to match the new load command data.
-4. Replacing the SHA1 CodeDirectory with one from a valid App Store-signed binary.
-5. Inserting a template signature blob into the code signature, containing two SignerInfo structures.
-6. Updating the necessary fields in the signature blob to match the CD hashes.
-7. Signing the signature blob for the custom identity (the App Store identity will already have an intact signature).
-8. Inserting the new code signature into the binary.
+1. Updating the load commands by calculating the new sizes of the __LINKEDIT segment and the code signature.
+2. Updating the page hashes in the SHA256 CodeDirectory to match the new load command data.
+3. Replacing the SHA1 CodeDirectory with one from a valid App Store binary.
+4. Creating a new signature blob that has two signers, the App Store and our custom certificate chain.
+5. Updating the necessary fields in the signature blob to match the CD hashes.
+6. Signing the signature blob for the custom identity (the App Store identity will already have an intact signature).
+7. Inserting the new code signature into the binary.
 
 ## Terminology
 
