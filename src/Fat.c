@@ -28,17 +28,17 @@ int fat_parse_slices(Fat *fat)
         return -1;
     }
 
-    // Read the Fat header
+    // Read the fat header
     struct fat_header fatHeader;
     fat_read_at_offset(fat, 0, sizeof(fatHeader), &fatHeader);
     FAT_HEADER_APPLY_BYTE_ORDER(&fatHeader, BIG_TO_HOST_APPLIER);
 
-    // Check if the file is a Fat file
+    // Check if the file is a fat file
     if (fatHeader.magic == FAT_MAGIC || fatHeader.magic == FAT_MAGIC_64) {
         //printf("Fat header found! Magic: 0x%x.\n", fatHeader.magic);
         bool is64 = fatHeader.magic == FAT_MAGIC_64;
 
-        // Sanity check the number of machOs
+        // Sanity check the number of MachOs
         if (fatHeader.nfat_arch > 5 || fatHeader.nfat_arch < 1) {
             printf("Error: invalid number of MachO slices (%d), this likely means you are not using an iOS MachO.\n", fatHeader.nfat_arch);
             return -1;
@@ -57,7 +57,7 @@ int fat_parse_slices(Fat *fat)
                 FAT_ARCH_64_APPLY_BYTE_ORDER(&arch64, BIG_TO_HOST_APPLIER);
             }
             else {
-                // Read the Fat arch structure
+                // Read the fat arch structure
                 struct fat_arch arch = {0};
                 fat_read_at_offset(fat, sizeof(struct fat_header) + i * sizeof(arch), sizeof(arch), &arch);
                 FAT_ARCH_APPLY_BYTE_ORDER(&arch, BIG_TO_HOST_APPLIER);

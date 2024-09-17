@@ -13,7 +13,7 @@ typedef struct MachO MachO;
 typedef struct DyldSharedCache DyldSharedCache;
 typedef struct DyldSharedCacheImage DyldSharedCacheImage;
 
-// A Fat structure can either represent a Fat file with multiple slices, in which the slices will be loaded into the slices attribute
+// A Fat structure can either represent a fat file with multiple slices, in which the slices will be loaded into the slices attribute
 // Or a single slice MachO, in which case it serves as a compatibility layer and the single slice will also be loaded into the slices attribute
 typedef struct Fat
 {
