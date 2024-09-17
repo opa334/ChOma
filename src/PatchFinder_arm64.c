@@ -3,6 +3,49 @@
 #include "arm64.h"
 #include <sys/mman.h>
 
+// Unified check for whether anything writes to a register between firstAddr and secondAddr
+bool pfsec_arm64_scan_register_write(PFSection *section, arm64_register reg, uint64_t firstAddr, uint64_t secondAddr)
+{
+	uint64_t instrBetween = ((firstAddr - secondAddr) / 4);
+	uint64_t writeAddr = 0;
+
+	if (instrBetween == 0) return false;
+
+	// check for ADD writing to it
+	uint32_t addInst = 0, addMask = 0;
+	arm64_gen_add_imm(reg, ARM64_REG_ANY, OPT_UINT64_NONE, &addInst, &addMask);
+	writeAddr = pfsec_find_prev_inst(section, firstAddr - 4, instrBetween, addInst, addMask);
+	if (writeAddr) goto found_write;
+
+	// check for MOV writing to it
+	uint32_t movInst = 0, movMask = 0;
+	arm64_gen_mov_imm(0, reg, OPT_UINT64_NONE, OPT_UINT64_NONE, &movInst, &movMask);
+	writeAddr = pfsec_find_prev_inst(section, firstAddr - 4, instrBetween, movInst, movMask);
+	if (writeAddr) goto found_write;
+	arm64_gen_mov_reg(reg, ARM64_REG_ANY, &movInst, &movMask);
+	writeAddr = pfsec_find_prev_inst(section, firstAddr - 4, instrBetween, movInst, movMask);
+	if (writeAddr) goto found_write;
+
+	// check for any LDR variant writing to it
+	uint32_t ldrInst = 0, ldrMask = 0;
+	arm64_gen_ldr_imm(0, LDR_STR_TYPE_ANY, reg, ARM64_REG_ANY, OPT_UINT64_NONE, &ldrInst, &ldrMask);
+	writeAddr = pfsec_find_prev_inst(section, firstAddr - 4, instrBetween, ldrInst, ldrMask);
+	if (writeAddr) goto found_write;
+	arm64_gen_ldr_lit(reg, OPT_UINT64_NONE, OPT_UINT64_NONE, &ldrInst, &ldrMask);
+	writeAddr = pfsec_find_prev_inst(section, firstAddr - 4, instrBetween, ldrInst, ldrMask);
+	if (writeAddr) goto found_write;
+	arm64_gen_ldrs_imm(0, LDR_STR_TYPE_ANY, reg, ARM64_REG_ANY, OPT_UINT64_NONE, &ldrInst, &ldrMask);
+	pfsec_find_prev_inst(section, firstAddr - 4, instrBetween, ldrInst, ldrMask);
+	if (writeAddr) goto found_write;
+
+	// TODO: other writes
+
+	return false;
+
+found_write:
+	return true;
+}
+
 uint64_t pfsec_arm64_resolve_adrp_ldr_str_add_reference(PFSection *section, uint64_t adrpAddr, uint64_t ldrStrAddAddr)
 {
 	uint32_t ldrStrAddInst = pfsec_read32(section, ldrStrAddAddr);
@@ -45,6 +88,8 @@ uint64_t pfsec_arm64_resolve_adrp_ldr_str_add_reference_auto(PFSection *section,
 	arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, reg, &adrpInst, &adrpInstMask);
 	uint64_t adrpAddr = pfsec_find_prev_inst(section, ldrStrAddAddr, 100, adrpInst, adrpInstMask);
 	if (!adrpAddr) return -1;
+	if (pfsec_arm64_scan_register_write(section, reg, adrpAddr, ldrStrAddAddr-4)) return -1;
+
 	return pfsec_arm64_resolve_adrp_ldr_str_add_reference(section, adrpAddr, ldrStrAddAddr);
 }
 
@@ -79,23 +124,6 @@ uint64_t pfsec_arm64_resolve_stub(PFSection *section, uint64_t stubAddr)
 
 	// Not a stub, just return original address
 	return stubAddr;
-}
-
-// Unified check for whether anything writes to a register between firstAddr and secondAddr
-bool pfsec_arm64_scan_register_write(PFSection *section, arm64_register reg, uint64_t firstAddr, uint64_t secondAddr)
-{
-	uint64_t instrBetween = ((firstAddr - secondAddr) / 4);
-
-	// check for ADD writing to it
-	uint32_t addInst = 0, addMask = 0;
-	arm64_gen_add_imm(reg, ARM64_REG_ANY, OPT_UINT64_NONE, &addInst, &addMask);
-	if (pfsec_find_prev_inst(section, firstAddr - 4, instrBetween, addInst, addMask) != 0) {
-		return true;
-	}
-
-	// TODO: other writes
-
-	return false;
 }
 
 void pfsec_arm64_enumerate_xrefs(PFSection *section, Arm64XrefTypeMask types, void (^xrefBlock)(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop))
