@@ -367,29 +367,90 @@ int dsc_image_enumerate_references(DyldSharedCache *sharedCache, DyldSharedCache
     return 0;
 }
 
-int dsc_image_enumerate_chained_fixups(DyldSharedCache *sharedCache, void (^enumeratorBlock)(uint64_t addr, union dyld_cache_slide_pointer5 value, bool *stop))
+int dsc_image_enumerate_chained_fixups(DyldSharedCache *sharedCache, void (^enumeratorBlock)(DyldSharedCachePointer *pointer, bool *stop))
 {
     for (uint64_t i = 0; i < sharedCache->mappingCount; i++) {
         DyldSharedCacheMapping *mapping = &sharedCache->mappings[i];
         if (mapping->slideInfoPtr) {
             uint32_t version = *(uint32_t *)mapping->slideInfoPtr;
-            if (version == 5) {
-                struct dyld_cache_slide_info5 *info = mapping->slideInfoPtr;
-                uint64_t startAddr = mapping->vmaddr;
-                uint64_t endAddr = startAddr + (info->page_starts_count * info->page_size);
-                int pi = 0;
-                for (uint64_t pageAddr = startAddr; pageAddr < endAddr; pageAddr += info->page_size) {
-                    uint32_t delta = info->page_starts[pi++];
-                    union dyld_cache_slide_pointer5* loc = (mapping->ptr + (pageAddr - mapping->vmaddr));
-                    if (delta != DYLD_CACHE_SLIDE_V5_PAGE_ATTR_NO_REBASE) {
-                        do {
-                            loc += delta;
-                            delta = loc->auth.next;
-                            bool stop = false;
-                            enumeratorBlock(((uint64_t)loc - (uint64_t)mapping->ptr) + mapping->vmaddr, *loc, &stop);
-                            if (stop) return 0;
-                        } while (delta != 0);
+            switch (version) {
+                case 5: {
+                    struct dyld_cache_slide_info5 *info = mapping->slideInfoPtr;
+                    uint64_t startAddr = mapping->vmaddr;
+                    uint64_t endAddr = startAddr + (info->page_starts_count * info->page_size);
+                    int pi = 0;
+                    for (uint64_t pageAddr = startAddr; pageAddr < endAddr; pageAddr += info->page_size) {
+                        uint32_t delta = info->page_starts[pi++];
+                        union dyld_cache_slide_pointer5* loc = (mapping->ptr + (pageAddr - mapping->vmaddr));
+                        if (delta != DYLD_CACHE_SLIDE_V5_PAGE_ATTR_NO_REBASE) {
+                            do {
+                                loc += delta;
+                                delta = loc->auth.next;
+
+                                uint64_t value = loc->regular.runtimeOffset + info->value_add;
+                                if (!loc->auth.auth) {
+                                    value |= ((uint64_t)loc->regular.high8 << 56);
+                                }
+
+                                DyldSharedCachePointer pointer = (DyldSharedCachePointer){
+                                    .location = ((uint64_t)loc - (uint64_t)mapping->ptr) + mapping->vmaddr,
+                                    .target = value,
+
+                                    .authenticated = loc->auth.auth,
+                                    .key = loc->auth.keyIsData ? PAC_KEY_DA : PAC_KEY_IA,
+                                    .diversifier = loc->auth.diversity,
+                                    .hasAddressDiversity = loc->auth.addrDiv,
+                                };
+
+                                bool stop = false;
+                                enumeratorBlock(&pointer, &stop);
+                                if (stop) return 0;
+                            } while (delta != 0);
+                        }
                     }
+                    break;
+                }
+                case 3: {
+                    struct dyld_cache_slide_info3 *info = mapping->slideInfoPtr;
+                    uint64_t startAddr = mapping->vmaddr;
+                    uint64_t endAddr = startAddr + (info->page_starts_count * info->page_size);
+                    int pi = 0;
+                    for (uint64_t pageAddr = startAddr; pageAddr < endAddr; pageAddr += info->page_size) {
+                        uint32_t delta = info->page_starts[pi++];
+                        union dyld_cache_slide_pointer3* loc = (mapping->ptr + (pageAddr - mapping->vmaddr));
+                        if (delta != DYLD_CACHE_SLIDE_V3_PAGE_ATTR_NO_REBASE) {
+                            do {
+                                loc += delta;
+                                delta = loc->auth.offsetToNextPointer;
+
+                                uint64_t value = 0;
+                                if (loc->auth.authenticated) {
+                                    value = loc->auth.offsetFromSharedCacheBase + info->auth_value_add;
+                                }
+                                else {
+                                    uint64_t value51 = loc->plain.pointerValue;
+                                    uint64_t top8Bits = value51 & 0x0007F80000000000ULL;
+                                    uint64_t bottom43Bits = value51 & 0x000007FFFFFFFFFFULL;
+                                    value = (top8Bits << 13) | bottom43Bits;
+                                }
+
+                                DyldSharedCachePointer pointer = (DyldSharedCachePointer){
+                                    .location = ((uint64_t)loc - (uint64_t)mapping->ptr) + mapping->vmaddr,
+                                    .target = value,
+
+                                    .authenticated = loc->auth.authenticated,
+                                    .key = loc->auth.key,
+                                    .diversifier = loc->auth.diversityData,
+                                    .hasAddressDiversity = loc->auth.hasAddressDiversity,
+                                };
+
+                                bool stop = false;
+                                enumeratorBlock(&pointer, &stop);
+                                if (stop) return 0;
+                            } while (delta != 0);
+                        }
+                    }
+                    break;
                 }
             }
         }

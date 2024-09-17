@@ -42,6 +42,23 @@ typedef struct DyldSharedCache {
 	uint64_t containedImageCount;
 } DyldSharedCache;
 
+typedef struct DyldSharedCachePointer {
+	uint64_t location;
+	uint64_t target;
+
+	bool authenticated;
+	uint8_t key;
+	uint16_t diversifier;
+	bool hasAddressDiversity;
+} DyldSharedCachePointer;
+
+enum PAC_KEY {
+	PAC_KEY_IA = 0,
+	PAC_KEY_IB = 1,
+	PAC_KEY_DA = 2,
+	PAC_KEY_DB = 3,
+};
+
 DyldSharedCache *dsc_init_from_path(const char *path);
 DyldSharedCacheMapping *dsc_find_mapping(DyldSharedCache *sharedCache, uint64_t vmaddr);
 void *dsc_find_buffer(DyldSharedCache *sharedCache, uint64_t vmaddr, uint64_t size);
@@ -53,7 +70,7 @@ void dsc_enumerate_images(DyldSharedCache *sharedCache, void (^enumeratorBlock)(
 DyldSharedCacheImage *dsc_find_image_for_address(DyldSharedCache *sharedCache, uint64_t address);
 int dsc_image_enumerate_symbols(DyldSharedCache *sharedCache, DyldSharedCacheImage *image, void (^enumeratorBlock)(const char *name, uint8_t type, uint64_t vmaddr, bool *stop));
 int dsc_image_enumerate_references(DyldSharedCache *sharedCache, DyldSharedCacheImage *image, void (^enumeratorBlock)(unsigned v, void *patchable_location, bool *stop));
-int dsc_image_enumerate_chained_fixups(DyldSharedCache *sharedCache, void (^enumeratorBlock)(uint64_t addr, union dyld_cache_slide_pointer5 value, bool *stop));
+int dsc_image_enumerate_chained_fixups(DyldSharedCache *sharedCache, void (^enumeratorBlock)(DyldSharedCachePointer *pointer, bool *stop));
 
 uint64_t dsc_get_base_address(DyldSharedCache *sharedCache);
 
