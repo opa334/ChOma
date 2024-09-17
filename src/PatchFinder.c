@@ -272,14 +272,16 @@ uint64_t pfsec_find_function_start(PFSection *section, uint64_t midAddr)
     // If the MachO contains function starts, use those to determine the function start
     __block uint64_t start = 0;
     if (macho_enumerate_function_starts(section->macho, ^(uint64_t funcAddr, bool *stop){
-        if (funcAddr < midAddr) {
+        if (funcAddr <= midAddr) {
             start = funcAddr;
         }
         else {
             *stop = true;
         }
     }) == 0) {
-        return start;
+        if (start >= section->vmaddr && start < (section->vmaddr + section->size)) {
+            return start;
+        }
     }
 
     // If it doesn't contain the function starts, try to find it based on a heuristic approach
