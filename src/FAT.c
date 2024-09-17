@@ -2,24 +2,24 @@
 #include <stdbool.h>
 #include <assert.h>
 
-#include "FAT.h"
+#include "Fat.h"
 #include "MachO.h"
 #include "MachOByteOrder.h"
 
 #include "FileStream.h"
 #include "MemoryStream.h"
 
-int fat_read_at_offset(FAT *fat, uint64_t offset, size_t size, void *outBuf)
+int fat_read_at_offset(Fat *fat, uint64_t offset, size_t size, void *outBuf)
 {
     return memory_stream_read(fat->stream, offset, size, outBuf);
 }
 
-MemoryStream *fat_get_stream(FAT *fat)
+MemoryStream *fat_get_stream(Fat *fat)
 {
     return fat->stream;
 }
 
-int fat_parse_slices(FAT *fat)
+int fat_parse_slices(Fat *fat)
 {
     // Get size of file
     size_t fileSize = memory_stream_get_size(fat->stream);
@@ -28,14 +28,14 @@ int fat_parse_slices(FAT *fat)
         return -1;
     }
 
-    // Read the FAT header
+    // Read the Fat header
     struct fat_header fatHeader;
     fat_read_at_offset(fat, 0, sizeof(fatHeader), &fatHeader);
     FAT_HEADER_APPLY_BYTE_ORDER(&fatHeader, BIG_TO_HOST_APPLIER);
 
-    // Check if the file is a FAT file
+    // Check if the file is a Fat file
     if (fatHeader.magic == FAT_MAGIC || fatHeader.magic == FAT_MAGIC_64) {
-        //printf("FAT header found! Magic: 0x%x.\n", fatHeader.magic);
+        //printf("Fat header found! Magic: 0x%x.\n", fatHeader.magic);
         bool is64 = fatHeader.magic == FAT_MAGIC_64;
 
         // Sanity check the number of machOs
@@ -57,7 +57,7 @@ int fat_parse_slices(FAT *fat)
                 FAT_ARCH_64_APPLY_BYTE_ORDER(&arch64, BIG_TO_HOST_APPLIER);
             }
             else {
-                // Read the FAT arch structure
+                // Read the Fat arch structure
                 struct fat_arch arch = {0};
                 fat_read_at_offset(fat, sizeof(struct fat_header) + i * sizeof(arch), sizeof(arch), &arch);
                 FAT_ARCH_APPLY_BYTE_ORDER(&arch, BIG_TO_HOST_APPLIER);
@@ -81,7 +81,7 @@ int fat_parse_slices(FAT *fat)
             }
         }
     } else {
-        // Not FAT? Parse single slice
+        // Not Fat? Parse single slice
 
         fat->slicesCount = 1;
         fat->slices = malloc(sizeof(MachO) * fat->slicesCount);
@@ -108,7 +108,7 @@ int fat_parse_slices(FAT *fat)
     return 0;
 }
 
-MachO *fat_find_slice(FAT *fat, cpu_type_t cputype, cpu_subtype_t cpusubtype)
+MachO *fat_find_slice(Fat *fat, cpu_type_t cputype, cpu_subtype_t cpusubtype)
 {
     for (uint32_t i = 0; i < fat->slicesCount; i++) {
         MachO *curMacho = fat->slices[i];
@@ -121,7 +121,7 @@ MachO *fat_find_slice(FAT *fat, cpu_type_t cputype, cpu_subtype_t cpusubtype)
     return NULL;
 }
 
-void fat_free(FAT *fat)
+void fat_free(Fat *fat)
 {
     if (fat->slices != NULL) {
         for (int i = 0; i < fat->slicesCount; i++) {
@@ -135,11 +135,11 @@ void fat_free(FAT *fat)
     free(fat);
 }
 
-FAT *fat_init_from_memory_stream(MemoryStream *stream)
+Fat *fat_init_from_memory_stream(MemoryStream *stream)
 {
-    FAT *fat = malloc(sizeof(FAT));
+    Fat *fat = malloc(sizeof(Fat));
     if (!fat) return NULL;
-    memset(fat, 0, sizeof(FAT));
+    memset(fat, 0, sizeof(Fat));
 
     fat->stream = stream;
 
@@ -154,7 +154,7 @@ fail:
     return NULL;
 }
 
-FAT *fat_init_from_path(const char *filePath)
+Fat *fat_init_from_path(const char *filePath)
 {
     MemoryStream *stream = file_stream_init_from_path(filePath, 0, FILE_STREAM_SIZE_AUTO, 0);
     if (stream) {
@@ -163,11 +163,11 @@ FAT *fat_init_from_path(const char *filePath)
     return NULL;
 }
 
-FAT *fat_create_for_macho_array(char *firstInputPath, MachO **machoArray, int machoArrayCount) {
-    FAT *fat = fat_init_from_path(firstInputPath);
+Fat *fat_create_for_macho_array(char *firstInputPath, MachO **machoArray, int machoArrayCount) {
+    Fat *fat = fat_init_from_path(firstInputPath);
     for (int i = 1; i < machoArrayCount; i++) {
         if (fat_add_macho(fat, machoArray[i]) != 0) {
-            printf("Error: failed to add MachO to FAT.\n");
+            printf("Error: failed to add MachO to Fat.\n");
             fat_free(fat);
             return NULL;
         }
@@ -175,7 +175,7 @@ FAT *fat_create_for_macho_array(char *firstInputPath, MachO **machoArray, int ma
     return fat;
 }
 
-int fat_add_macho(FAT *fat, MachO *macho)
+int fat_add_macho(Fat *fat, MachO *macho)
 {
     fat->slicesCount++;
     fat->slices = realloc(fat->slices, sizeof(MachO*) * fat->slicesCount);

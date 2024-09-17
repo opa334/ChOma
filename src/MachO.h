@@ -5,7 +5,7 @@
 #include <mach-o/fat.h>
 #include <mach-o/loader.h>
 #include "MemoryStream.h"
-#include "FAT.h"
+#include "Fat.h"
 
 typedef struct MachOSegment
 {
@@ -17,7 +17,7 @@ typedef struct FilesetMachO {
     char *entry_id;
     uint64_t vmaddr;
     uint64_t fileoff;
-	FAT *underlyingMachO;
+	Fat *underlyingMachO;
 } FilesetMachO;
 
 typedef struct MachO {
@@ -56,7 +56,7 @@ int macho_enumerate_symbols(MachO *macho, void (^enumeratorBlock)(const char *na
 int macho_enumerate_dependencies(MachO *macho, void (^enumeratorBlock)(const char *dylibPath, uint32_t cmd, struct dylib* dylib, bool *stop));
 int macho_enumerate_rpaths(MachO *macho, void (^enumeratorBlock)(const char *rpath, bool *stop));
 
-// Initialise a MachO object from a MemoryStream and it's corresponding FAT arch descriptor
+// Initialise a MachO object from a MemoryStream and it's corresponding Fat arch descriptor
 MachO *macho_init(MemoryStream *stream, struct fat_arch_64 archDescriptor);
 
 // Initialize a single slice macho for writing to it

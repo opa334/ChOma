@@ -1,4 +1,4 @@
-#include "choma/FAT.h"
+#include "choma/Fat.h"
 #include <choma/CSBlob.h>
 #include <choma/Host.h>
 #include <choma/BufferedStream.h>
@@ -24,10 +24,10 @@ int main(int argc, char *argv[]) {
     MemoryStream *stream = buffered_stream_init_from_buffer(mapping, stat_buf.st_size, 0);
     if (!stream) return -1;
 
-    FAT *fat = fat_init_from_memory_stream(stream);
+    Fat *fat = fat_init_from_memory_stream(stream);
     if (!fat) return -1;
 
-    //FAT *fat = fat_init_from_path(argv[1]);
+    //Fat *fat = fat_init_from_path(argv[1]);
     //printf("fat: %p\n", fat);
     //if (!fat) return -1;
 

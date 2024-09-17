@@ -7,7 +7,7 @@
 
 #include "MachO.h"
 #include "CSBlob.h"
-#include "FAT.h"
+#include "Fat.h"
 #include "MachOByteOrder.h"
 #include "MachOLoadCommand.h"
 #include "MemoryStream.h"

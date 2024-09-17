@@ -1,4 +1,4 @@
-#include "FAT.h"
+#include "Fat.h"
 #include "FileStream.h"
 #include "MachO.h"
 #include "MachOByteOrder.h"
@@ -344,13 +344,13 @@ fail:
 }
 
 MachO **macho_array_create_for_paths(char **inputPaths, int inputPathsCount) {
-    FAT **fatArray = malloc(sizeof(FAT *) * inputPathsCount);
+    Fat **fatArray = malloc(sizeof(Fat *) * inputPathsCount);
     MachO **machoArray;
     int sliceCount = 0;
     for (int i = 0; i < inputPathsCount; i++) {
-        FAT *fat = fat_init_from_path(inputPaths[i]);
+        Fat *fat = fat_init_from_path(inputPaths[i]);
         if (!fat) {
-            printf("Error: failed to create FAT from file: %s\n", inputPaths[i]);
+            printf("Error: failed to create Fat from file: %s\n", inputPaths[i]);
             return NULL;
         }
         sliceCount += fat->slicesCount;

@@ -37,7 +37,7 @@ int host_supported_arm64e_abi(void)
     }
 }
 
-MachO *fat_find_preferred_slice(FAT *fat)
+MachO *fat_find_preferred_slice(Fat *fat)
 {
     cpu_type_t cputype;
     cpu_subtype_t cpusubtype;

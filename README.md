@@ -44,8 +44,8 @@ The exploit is implemented in `ct_bypass`, and works by:
 ## Terminology
 
 Inside ChOma, there are a few terms that are used to describe various parts of the MachO file. These are:
-- **FAT** - represents a FAT MachO file (a MachO file that contains multiple slices, which are each a MachO file for a different architecture).
-- **MachO** - represents either a single-architecture MachO file, or a slice of a FAT MachO file.
+- **Fat** - represents a Fat MachO file (a MachO file that contains multiple slices, which are each a MachO file for a different architecture).
+- **MachO** - represents either a single-architecture MachO file, or a slice of a Fat MachO file.
 
 ## Underlying mechanisms
 ChOma uses the `MemoryBuffer` structure to provide a unified way to read, write, shrink and expand data buffers, that works across both files and memory. Each `MemoryBuffer` has a `context` field that determines whether the functions interpret it as a `BufferedStream` object (for regular memory buffers) or as a `FileStream` object (for files).

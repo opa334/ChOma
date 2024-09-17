@@ -11,36 +11,36 @@
 #include "MemoryStream.h"
 typedef struct MachO MachO;
 
-// A FAT structure can either represent a FAT file with multiple slices, in which the slices will be loaded into the slices attribute
+// A Fat structure can either represent a Fat file with multiple slices, in which the slices will be loaded into the slices attribute
 // Or a single slice MachO, in which case it serves as a compatibility layer and the single slice will also be loaded into the slices attribute
-typedef struct FAT
+typedef struct Fat
 {
     MemoryStream *stream;
     MachO **slices;
     uint32_t slicesCount;
     int fileDescriptor;
-} FAT;
+} Fat;
 
-int fat_read_at_offset(FAT *fat, uint64_t offset, size_t size, void *outBuf);
+int fat_read_at_offset(Fat *fat, uint64_t offset, size_t size, void *outBuf);
 
-MemoryStream *fat_get_stream(FAT *fat);
+MemoryStream *fat_get_stream(Fat *fat);
 
-// Initialise a FAT structure from a memory stream
-FAT *fat_init_from_memory_stream(MemoryStream *stream);
+// Initialise a Fat structure from a memory stream
+Fat *fat_init_from_memory_stream(MemoryStream *stream);
 
-// Initialise a FAT structure using the path to the file
-FAT *fat_init_from_path(const char *filePath);
+// Initialise a Fat structure using the path to the file
+Fat *fat_init_from_path(const char *filePath);
 
-// Find macho with cputype and cpusubtype in FAT, returns NULL if not found
-MachO *fat_find_slice(FAT *fat, cpu_type_t cputype, cpu_subtype_t cpusubtype);
+// Find macho with cputype and cpusubtype in Fat, returns NULL if not found
+MachO *fat_find_slice(Fat *fat, cpu_type_t cputype, cpu_subtype_t cpusubtype);
 
-// Create a FAT structure from an array of MachO structures
-FAT *fat_create_for_macho_array(char *firstInputPath, MachO **machoArray, int machoArrayCount);
+// Create a Fat structure from an array of MachO structures
+Fat *fat_create_for_macho_array(char *firstInputPath, MachO **machoArray, int machoArrayCount);
 
-// Add a MachO to the FAT structure
-int fat_add_macho(FAT *fat, MachO *macho);
+// Add a MachO to the Fat structure
+int fat_add_macho(Fat *fat, MachO *macho);
 
-// Free all elements of the FAT structure
-void fat_free(FAT *fat);
+// Free all elements of the Fat structure
+void fat_free(Fat *fat);
 
 #endif // MACHO_H

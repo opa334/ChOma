@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#include "FAT.h"
+#include "Fat.h"
 #include "MachO.h"
 #include "MemoryStream.h"
 

@@ -28,7 +28,7 @@
 
 char *extract_preferred_slice(const char *fatPath)
 {
-    FAT *fat = fat_init_from_path(fatPath);
+    Fat *fat = fat_init_from_path(fatPath);
     if (!fat) return NULL;
     MachO *macho = fat_find_preferred_slice(fat);
 
@@ -144,7 +144,7 @@ void print_usage(const char *self)
     printf("\t-A: optional path to App Store binary to use (will use GTA Car Tracker by default)\n");
     printf("\t-h: print this help message\n");
     printf("Examples:\n");
-    printf("\t%s -i <path to input MachO/FAT file> (-r) (-o <path to output MachO file>)\n", self);
+    printf("\t%s -i <path to input MachO/Fat file> (-r) (-o <path to output MachO file>)\n", self);
     printf("\t%s -i <path to input .app bundle> -a\n", self);
     exit(-1);
 }

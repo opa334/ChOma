@@ -40,8 +40,8 @@ void print_usage(char *executablePath) {
     printf("\t-d: Parse code signature data (use with -c)\n");
     printf("\t-h: Print this message\n");
     printf("Examples:\n");
-    printf("\t%s -i <path to FAT/MachO file> -c\n", executablePath);
-    printf("\t%s -i <path to FAT/MachO file> -c -s -v\n", executablePath);
+    printf("\t%s -i <path to Fat/MachO file> -c\n", executablePath);
+    printf("\t%s -i <path to Fat/MachO file> -c -s -v\n", executablePath);
     printf("\t%s -i <path to kernelcache file> -f\n", executablePath);
     exit(-1);
 }
@@ -91,9 +91,9 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    // Initialise the FAT structure
-    printf("Initialising FAT structure from %s.\n", inputPath);
-    FAT *fat = fat_init_from_path(inputPath);
+    // Initialise the Fat structure
+    printf("Initialising Fat structure from %s.\n", inputPath);
+    Fat *fat = fat_init_from_path(inputPath);
     if (!fat) return -1;
 
     for (int i = 0; i < fat->slicesCount; i++) {

@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <sys/stat.h>
-#include <choma/FAT.h>
+#include <choma/Fat.h>
 #include <choma/FileStream.h>
 #include <choma/MemoryStream.h>
 #include <choma/MachO.h>
@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    // Create the output FAT
+    // Create the output Fat
     struct stat st;
     if (stat(outputPath, &st) == 0) {
         if (argument_exists(argc, argv, "-r")) {
@@ -109,15 +109,15 @@ int main(int argc, char *argv[]) {
     // Create an array of MachO objects
     MachO **machoArray = macho_array_create_for_paths(inputPaths, inputPathsCount);
     if (!machoArray) {
-        printf("Error: failed to create FAT array.\n");
+        printf("Error: failed to create Fat array.\n");
         return -1;
     }
 
-    // Create the FAT object
-    FAT *fat = fat_create_for_macho_array(inputPaths[0], machoArray, inputPathsCount);
-    printf("Created FAT with %u slices.\n", fat->slicesCount);
+    // Create the Fat object
+    Fat *fat = fat_create_for_macho_array(inputPaths[0], machoArray, inputPathsCount);
+    printf("Created Fat with %u slices.\n", fat->slicesCount);
 
-    // Write the FAT to the output file
+    // Write the Fat to the output file
     struct fat_header fatHeader;
     fatHeader.magic = FAT_MAGIC;
     fatHeader.nfat_arch = fat->slicesCount;
