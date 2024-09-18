@@ -148,7 +148,7 @@ void update_lc_code_signature(MachO *macho, uint64_t size) {
     });
 }
 
-int update_load_commands_for_coretrust_bypass(MachO *macho, CS_SuperBlob *superblob, uint64_t originalCodeSignatureSize, uint64_t originalMachOSize) {
+int update_load_commands_for_coretrust_bypass(MachO *macho, CS_SuperBlob *superblob, uint64_t originalCodeSignatureSize) {
 
     uint64_t sizeOfCodeSignature = BIG_TO_HOST(superblob->length);
 

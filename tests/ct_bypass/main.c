@@ -536,7 +536,7 @@ int apply_coretrust_bypass(const char *machoPath, char *teamID, char *appStoreBi
     CS_SuperBlob *encodedSuperblobUnsigned = csd_superblob_encode(decodedSuperblob);
 
     printf("Updating load commands...\n");
-    if (update_load_commands_for_coretrust_bypass(macho, encodedSuperblobUnsigned, originalCodeSignatureSize, memory_stream_get_size(macho->stream)) != 0) {
+    if (update_load_commands_for_coretrust_bypass(macho, encodedSuperblobUnsigned, originalCodeSignatureSize) != 0) {
         printf("Error: failed to update load commands!\n");
         return -1;
     }

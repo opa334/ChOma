@@ -11,6 +11,6 @@
 char *load_command_to_string(int loadCommand);
 void update_segment_command_64(MachO *macho, const char *segmentName, uint64_t vmaddr, uint64_t vmsize, uint64_t fileoff, uint64_t filesize);
 void update_lc_code_signature(MachO *macho, uint64_t size);
-int update_load_commands_for_coretrust_bypass(MachO *macho, CS_SuperBlob *superblob, uint64_t originalCodeSignatureSize, uint64_t originalMachOSize);
+int update_load_commands_for_coretrust_bypass(MachO *macho, CS_SuperBlob *superblob, uint64_t originalCodeSignatureSize);
 
 #endif // MACHO_LOAD_COMMAND_H
