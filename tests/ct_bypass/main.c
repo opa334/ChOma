@@ -60,14 +60,9 @@ char *extract_preferred_slice(const char *fatPath)
     }
 #endif // TARGET_OS_MAC && !TARGET_OS_IPHONE
 
-    if (macho->machHeader.filetype == MH_OBJECT) {
-        printf("Error: MachO is an object file, please use a MachO executable or dynamic library!\n");
-        fat_free(fat);
-        return NULL;
-    }
-
-    if (macho->machHeader.filetype == MH_DSYM) {
-        printf("Error: MachO is a dSYM file, please use a MachO executable or dynamic library!\n");
+    // Only re-sign MH_EXECUTE, MH_DYLIB, and MH_BUNDLE
+    if (macho->machHeader.filetype != MH_EXECUTE && macho->machHeader.filetype != MH_DYLIB && macho->machHeader.filetype != MH_BUNDLE) {
+        printf("Error: MachO is not an executable, dynamic library, or bundle! This is an unsupported MachO type for code-signing.\n");
         fat_free(fat);
         return NULL;
     }
