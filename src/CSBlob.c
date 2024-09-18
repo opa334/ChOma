@@ -377,6 +377,19 @@ int csd_superblob_append_blob(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *bl
     return csd_superblob_insert_blob_after_blob(superblob, blobToAppend, lastBlob);
 }
 
+int csd_superblob_replace_blob(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *newBlob)
+{
+    uint32_t index = 0;
+    CS_DecodedBlob *blob = csd_superblob_find_blob(superblob, newBlob->type, &index);
+    if (blob) {
+        csd_superblob_remove_blob_at_index(superblob, index);
+        csd_superblob_insert_blob_at_index(superblob, newBlob, index);
+    } else {
+        csd_superblob_append_blob(superblob, newBlob);
+    }
+    return 0;
+}
+
 int csd_superblob_remove_blob(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToRemove)
 {
     CS_DecodedBlob *blob = superblob->firstBlob;

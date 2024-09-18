@@ -370,7 +370,6 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
                 // Print the special slot name (if applicable)
                 printf(" (%s)", cs_slot_to_string(i));
             }
-            printf("\n");
         }
 
         if (verifySlots && i >= 0) {
@@ -396,10 +395,9 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
                     printf(")");
                 }
             }
-            printf("\n");
         }
 
-        if (needsNewline) printf("\n\n");
+        if (needsNewline) printf("\n");
         needsNewline = false;
     }
     if (verifySlots) {
