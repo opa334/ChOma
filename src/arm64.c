@@ -342,14 +342,16 @@ int arm64_gen_mov_reg(arm64_register destinationReg, arm64_register sourceReg, u
     }
 
     if (!ARM64_REG_IS_ANY(destinationReg)) {
-        mask |= (ARM64_REG_IS_X(destinationReg) << 31);
+        mask |= (1 << 31);
+        inst |= (ARM64_REG_IS_X(destinationReg) << 31);
 
         inst |= (ARM64_REG_GET_NUM(destinationReg));
         mask |= 0x1f;
     }
 
     if (!ARM64_REG_IS_ANY(sourceReg)) {
-        mask |= (ARM64_REG_IS_X(sourceReg) << 31);
+        mask |= (1 << 31);
+        inst |= (ARM64_REG_IS_X(sourceReg) << 31);
 
         inst |= (ARM64_REG_GET_NUM(sourceReg) << 16);
         mask |= (0x1f << 16);
