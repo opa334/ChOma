@@ -4,38 +4,45 @@
 #include <sys/mman.h>
 
 // Unified check for whether anything writes to a register between firstAddr and secondAddr
-bool pfsec_arm64_scan_register_write(PFSection *section, arm64_register reg, uint64_t firstAddr, uint64_t secondAddr)
+bool pfsec_arm64_scan_register_write(PFSection *section, arm64_register reg, uint64_t endAddr, uint64_t startAddr)
 {
-	uint64_t instrBetween = ((firstAddr - secondAddr) / 4);
-	uint64_t writeAddr = 0;
+	if (startAddr >= endAddr) {
+		if (startAddr > endAddr) printf("Fatal error pfsec_arm64_scan_register_write\n");
+		return false;
+	}
 
+	uint64_t instrBetween = ((endAddr - startAddr) / 4) - 1;
 	if (instrBetween == 0) return false;
+
+	uint64_t writeAddr = 0;
 
 	// check for ADD writing to it
 	uint32_t addInst = 0, addMask = 0;
 	arm64_gen_add_imm(reg, ARM64_REG_ANY, OPT_UINT64_NONE, &addInst, &addMask);
-	writeAddr = pfsec_find_prev_inst(section, firstAddr - 4, instrBetween, addInst, addMask);
+	writeAddr = pfsec_find_prev_inst(section, endAddr - 4, instrBetween, addInst, addMask);
 	if (writeAddr) goto found_write;
-
-	// check for MOV writing to it
+	// check for MOV variant writing to it
 	uint32_t movInst = 0, movMask = 0;
-	arm64_gen_mov_imm(0, reg, OPT_UINT64_NONE, OPT_UINT64_NONE, &movInst, &movMask);
-	writeAddr = pfsec_find_prev_inst(section, firstAddr - 4, instrBetween, movInst, movMask);
-	if (writeAddr) goto found_write;
+	for (int i = 0; i < 3; i++) {
+		char *variants = "knz";
+		arm64_gen_mov_imm(variants[i], reg, OPT_UINT64_NONE, OPT_UINT64_NONE, &movInst, &movMask);
+		writeAddr = pfsec_find_prev_inst(section, endAddr - 4, instrBetween, movInst, movMask);
+		if (writeAddr) goto found_write;
+	}
 	arm64_gen_mov_reg(reg, ARM64_REG_ANY, &movInst, &movMask);
-	writeAddr = pfsec_find_prev_inst(section, firstAddr - 4, instrBetween, movInst, movMask);
+	writeAddr = pfsec_find_prev_inst(section, endAddr - 4, instrBetween, movInst, movMask);
 	if (writeAddr) goto found_write;
 
 	// check for any LDR variant writing to it
 	uint32_t ldrInst = 0, ldrMask = 0;
 	arm64_gen_ldr_imm(0, LDR_STR_TYPE_ANY, reg, ARM64_REG_ANY, OPT_UINT64_NONE, &ldrInst, &ldrMask);
-	writeAddr = pfsec_find_prev_inst(section, firstAddr - 4, instrBetween, ldrInst, ldrMask);
+	writeAddr = pfsec_find_prev_inst(section, endAddr - 4, instrBetween, ldrInst, ldrMask);
 	if (writeAddr) goto found_write;
 	arm64_gen_ldr_lit(reg, OPT_UINT64_NONE, OPT_UINT64_NONE, &ldrInst, &ldrMask);
-	writeAddr = pfsec_find_prev_inst(section, firstAddr - 4, instrBetween, ldrInst, ldrMask);
+	writeAddr = pfsec_find_prev_inst(section, endAddr - 4, instrBetween, ldrInst, ldrMask);
 	if (writeAddr) goto found_write;
 	arm64_gen_ldrs_imm(0, LDR_STR_TYPE_ANY, reg, ARM64_REG_ANY, OPT_UINT64_NONE, &ldrInst, &ldrMask);
-	pfsec_find_prev_inst(section, firstAddr - 4, instrBetween, ldrInst, ldrMask);
+	pfsec_find_prev_inst(section, endAddr - 4, instrBetween, ldrInst, ldrMask);
 	if (writeAddr) goto found_write;
 
 	// TODO: other writes
@@ -88,7 +95,7 @@ uint64_t pfsec_arm64_resolve_adrp_ldr_str_add_reference_auto(PFSection *section,
 	arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, reg, &adrpInst, &adrpInstMask);
 	uint64_t adrpAddr = pfsec_find_prev_inst(section, ldrStrAddAddr, 100, adrpInst, adrpInstMask);
 	if (!adrpAddr) return -1;
-	if (pfsec_arm64_scan_register_write(section, reg, adrpAddr, ldrStrAddAddr-4)) return -1;
+	if (pfsec_arm64_scan_register_write(section, reg, ldrStrAddAddr, adrpAddr)) { return -1; }
 
 	return pfsec_arm64_resolve_adrp_ldr_str_add_reference(section, adrpAddr, ldrStrAddAddr);
 }
