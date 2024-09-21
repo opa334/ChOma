@@ -316,17 +316,23 @@ int macho_enumerate_rpaths(MachO *macho, void (^enumeratorBlock)(const char *rpa
 
 uint64_t macho_get_base_address(MachO *macho)
 {
+    if (macho->cachedBase) return macho->cachedBase;
     __block int64_t base = UINT64_MAX;
     macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
         if (loadCommand.cmd == LC_SEGMENT_64) {
             struct segment_command_64 *segmentCommand = (struct segment_command_64 *)cmd;
             SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(segmentCommand, LITTLE_TO_HOST_APPLIER);
-            if (segmentCommand->vmaddr < base) {
-                base = segmentCommand->vmaddr;
+            if (strncmp(segmentCommand->segname, "__PRELINK", 9) != 0 
+                && strncmp(segmentCommand->segname, "__PLK", 5) != 0) {
+                // PRELINK is before the actual base, so we ignore it
+                if (segmentCommand->vmaddr < base) {
+                    base = segmentCommand->vmaddr;
+                }
             }
         }
     });
-    return base;
+    macho->cachedBase = base;
+    return macho->cachedBase;
 }
 
 int macho_enumerate_function_starts(MachO *macho, void (^enumeratorBlock)(uint64_t funcAddr, bool *stop))

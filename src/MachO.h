@@ -26,6 +26,7 @@ typedef struct MachO {
     bool is32Bit;
     struct mach_header machHeader;
     struct fat_arch_64 archDescriptor;
+    uint64_t cachedBase;
 
     uint32_t filesetCount;
     FilesetMachO *filesetMachos;
