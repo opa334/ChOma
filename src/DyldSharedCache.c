@@ -383,6 +383,7 @@ int dsc_image_enumerate_chained_fixups(DyldSharedCache *sharedCache, void (^enum
                         uint32_t delta = info->page_starts[pi++];
                         union dyld_cache_slide_pointer5* loc = (mapping->ptr + (pageAddr - mapping->vmaddr));
                         if (delta != DYLD_CACHE_SLIDE_V5_PAGE_ATTR_NO_REBASE) {
+                            delta /= 8; // The first delta is a direct offset, all further ones are (offset / 8)
                             do {
                                 loc += delta;
                                 delta = loc->auth.next;
@@ -419,6 +420,7 @@ int dsc_image_enumerate_chained_fixups(DyldSharedCache *sharedCache, void (^enum
                         uint32_t delta = info->page_starts[pi++];
                         union dyld_cache_slide_pointer3* loc = (mapping->ptr + (pageAddr - mapping->vmaddr));
                         if (delta != DYLD_CACHE_SLIDE_V3_PAGE_ATTR_NO_REBASE) {
+                            delta /= 8; // The first delta is a direct offset, all further ones are (offset / 8)
                             do {
                                 loc += delta;
                                 delta = loc->auth.offsetToNextPointer;
