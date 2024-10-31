@@ -1,6 +1,7 @@
 #include "CodeDirectory.h"
 #include "CSBlob.h"
 #include "Util.h"
+#include <CommonCrypto/CommonDigest.h>
 #include <stddef.h>
 
 void csd_code_directory_read_slot_hash(CS_DecodedBlob *codeDirBlob, MachO *macho, int slot, uint8_t *slotHashOut)
@@ -437,9 +438,34 @@ void csd_code_directory_update(CS_DecodedBlob *codeDirBlob, MachO *macho)
         memset(pageData, 0, pageLength);
         macho_read_at_offset(macho, pageOffset, pageLength, pageData);
 
+        int hashLen = 0;
+        unsigned char *(*hashFunc)(const void *data, CC_LONG len, unsigned char *md) = NULL;
+
+        int hashType = csd_code_directory_get_hash_type(codeDirBlob);
+        switch (hashType) {
+            case CS_HASHTYPE_SHA160_160:
+                hashLen = CC_SHA1_DIGEST_LENGTH;
+                hashFunc = CC_SHA1;
+                break;
+            case CS_HASHTYPE_SHA256_160:
+            case CS_HASHTYPE_SHA256_256:
+                hashLen = CC_SHA256_DIGEST_LENGTH;
+                hashFunc = CC_SHA256;
+                break;
+            case CS_HASHTYPE_SHA384_384:
+                hashLen = CC_SHA384_DIGEST_LENGTH;
+                hashFunc = CC_SHA384;
+                break;
+            default:
+                break;
+        }
+        if (!hashLen) {
+            printf("ERROR: unknown hash type (%d)\n", hashType);
+        }
+
         // Calculate hash
-        uint8_t pageHash[CC_SHA256_DIGEST_LENGTH];
-        CC_SHA256(pageData, (CC_LONG)pageLength, pageHash);
+        uint8_t pageHash[hashLen];
+        hashFunc(pageData, (CC_LONG)pageLength, pageHash);
     
         // Write hash to CodeDirectory
         uint32_t offsetOfBlobToReplace = codeDir.hashOffset + (pageNumber * codeDir.hashSize);
