@@ -1,5 +1,6 @@
 #include "DyldSharedCache.h"
 #include <libgen.h>
+#include <sys/syslimits.h>
 #include <sys/types.h>
 #include <mach-o/nlist.h>
 #include <dirent.h>
@@ -75,33 +76,47 @@ int dsc_read_string_from_vmaddr(DyldSharedCache *sharedCache, uint64_t vmaddr, c
     return dsc_read_from_vmaddr(sharedCache, vmaddr, len, *outString);
 }
 
-void *_dsc_map_file(const char *dscPath, const char suffix[32], size_t *size)
+DyldSharedCacheFile *_dsc_load_file(const char *dscPath, const char suffix[32])
 {
-    char filePath[strlen(dscPath) + strnlen(suffix, 32) + 1];
-    strcpy(filePath, dscPath);
-    strncat(filePath, suffix, 32);
+    char filepath[strlen(dscPath) + strnlen(suffix, 32) + 1];
+    strcpy(filepath, dscPath);
+    strncat(filepath, suffix, 32);
 
-    void *mapping = MAP_FAILED;
+    int fd = open(filepath, O_RDONLY);
+    if (fd <= 0) return NULL;
 
-    int fd = open(filePath, O_RDONLY);
-    if (fd > 0) {
-        struct stat sb;
-        fstat(fd, &sb);
-        if (sb.st_size > sizeof(struct dyld_cache_header)) {
-            mapping = mmap(NULL, sb.st_size, PROT_READ, MAP_FILE | MAP_PRIVATE, fd, 0);
-            close(fd);
-            if (mapping != MAP_FAILED) {
-                struct dyld_cache_header *dscHeader = mapping;
-                if (strncmp(dscHeader->magic, "dyld_v", 6) != 0) {
-                    munmap(mapping, sb.st_size);
-                    mapping = MAP_FAILED;
-                }
-                if (size) *size = sb.st_size;
-            }
-        }
+    struct stat sb;
+    if (fstat(fd, &sb) != 0) {
+        close(fd);
+        return NULL;
     }
 
-    return mapping;
+    if (sb.st_size < sizeof(struct dyld_cache_header)) {
+        close(fd);
+        return NULL;
+    }
+
+    void *mapping = mmap(NULL, sb.st_size, PROT_READ, MAP_FILE | MAP_PRIVATE, fd, 0);
+    close(fd);
+
+    if (mapping == MAP_FAILED) return NULL;
+    
+    struct dyld_cache_header *dscHeader = mapping;
+    if (strncmp(dscHeader->magic, "dyld_v", 6) != 0) {
+        munmap(mapping, sb.st_size);
+        return NULL;
+    }
+
+    DyldSharedCacheFile *file = malloc(sizeof(DyldSharedCacheFile));
+    if (!file) {
+        munmap(mapping, sb.st_size);
+        return NULL;
+    }
+
+    file->filepath = strdup(filepath);
+    file->filesize = sb.st_size;
+    file->mapping  = mapping;
+    return file;
 }
 
 DyldSharedCache *dsc_init_from_path(const char *path)
@@ -113,45 +128,48 @@ DyldSharedCache *dsc_init_from_path(const char *path)
     sharedCache->mappingCount = 0;
     sharedCache->symbolFileIndex = 0;
 
-    // Map main dsc
-    sharedCache->fileMappings = malloc(sizeof(void *));
-    sharedCache->fileSizes = malloc(sizeof(size_t));
-    sharedCache->fileCount = 1;
-    sharedCache->fileMappings[0] = _dsc_map_file(path, "", &sharedCache->fileSizes[0]);
-
-    if (sharedCache->fileMappings[0] == MAP_FAILED) {
-        printf("ERROR: Failed to map main cache\n");
+    // Load main DSC file
+    DyldSharedCacheFile *mainFile = _dsc_load_file(path, "");
+    if (!mainFile) {
+        printf("ERROR: Failed to load main cache file\n");
         dsc_free(sharedCache);
         return NULL;
     }
 
-    bool symbolFileExists = false;
-    struct dyld_cache_header *mainHeader = sharedCache->fileMappings[0];
+    struct dyld_cache_header *mainHeader = mainFile->mapping;
+    bool symbolFileExists = !!memcmp(mainHeader->symbolFileUUID, UUID_NULL, sizeof(UUID_NULL));
+    sharedCache->fileCount = 1 + mainHeader->subCacheArrayCount + symbolFileExists;
+
+    sharedCache->files = malloc(sizeof(struct DyldSharedCacheFile *) * sharedCache->fileCount);
+    sharedCache->files[0] = mainFile;
+
     if (mainHeader->subCacheArrayCount > 0) {
-        // If there are sub caches, map them aswell
-
-        sharedCache->fileCount += mainHeader->subCacheArrayCount;
-
-        uint8_t uuidNull[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-        symbolFileExists = !!memcmp(mainHeader->symbolFileUUID, uuidNull, sizeof(uuidNull));
-        sharedCache->fileCount += symbolFileExists;
-
-        sharedCache->fileMappings = realloc(sharedCache->fileMappings, sharedCache->fileCount * sizeof(void *));
-        sharedCache->fileSizes = realloc(sharedCache->fileSizes, sharedCache->fileCount * sizeof(size_t));
-
-        struct dyld_subcache_entry *subcacheEntries = (void *)((uintptr_t)mainHeader + mainHeader->subCacheArrayOffset);
+        // If there are sub caches, load them aswell
+        void *subcacheEntries = (void *)((uintptr_t)mainHeader + mainHeader->subCacheArrayOffset);
+        int subCacheStructVersion = mainHeader->mappingOffset <= offsetof(struct dyld_cache_header, cacheSubType) ? 1 : 2;
 
         for (uint32_t i = 0; i < mainHeader->subCacheArrayCount; i++) {
-            sharedCache->fileMappings[i+1] = _dsc_map_file(path, subcacheEntries[i].fileSuffix, &sharedCache->fileSizes[i+1]);
-            if (sharedCache->fileMappings[i+1] == MAP_FAILED) {
-                printf("ERROR: Failed to map subcache with suffix %s\n", subcacheEntries[i].fileSuffix);
+            struct dyld_subcache_entry subcacheEntry;
+            if (subCacheStructVersion == 1) {
+                // Old format (iOS <=15) had no suffix string, here the suffix is derived from the index
+                memcpy(subcacheEntry.uuid, ((struct dyld_subcache_entry_v1 *)subcacheEntries)[i].uuid, sizeof(uuid_t));
+                subcacheEntry.cacheVMOffset = ((struct dyld_subcache_entry_v1 *)subcacheEntries)[i].cacheVMOffset;
+                snprintf(subcacheEntry.fileSuffix, sizeof(subcacheEntry.fileSuffix), ".%u", i+1);
+            }
+            else {
+                subcacheEntry = ((struct dyld_subcache_entry *)subcacheEntries)[i];
+            }
+
+            sharedCache->files[i+1] = _dsc_load_file(path, subcacheEntry.fileSuffix);
+            if (!sharedCache->files[i+1]) {
+                printf("ERROR: Failed to map subcache with suffix %s\n", subcacheEntry.fileSuffix);
                 dsc_free(sharedCache);
                 return NULL;
             }
 
-            struct dyld_cache_header *header = sharedCache->fileMappings[i+1];
-            if (memcmp(header->uuid, subcacheEntries[i].uuid, sizeof(header->uuid)) != 0) {
-                printf("ERROR: UUID mismatch on subcache with suffix %s\n", subcacheEntries[i].fileSuffix);
+            struct dyld_cache_header *header = sharedCache->files[i+1]->mapping;
+            if (memcmp(header->uuid, subcacheEntry.uuid, sizeof(header->uuid)) != 0) {
+                printf("ERROR: UUID mismatch on subcache with suffix %s\n", subcacheEntry.fileSuffix);
                 dsc_free(sharedCache);
                 return NULL;
             }
@@ -159,36 +177,39 @@ DyldSharedCache *dsc_init_from_path(const char *path)
     }
 
     if (symbolFileExists) {
-        sharedCache->symbolFileIndex = sharedCache->fileCount-1;
-        sharedCache->fileMappings[sharedCache->symbolFileIndex] = _dsc_map_file(path, ".symbols", &sharedCache->fileSizes[sharedCache->symbolFileIndex]);
-        if (sharedCache->fileMappings[sharedCache->symbolFileIndex] == MAP_FAILED) {
+        // If there is a .symbols file, load that aswell
+        sharedCache->symbolFileIndex = sharedCache->fileCount - 1;
+
+        sharedCache->files[sharedCache->symbolFileIndex] = _dsc_load_file(path, ".symbols");
+        if (!sharedCache->files[sharedCache->symbolFileIndex]) {
             printf("ERROR: Failed to map symbols subcache\n");
             dsc_free(sharedCache);
             return NULL;
         }
 
-        struct dyld_cache_header *header = sharedCache->fileMappings[sharedCache->symbolFileIndex];
+        struct dyld_cache_header *header = sharedCache->files[sharedCache->symbolFileIndex]->mapping;
         if (memcmp(header->uuid, mainHeader->symbolFileUUID, sizeof(header->uuid)) != 0) {
             printf("ERROR: UUID mismatch on symbols subcache\n");
             dsc_free(sharedCache);
             return NULL;
         }
     }
+    else {
+        sharedCache->symbolFileIndex = -1;
+    }
 
     sharedCache->baseAddress = mainHeader->sharedRegionStart;
 
     for (unsigned i = 0; i < sharedCache->fileCount; i++) {
-        void *fileMapping = sharedCache->fileMappings[i];
-        size_t fileSize = sharedCache->fileSizes[i];
+        DyldSharedCacheFile *file = sharedCache->files[i];
+        if (!file) continue;
 
-        if (!fileMapping) continue;
+        struct dyld_cache_header *header = file->mapping;
 
-        struct dyld_cache_header *header = fileMapping;
+        //printf("Parsing DSC %s\n", file->filepath);
 
-        //printf("Mapping DSC %u\n", i);
-
-        if (fileSize < (header->mappingOffset + header->mappingCount * sizeof(struct dyld_cache_mapping_info))) {
-            printf("WARNING: Failed to parse DSC %u\n", i);
+        if (file->filesize < (header->mappingOffset + header->mappingCount * sizeof(struct dyld_cache_mapping_info))) {
+            printf("WARNING: Failed to parse DSC %s\n", file->filepath);
         }
 
         bool slideInfo = (bool)header->mappingWithSlideOffset;
@@ -218,7 +239,7 @@ DyldSharedCache *dsc_init_from_path(const char *path)
                 fullInfo.slideInfoFileSize = 0;
             }
 
-            thisMapping->ptr = (fileMapping + fullInfo.fileOffset);
+            thisMapping->ptr = (file->mapping + fullInfo.fileOffset);
             thisMapping->vmaddr = fullInfo.address;
             thisMapping->size = fullInfo.size;
 
@@ -226,7 +247,7 @@ DyldSharedCache *dsc_init_from_path(const char *path)
             thisMapping->maxProt = fullInfo.maxProt;
 
             if (fullInfo.slideInfoFileOffset) {
-                thisMapping->slideInfoPtr = (void *)((uint64_t)fileMapping + fullInfo.slideInfoFileOffset);
+                thisMapping->slideInfoPtr = (void *)((uint64_t)file->mapping + fullInfo.slideInfoFileOffset);
                 thisMapping->slideInfoSize = fullInfo.slideInfoFileSize;
                 thisMapping->flags = fullInfo.flags;
             }
@@ -238,7 +259,7 @@ DyldSharedCache *dsc_init_from_path(const char *path)
         }
     }
 
-    struct dyld_cache_header *header = sharedCache->fileMappings[0];
+    struct dyld_cache_header *header = sharedCache->files[0]->mapping;
     struct dyld_cache_image_text_info *imagesText = (void *)((uintptr_t)header + header->imagesTextOffset);
     if (header->imagesTextCount) {
         sharedCache->containedImageCount = header->imagesTextCount;
@@ -260,7 +281,7 @@ DyldSharedCache *dsc_init_from_path(const char *path)
     }
 
     struct dyld_cache_local_symbols_info *localSymbols = NULL;
-    struct dyld_cache_header *symbolCacheHeader = sharedCache->fileMappings[sharedCache->symbolFileIndex];
+    struct dyld_cache_header *symbolCacheHeader = sharedCache->files[sharedCache->symbolFileIndex]->mapping;
     if (symbolCacheHeader->localSymbolsOffset) {
         localSymbols = (void *)((uintptr_t)symbolCacheHeader + symbolCacheHeader->localSymbolsOffset);
         if (localSymbols->entriesCount == sharedCache->containedImageCount) {
@@ -273,6 +294,13 @@ DyldSharedCache *dsc_init_from_path(const char *path)
     }
 
     return sharedCache;
+}
+
+void dsc_enumerate_files(DyldSharedCache *sharedCache, void (^enumeratorBlock)(const char *filepath, size_t filesize, struct dyld_cache_header *header))
+{
+    for (int i = 0; i < sharedCache->fileCount; i++) {
+        enumeratorBlock(sharedCache->files[i]->filepath, sharedCache->files[i]->filesize, sharedCache->files[i]->mapping);
+    }
 }
 
 Fat *dsc_get_fat_for_path(DyldSharedCache *sharedCache, const char *path)
@@ -315,7 +343,7 @@ DyldSharedCacheImage *dsc_find_image_for_address(DyldSharedCache *sharedCache, u
 int dsc_image_enumerate_symbols(DyldSharedCache *sharedCache, DyldSharedCacheImage *image, void (^enumeratorBlock)(const char *name, uint8_t type, uint64_t vmaddr, bool *stop))
 {
     struct dyld_cache_local_symbols_info *localSymbols = NULL;
-    struct dyld_cache_header *symbolCacheHeader = sharedCache->fileMappings[sharedCache->symbolFileIndex];
+    struct dyld_cache_header *symbolCacheHeader = sharedCache->files[sharedCache->symbolFileIndex]->mapping;
     if (symbolCacheHeader->localSymbolsOffset) {
         localSymbols = (void *)((uintptr_t)symbolCacheHeader + symbolCacheHeader->localSymbolsOffset);
         
@@ -342,7 +370,7 @@ int dsc_image_enumerate_symbols(DyldSharedCache *sharedCache, DyldSharedCacheIma
 
 int dsc_image_enumerate_references(DyldSharedCache *sharedCache, DyldSharedCacheImage *image, void (^enumeratorBlock)(unsigned v, void *patchable_location, bool *stop))
 {
-    struct dyld_cache_header *mainHeader = sharedCache->fileMappings[0];
+    struct dyld_cache_header *mainHeader = sharedCache->files[0]->mapping;
 
     struct dyld_cache_patch_info_v3 *patchInfo = dsc_find_buffer(sharedCache, mainHeader->patchInfoAddr, mainHeader->patchInfoSize);
 
@@ -470,10 +498,11 @@ void dsc_free(DyldSharedCache *sharedCache)
 {
     if (sharedCache->fileCount > 0) {
         for (unsigned i = 0; i < sharedCache->fileCount; i++) {
-            munmap(sharedCache->fileMappings[i], sharedCache->fileSizes[i]);
+            munmap(sharedCache->files[i]->mapping, sharedCache->files[i]->filesize);
+            free(sharedCache->files[i]->filepath);
+            free(sharedCache->files[i]);
         }
-        free(sharedCache->fileMappings);
-        free(sharedCache->fileSizes);
+        free(sharedCache->files);
     }
     if (sharedCache->mappings) {
         free(sharedCache->mappings);

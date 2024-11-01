@@ -4,6 +4,13 @@
 #include <CommonCrypto/CommonDigest.h>
 #include <stddef.h>
 
+void print_cdhash(cdhash_t cdhash)
+{
+    for (int i = 0; i < sizeof(cdhash_t); i++) {
+        printf("%02x", cdhash[i]);
+    }
+}
+
 void csd_code_directory_read_slot_hash(CS_DecodedBlob *codeDirBlob, MachO *macho, int slot, uint8_t *slotHashOut)
 {
     CS_CodeDirectory codeDir;

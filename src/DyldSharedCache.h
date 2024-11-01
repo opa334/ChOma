@@ -8,6 +8,8 @@
 typedef struct MachO MachO;
 typedef struct Fat Fat;
 
+#define UUID_NULL (uuid_t){0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
+
 typedef struct DyldSharedCacheMapping {
 	uint64_t vmaddr;
 	uint64_t size;
@@ -18,6 +20,12 @@ typedef struct DyldSharedCacheMapping {
 	uint32_t maxProt;
 	uint32_t initProt;
 } DyldSharedCacheMapping;
+
+typedef struct DyldSharedCacheFile {
+	char *filepath;
+	size_t filesize;
+	void *mapping;
+} DyldSharedCacheFile;
 
 typedef struct DyldSharedCacheImage {
 	uint64_t index;
@@ -30,16 +38,15 @@ typedef struct DyldSharedCacheImage {
 
 typedef struct DyldSharedCache {
 	unsigned fileCount;
+	DyldSharedCacheFile **files;
 	unsigned symbolFileIndex;
-	void **fileMappings;
-	size_t *fileSizes;
 
-	DyldSharedCacheMapping *mappings;
 	unsigned mappingCount;
+	DyldSharedCacheMapping *mappings;
 	uint64_t baseAddress;
 
-	DyldSharedCacheImage *containedImages;
 	uint64_t containedImageCount;
+	DyldSharedCacheImage *containedImages;
 } DyldSharedCache;
 
 typedef struct DyldSharedCachePointer {
@@ -60,6 +67,8 @@ enum PAC_KEY {
 };
 
 DyldSharedCache *dsc_init_from_path(const char *path);
+void dsc_enumerate_files(DyldSharedCache *sharedCache, void (^enumeratorBlock)(const char *filepath, size_t filesize, struct dyld_cache_header *header));
+
 DyldSharedCacheMapping *dsc_find_mapping(DyldSharedCache *sharedCache, uint64_t vmaddr);
 void *dsc_find_buffer(DyldSharedCache *sharedCache, uint64_t vmaddr, uint64_t size);
 int dsc_read_from_vmaddr(DyldSharedCache *sharedCache, uint64_t vmaddr, size_t size, void *outBuf);

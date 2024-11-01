@@ -36,6 +36,9 @@ typedef struct __CodeDirectory {
 __attribute__ ((aligned(1)));
 
 #define CS_CDHASH_LEN 20
+typedef uint8_t cdhash_t[CS_CDHASH_LEN];
+void print_cdhash(cdhash_t cdhash);
+
 enum CS_HashType {
 	CS_HASHTYPE_SHA160_160 = 1,
 	CS_HASHTYPE_SHA256_256 = 2,
