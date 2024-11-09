@@ -8,6 +8,7 @@
 #include "Util.h"
 #include <mach-o/loader.h>
 #include <stddef.h>
+#include <stdint.h>
 
 const char *cs_blob_magic_to_string(uint32_t magic)
 {
@@ -326,6 +327,23 @@ CS_DecodedBlob *csd_superblob_find_blob(CS_DecodedSuperBlob *superblob, uint32_t
     uint32_t i = 0;
     while (blob) {
         if (blob->type == type) {
+            if (indexOut) *indexOut = i;
+            return blob;
+        }
+        blob = blob->next;
+        i++;
+    }
+    return NULL;
+}
+
+CS_DecodedBlob *csd_superblob_find_blob_by_magic(CS_DecodedSuperBlob *superblob, uint32_t magic, uint32_t *indexOut)
+{
+    CS_DecodedBlob *blob = superblob->firstBlob;
+    uint32_t i = 0;
+    while (blob) {
+        uint32_t blobMagic = 0;
+        memory_stream_read(blob->stream, 0, sizeof(uint32_t), &blobMagic);
+        if (BIG_TO_HOST(blobMagic) == magic) {
             if (indexOut) *indexOut = i;
             return blob;
         }

@@ -106,6 +106,7 @@ CS_DecodedSuperBlob *csd_superblob_init(void);
 CS_DecodedSuperBlob *csd_superblob_decode(CS_SuperBlob *superblob);
 CS_SuperBlob *csd_superblob_encode(CS_DecodedSuperBlob *decodedSuperblob);
 CS_DecodedBlob *csd_superblob_find_blob(CS_DecodedSuperBlob *superblob, uint32_t type, uint32_t *indexOut);
+CS_DecodedBlob *csd_superblob_find_blob_by_magic(CS_DecodedSuperBlob *superblob, uint32_t magic, uint32_t *indexOut);
 int csd_superblob_insert_blob_after_blob(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToInsert, CS_DecodedBlob *afterBlob);
 int csd_superblob_insert_blob_at_index(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToInsert, uint32_t atIndex);
 int csd_superblob_append_blob(CS_DecodedSuperBlob *superblob, CS_DecodedBlob *blobToAppend);
