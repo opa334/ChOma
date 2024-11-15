@@ -280,15 +280,17 @@ DyldSharedCache *dsc_init_from_path(const char *path)
         }
     }
 
-    struct dyld_cache_local_symbols_info *localSymbols = NULL;
-    struct dyld_cache_header *symbolCacheHeader = sharedCache->files[sharedCache->symbolFileIndex]->mapping;
-    if (symbolCacheHeader->localSymbolsOffset) {
-        localSymbols = (void *)((uintptr_t)symbolCacheHeader + symbolCacheHeader->localSymbolsOffset);
-        if (localSymbols->entriesCount == sharedCache->containedImageCount) {
-            struct dyld_cache_local_symbols_entry_64 *symbolEntries = (void *)((uintptr_t)localSymbols + localSymbols->entriesOffset);
-            for (uint64_t i = 0; i < sharedCache->containedImageCount; i++) {
-                sharedCache->containedImages[i].nlistStartIndex = symbolEntries[i].nlistStartIndex;
-                sharedCache->containedImages[i].nlistCount = symbolEntries[i].nlistCount;
+    if (sharedCache->symbolFileIndex != -1) {
+        struct dyld_cache_local_symbols_info *localSymbols = NULL;
+        struct dyld_cache_header *symbolCacheHeader = sharedCache->files[sharedCache->symbolFileIndex]->mapping;
+        if (symbolCacheHeader->localSymbolsOffset) {
+            localSymbols = (void *)((uintptr_t)symbolCacheHeader + symbolCacheHeader->localSymbolsOffset);
+            if (localSymbols->entriesCount == sharedCache->containedImageCount) {
+                struct dyld_cache_local_symbols_entry_64 *symbolEntries = (void *)((uintptr_t)localSymbols + localSymbols->entriesOffset);
+                for (uint64_t i = 0; i < sharedCache->containedImageCount; i++) {
+                    sharedCache->containedImages[i].nlistStartIndex = symbolEntries[i].nlistStartIndex;
+                    sharedCache->containedImages[i].nlistCount = symbolEntries[i].nlistCount;
+                }
             }
         }
     }
