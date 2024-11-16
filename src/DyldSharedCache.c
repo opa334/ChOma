@@ -131,7 +131,7 @@ DyldSharedCache *dsc_init_from_path(const char *path)
     // Load main DSC file
     DyldSharedCacheFile *mainFile = _dsc_load_file(path, "");
     if (!mainFile) {
-        printf("ERROR: Failed to load main cache file\n");
+        printf("Error: Failed to load main cache file\n");
         dsc_free(sharedCache);
         return NULL;
     }
@@ -162,14 +162,14 @@ DyldSharedCache *dsc_init_from_path(const char *path)
 
             sharedCache->files[i+1] = _dsc_load_file(path, subcacheEntry.fileSuffix);
             if (!sharedCache->files[i+1]) {
-                printf("ERROR: Failed to map subcache with suffix %s\n", subcacheEntry.fileSuffix);
+                printf("Error: Failed to map subcache with suffix %s\n", subcacheEntry.fileSuffix);
                 dsc_free(sharedCache);
                 return NULL;
             }
 
             struct dyld_cache_header *header = sharedCache->files[i+1]->mapping;
             if (memcmp(header->uuid, subcacheEntry.uuid, sizeof(header->uuid)) != 0) {
-                printf("ERROR: UUID mismatch on subcache with suffix %s\n", subcacheEntry.fileSuffix);
+                printf("Error: UUID mismatch on subcache with suffix %s\n", subcacheEntry.fileSuffix);
                 dsc_free(sharedCache);
                 return NULL;
             }
@@ -182,14 +182,14 @@ DyldSharedCache *dsc_init_from_path(const char *path)
 
         sharedCache->files[sharedCache->symbolFileIndex] = _dsc_load_file(path, ".symbols");
         if (!sharedCache->files[sharedCache->symbolFileIndex]) {
-            printf("ERROR: Failed to map symbols subcache\n");
+            printf("Error: Failed to map symbols subcache\n");
             dsc_free(sharedCache);
             return NULL;
         }
 
         struct dyld_cache_header *header = sharedCache->files[sharedCache->symbolFileIndex]->mapping;
         if (memcmp(header->uuid, mainHeader->symbolFileUUID, sizeof(header->uuid)) != 0) {
-            printf("ERROR: UUID mismatch on symbols subcache\n");
+            printf("Error: UUID mismatch on symbols subcache\n");
             dsc_free(sharedCache);
             return NULL;
         }

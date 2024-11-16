@@ -467,7 +467,7 @@ void csd_code_directory_update(CS_DecodedBlob *codeDirBlob, MachO *macho)
                 break;
         }
         if (!hashLen) {
-            printf("ERROR: unknown hash type (%d)\n", hashType);
+            printf("Error: unknown hash type (%d)\n", hashType);
         }
 
         // Calculate hash

@@ -14,11 +14,11 @@ int host_get_cpu_information(cpu_type_t *cputype, cpu_subtype_t *cpusubtype)
     
     // Query for cputype
     len = sizeof(cputype);
-    if (sysctlbyname("hw.cputype", cputype, &len, NULL, 0) == -1) { printf("ERROR: no cputype.\n"); return -1; }
+    if (sysctlbyname("hw.cputype", cputype, &len, NULL, 0) == -1) { printf("Error: no cputype.\n"); return -1; }
     
     // Query for cpusubtype
     len = sizeof(cpusubtype);
-    if (sysctlbyname("hw.cpusubtype", cpusubtype, &len, NULL, 0) == -1) { printf("ERROR: no cpusubtype.\n"); return -1; }
+    if (sysctlbyname("hw.cpusubtype", cpusubtype, &len, NULL, 0) == -1) { printf("Error: no cpusubtype.\n"); return -1; }
     
     return 0;
 }
