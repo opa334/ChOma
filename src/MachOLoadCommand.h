@@ -2,6 +2,23 @@
 #define MACHO_LOAD_COMMAND_H
 
 #include <mach-o/loader.h>
+
+#ifndef LC_FILESET_ENTRY
+
+#define MH_FILESET	0xc
+#define LC_FILESET_ENTRY 0x80000035
+
+struct fileset_entry_command {
+    uint32_t     cmd;        /* LC_FILESET_ENTRY */
+    uint32_t     cmdsize;    /* includes entry_id string */
+    uint64_t     vmaddr;     /* memory address of the entry */
+    uint64_t     fileoff;    /* file offset of the entry */
+    union lc_str entry_id;   /* contained entry id */
+    uint32_t     reserved;   /* reserved */
+};
+
+#endif
+
 #include "MachO.h"
 #include "FileStream.h"
 #include "MachOByteOrder.h"
