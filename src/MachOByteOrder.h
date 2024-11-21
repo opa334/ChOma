@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <libkern/OSByteOrder.h>
 
 // 8-bit integers needed for CodeDirectory
 #define BIG_TO_HOST(n) _Generic((n), \
