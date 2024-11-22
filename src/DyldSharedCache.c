@@ -137,18 +137,27 @@ DyldSharedCache *dsc_init_from_path(const char *path)
     }
 
     struct dyld_cache_header *mainHeader = mainFile->mapping;
-    bool symbolFileExists = !!memcmp(mainHeader->symbolFileUUID, UUID_NULL, sizeof(UUID_NULL));
-    sharedCache->fileCount = 1 + mainHeader->subCacheArrayCount + symbolFileExists;
+    bool symbolFileExists = false;
+    if (mainHeader->mappingOffset > offsetof(struct dyld_cache_header, symbolFileUUID)) {
+        symbolFileExists = !!memcmp(mainHeader->symbolFileUUID, UUID_NULL, sizeof(UUID_NULL));
+    }
+
+    uint32_t subCacheArrayCount = 0;
+    if (mainHeader->mappingOffset > offsetof(struct dyld_cache_header, subCacheArrayCount)) {
+        subCacheArrayCount = mainHeader->subCacheArrayCount;
+    }
+
+    sharedCache->fileCount = 1 + subCacheArrayCount + symbolFileExists;
 
     sharedCache->files = malloc(sizeof(struct DyldSharedCacheFile *) * sharedCache->fileCount);
     sharedCache->files[0] = mainFile;
 
-    if (mainHeader->subCacheArrayCount > 0) {
+    if (subCacheArrayCount > 0) {
         // If there are sub caches, load them aswell
         void *subcacheEntries = (void *)((uintptr_t)mainHeader + mainHeader->subCacheArrayOffset);
         int subCacheStructVersion = mainHeader->mappingOffset <= offsetof(struct dyld_cache_header, cacheSubType) ? 1 : 2;
 
-        for (uint32_t i = 0; i < mainHeader->subCacheArrayCount; i++) {
+        for (uint32_t i = 0; i < subCacheArrayCount; i++) {
             struct dyld_subcache_entry subcacheEntry;
             if (subCacheStructVersion == 1) {
                 // Old format (iOS <=15) had no suffix string, here the suffix is derived from the index
@@ -212,7 +221,10 @@ DyldSharedCache *dsc_init_from_path(const char *path)
             printf("WARNING: Failed to parse DSC %s\n", file->filepath);
         }
 
-        bool slideInfo = (bool)header->mappingWithSlideOffset;
+        bool slideInfo = false;
+        if (header->mappingOffset > offsetof(struct dyld_cache_header, mappingWithSlideOffset)) {
+            slideInfo = (bool)header->mappingWithSlideOffset;
+        }
 
         void *mappingInfosRaw = (void *)((uintptr_t)header + (slideInfo ? header->mappingWithSlideOffset : header->mappingOffset));
 
@@ -260,22 +272,88 @@ DyldSharedCache *dsc_init_from_path(const char *path)
     }
 
     struct dyld_cache_header *header = sharedCache->files[0]->mapping;
-    struct dyld_cache_image_text_info *imagesText = (void *)((uintptr_t)header + header->imagesTextOffset);
-    if (header->imagesTextCount) {
-        sharedCache->containedImageCount = header->imagesTextCount;
-        sharedCache->containedImages = malloc(header->imagesTextCount * sizeof(DyldSharedCacheImage));
-        for (uint64_t i = 0; i < header->imagesTextCount; i++) {
-            void *buffer = dsc_find_buffer(sharedCache, imagesText[i].loadAddress, imagesText[i].textSegmentSize);
+
+    if (header->mappingOffset > offsetof(struct dyld_cache_header, imagesTextOffset)) {
+        if (header->imagesTextCount) {
+            struct dyld_cache_image_text_info *imageTexts = (void *)((uintptr_t)header + header->imagesTextOffset);
+            sharedCache->containedImageCount = header->imagesTextCount;
+            sharedCache->containedImages = malloc(header->imagesTextCount * sizeof(DyldSharedCacheImage));
+            for (uint64_t i = 0; i < header->imagesTextCount; i++) {
+                void *buffer = dsc_find_buffer(sharedCache, imageTexts[i].loadAddress, imageTexts[i].textSegmentSize);
+                if (!buffer) {
+                    continue;
+                }
+
+                sharedCache->containedImages[i].index = i;
+
+                memcpy(&sharedCache->containedImages[i].uuid, &imageTexts[i].uuid, sizeof(uuid_t));
+                sharedCache->containedImages[i].path = (void *)((uintptr_t)header + imageTexts[i].pathOffset);
+
+                MemoryStream *stream = buffered_stream_init_from_buffer_nocopy(buffer, imageTexts[i].textSegmentSize, 0);
+                sharedCache->containedImages[i].fat = fat_dsc_init_from_memory_stream(stream, sharedCache, &sharedCache->containedImages[i]);
+            }
+        }
+    }
+    else {
+        uint64_t imagesOffset = 0;
+        uint64_t imagesCount = 0;
+        if (header->imagesOffsetOld == 0) {
+            imagesOffset = header->imagesOffset;
+            imagesCount = header->imagesCount;
+        }
+        else {
+            imagesOffset = header->imagesOffsetOld;
+            imagesCount = header->imagesCountOld;
+        }
+
+        struct dyld_cache_image_info *imageInfos = (void *)((uintptr_t)header + imagesOffset);
+        sharedCache->containedImageCount = imagesCount;
+        sharedCache->containedImages = malloc(imagesCount * sizeof(DyldSharedCacheImage));
+        for (uint64_t i = 0; i < imagesCount; i++) {
+            // There is no size in this format, so we need to calculate it 
+            // Either based on the image after it or based on the end of the mapping
+
+            DyldSharedCacheMapping *mappingForThisImage = NULL;
+            for (int k = 0; k < sharedCache->mappingCount; k++) {
+                DyldSharedCacheMapping *mapping = &sharedCache->mappings[k];
+                if (imageInfos[i].address >= mapping->vmaddr && imageInfos[i].address < (mapping->vmaddr + mapping->size)) {
+                    mappingForThisImage = mapping;
+                }
+            }
+
+            if (!mappingForThisImage) {
+                continue;
+            }
+
+            uint64_t mappingEndAddr = mappingForThisImage->vmaddr + mappingForThisImage->size;
+
+            // Some images have the same address and also the list is not sorted
+            // So we need to traverse it to find the next image after this one
+            uint64_t endAddr = UINT64_MAX;
+            for (int k = 0; k < imagesCount; k++) {
+                if (imageInfos[k].address > imageInfos[i].address) {
+                    if (endAddr > imageInfos[k].address) {
+                        endAddr = imageInfos[k].address;
+                        break;
+                    }
+                }
+            }
+
+            // If there was no image after it or the image after it is in a different mapping
+            // Use the end of the mapping as the end address
+            if (endAddr > mappingEndAddr) {
+                endAddr = mappingEndAddr;
+            }
+
+            void *buffer = dsc_find_buffer(sharedCache, imageInfos[i].address, endAddr - imageInfos[i].address);
             if (!buffer) {
                 continue;
             }
 
             sharedCache->containedImages[i].index = i;
+            sharedCache->containedImages[i].path = (void *)((uintptr_t)header + imageInfos[i].pathFileOffset);
 
-            memcpy(&sharedCache->containedImages[i].uuid, &imagesText[i].uuid, sizeof(uuid_t));
-            sharedCache->containedImages[i].path = (void *)((uintptr_t)header + imagesText[i].pathOffset);
-
-            MemoryStream *stream = buffered_stream_init_from_buffer_nocopy(buffer, imagesText[i].textSegmentSize, 0);
+            MemoryStream *stream = buffered_stream_init_from_buffer_nocopy(buffer, endAddr - imageInfos[i].address, 0);
             sharedCache->containedImages[i].fat = fat_dsc_init_from_memory_stream(stream, sharedCache, &sharedCache->containedImages[i]);
         }
     }
