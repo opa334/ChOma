@@ -23,3 +23,6 @@ ca.key
 *.ipa
 *.app
 Payload/
+
+# Ignore some Xcode internal files
+xcuserdata
