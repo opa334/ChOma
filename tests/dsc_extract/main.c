@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include <choma/Fat.h>
+#include <choma/MachO.h>
 #include <choma/MemoryStream.h>
 #include <choma/DyldSharedCache.h>
 
@@ -35,6 +36,7 @@ void print_usage(char *executablePath) {
     printf("\t-o: Path output file if required\n");
     printf("\t-e: Path of image to extract\n");
     printf("\t-l: List images contained in shared cache\n");
+    printf("\t-d: Print dependencies of image\n");
     printf("\t-h: Print this message\n");
     printf("Examples:\n");
     printf("\t%s -i <path to DSC file> -l\n", executablePath);
@@ -51,6 +53,7 @@ int main(int argc, char *argv[]) {
     char *outputPath = get_argument_value(argc, argv, "-o");
     char *imageToExtract = get_argument_value(argc, argv, "-e");
     bool shouldListImages = argument_exists(argc, argv, "-l");
+    bool shouldPrintDependencies = argument_exists(argc, argv, "-d");
 
 
     if (!inputPath) {
@@ -58,7 +61,7 @@ int main(int argc, char *argv[]) {
         print_usage(argv[0]);
     }
 
-    if (!shouldListImages && !outputPath) {
+    if (!shouldListImages && !outputPath && !shouldPrintDependencies) {
         printf("Error: output file required\n");
         print_usage(argv[0]);
     }
@@ -76,8 +79,14 @@ int main(int argc, char *argv[]) {
             extractedFat = imageFAT;
         }
     });
-
-    if (!extractedFat && imageToExtract) {
+    
+    if (extractedFat && shouldPrintDependencies) {
+        printf("Dependencies of %s:\n", imageToExtract);
+        MachO *macho = extractedFat->slices[0];
+        macho_enumerate_dependencies(macho, ^(const char *dylibPath, uint32_t cmd, struct dylib *dylib, bool *stop) {
+            printf("| %s\n", dylibPath);
+        });
+    } else if (!extractedFat && imageToExtract) {
         printf("Error: failed to locate %s in shared cache\n", imageToExtract);
     } else if (extractedFat) {
         FILE *f = fopen(outputPath, "wb+");
