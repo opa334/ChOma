@@ -2,6 +2,7 @@
 #include "CSBlob.h"
 #include "Util.h"
 #include "BufferedStream.h"
+#include "choma/MemoryStream.h"
 #include <CommonCrypto/CommonDigest.h>
 #include <stddef.h>
 
@@ -138,9 +139,8 @@ int cs_code_directory_get_size(int version) {
         case 0x20500: return 0x60;
         case 0x20400: return 0x58;
         case 0x20300: return 0x40;
-        case 0x20200: return 0x34;
-        // 0x20100 matches ChOma's CS_CodeDirectory structure
-        default: return 0x30;
+        // 0x20200 matches ChOma's CS_CodeDirectory structure
+        default: return 0x34;
     }
 }
 
@@ -228,9 +228,7 @@ int csd_code_directory_set_team_id(CS_DecodedBlob *codeDirBlob, char *newTeamID)
         uint32_t identityOffset = 0;
         char *identity = csd_code_directory_copy_identifier(codeDirBlob, &identityOffset);
         if (!identity) {
-            // int size = cs_code_directory_get_size(codeDir.version);
-            // codeDir.teamOffset = size;
-            return 1;
+            codeDir.teamOffset = cs_code_directory_get_size(codeDir.version);
         } else {
             codeDir.teamOffset = identityOffset + strlen(identity) + 1;
             free(identity);
@@ -280,9 +278,7 @@ int csd_code_directory_set_identifier(CS_DecodedBlob *codeDirBlob, char *newIden
         uint32_t teamOffset = 0;
         char *team = csd_code_directory_copy_team_id(codeDirBlob, &teamOffset);
         if (!team) {
-            // int size = cs_code_directory_get_size(codeDir.version);
-            // codeDir.identOffset = size;
-            return 1;
+            codeDir.identOffset = cs_code_directory_get_size(codeDir.version);
         } else {
             codeDir.identOffset = teamOffset - strlen(team) + 1;
             free(team);
@@ -568,7 +564,7 @@ CS_DecodedBlob *csd_code_directory_init(MachO *macho, int hashType, bool alterna
     CS_CodeDirectory newCodeDir = { 0 };
     memset(&newCodeDir, 0, sizeof(CS_CodeDirectory));
     newCodeDir.magic = CSMAGIC_CODEDIRECTORY;
-    newCodeDir.version = 0x20100;
+    newCodeDir.version = 0x20200;
 
     // Default values
     newCodeDir.nSpecialSlots = 7;

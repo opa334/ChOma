@@ -31,6 +31,8 @@ typedef struct __CodeDirectory {
 
 	/* Version 0x20100 */
 	uint32_t scatterOffset;
+
+	/* Version 0x20200 */
 	uint32_t teamOffset;
 } CS_CodeDirectory
 __attribute__ ((aligned(1)));
