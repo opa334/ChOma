@@ -515,7 +515,7 @@ int apply_coretrust_bypass(const char *machoPath, char *teamID, char *identifier
     // For the bypass to work, both code directories need to have the same team ID
     char *appStoreTeamID = csd_code_directory_copy_team_id(appStoreCodeDirectoryBlob, NULL);
     if (!appStoreTeamID) {
-        printf("Error: Unable to determine AppStore Team ID\n");
+        printf("Error: Unable to determine App Store Team ID\n");
         return -1;
     }
 

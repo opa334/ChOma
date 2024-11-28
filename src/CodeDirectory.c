@@ -1,6 +1,7 @@
 #include "CodeDirectory.h"
 #include "CSBlob.h"
 #include "Util.h"
+#include "BufferedStream.h"
 #include <CommonCrypto/CommonDigest.h>
 #include <stddef.h>
 
@@ -131,6 +132,18 @@ int cs_hash_type_to_length(int hashType)
     }
 }
 
+int cs_code_directory_get_size(int version) {
+    switch (version) {
+        case 0x20600: return 0x70;
+        case 0x20500: return 0x60;
+        case 0x20400: return 0x58;
+        case 0x20300: return 0x40;
+        case 0x20200: return 0x34;
+        // 0x20100 matches ChOma's CS_CodeDirectory structure
+        default: return 0x30;
+    }
+}
+
 const char* cs_slot_to_string(int slot)
 {
     switch (slot) {
@@ -215,12 +228,13 @@ int csd_code_directory_set_team_id(CS_DecodedBlob *codeDirBlob, char *newTeamID)
         uint32_t identityOffset = 0;
         char *identity = csd_code_directory_copy_identifier(codeDirBlob, &identityOffset);
         if (!identity) {
-            // TODO: handle this properly
-            // Calculate size of initial cd struct and place teamID after that
-            return -1;
+            // int size = cs_code_directory_get_size(codeDir.version);
+            // codeDir.teamOffset = size;
+            return 1;
+        } else {
+            codeDir.teamOffset = identityOffset + strlen(identity) + 1;
+            free(identity);
         }
-        codeDir.teamOffset = identityOffset + strlen(identity) + 1;
-        free(identity);
     }
 
     // Insert new team ID
@@ -266,15 +280,16 @@ int csd_code_directory_set_identifier(CS_DecodedBlob *codeDirBlob, char *newIden
         uint32_t teamOffset = 0;
         char *team = csd_code_directory_copy_team_id(codeDirBlob, &teamOffset);
         if (!team) {
-            // TODO: handle this properly
-            // Calculate size of initial cd struct and place teamID after that
-            return -1;
+            // int size = cs_code_directory_get_size(codeDir.version);
+            // codeDir.identOffset = size;
+            return 1;
+        } else {
+            codeDir.identOffset = teamOffset - strlen(team) + 1;
+            free(team);
         }
-        codeDir.identOffset = teamOffset - strlen(team) + 1;
-        free(team);
     }
 
-    // Insert new team ID
+    // Insert new identifier
     csd_blob_insert(codeDirBlob, codeDir.identOffset, newIdentifierSize, newIdentifier);
     shift += newIdentifierSize;
 
@@ -379,7 +394,7 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
 {
     CS_CodeDirectory codeDir;
     csd_blob_read(codeDirBlob, 0, sizeof(codeDir), &codeDir);
-    CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDir, HOST_TO_BIG_APPLIER);
+    CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDir, BIG_TO_HOST_APPLIER);
 
     // Version 0x20000
     printf("Code directory:\n");
@@ -560,6 +575,7 @@ CS_DecodedBlob *csd_code_directory_init(MachO *macho, int hashType, bool alterna
     newCodeDir.hashType = hashType;
     newCodeDir.hashSize = cs_hash_type_to_length(hashType);
     newCodeDir.pageSize = 0xC;
+    newCodeDir.hashOffset = sizeof(CS_CodeDirectory) + (newCodeDir.nSpecialSlots * newCodeDir.hashSize);
 
     newCodeDir.nCodeSlots = (int)(memory_stream_get_size(macho->stream) / pow(2, newCodeDir.pageSize));
 
@@ -571,11 +587,12 @@ CS_DecodedBlob *csd_code_directory_init(MachO *macho, int hashType, bool alterna
 
     int finalLength = sizeof(CS_CodeDirectory) + (newCodeDir.nSpecialSlots * newCodeDir.hashSize) + (newCodeDir.nCodeSlots * newCodeDir.hashSize);
     newCodeDir.length = finalLength;
+    CODE_DIRECTORY_APPLY_BYTE_ORDER(&newCodeDir, HOST_TO_BIG_APPLIER);
     void *buffer = malloc(finalLength);
     memset(buffer, 0, finalLength);
     memcpy(buffer, &newCodeDir, sizeof(CS_CodeDirectory));
     
-    blob->stream = buffered_stream_init_from_buffer(buffer, finalLength, 0);
+    blob->stream = buffered_stream_init_from_buffer(buffer, finalLength, BUFFERED_STREAM_FLAG_AUTO_EXPAND);
 
     return blob;
 }
