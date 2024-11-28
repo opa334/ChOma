@@ -49,6 +49,7 @@ enum CS_HashType {
 char *csd_code_directory_copy_identifier(CS_DecodedBlob *codeDirBlob, uint32_t *offsetOut);
 char *csd_code_directory_copy_team_id(CS_DecodedBlob *codeDirBlob, uint32_t *offsetOut);
 int csd_code_directory_set_team_id(CS_DecodedBlob *codeDirBlob, char *newTeamID);
+int csd_code_directory_set_identifier(CS_DecodedBlob *codeDirBlob, char *newIdentifier);
 uint32_t csd_code_directory_get_flags(CS_DecodedBlob *codeDirBlob);
 void csd_code_directory_set_flags(CS_DecodedBlob *codeDirBlob, uint32_t flags);
 uint8_t csd_code_directory_get_hash_type(CS_DecodedBlob *codeDirBlob);
@@ -57,5 +58,6 @@ unsigned csd_code_directory_calculate_rank(CS_DecodedBlob *codeDirBlob);
 int csd_code_directory_calculate_hash(CS_DecodedBlob *codeDirBlob, void *cdhashOut);
 int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, bool printSlots, bool verifySlots);
 void csd_code_directory_update(CS_DecodedBlob *codeDirBlob, MachO *macho);
+CS_DecodedBlob *csd_code_directory_init(MachO *macho, int hashType, bool alternate);
 
 #endif // CODE_DIRECTORY_H

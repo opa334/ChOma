@@ -116,6 +116,21 @@ const char *cs_hash_type_to_string(int hashType)
     }
 }
 
+int cs_hash_type_to_length(int hashType)
+{
+    switch (hashType) {
+    case CS_HASHTYPE_SHA160_160:
+        return 0x14;
+    case CS_HASHTYPE_SHA256_256:
+    case CS_HASHTYPE_SHA256_160:
+        return 0x20;
+    case CS_HASHTYPE_SHA384_384:
+        return 0x30;
+    default:
+        return 0;
+    }
+}
+
 const char* cs_slot_to_string(int slot)
 {
     switch (slot) {
@@ -217,6 +232,60 @@ int csd_code_directory_set_team_id(CS_DecodedBlob *codeDirBlob, char *newTeamID)
         codeDir.hashOffset += shift;
     }
     if (codeDir.scatterOffset != 0 && codeDir.scatterOffset > initalTeamOffset) {
+        codeDir.scatterOffset += shift;
+    }
+
+    // Write changes to codeDir struct
+    CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDir, HOST_TO_BIG_APPLIER);
+    csd_blob_write(codeDirBlob, 0, sizeof(codeDir), &codeDir);
+    return 0;
+}
+
+int csd_code_directory_set_identifier(CS_DecodedBlob *codeDirBlob, char *newIdentifier)
+{
+    CS_CodeDirectory codeDir;
+    csd_blob_read(codeDirBlob, 0, sizeof(codeDir), &codeDir);
+    CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDir, BIG_TO_HOST_APPLIER);
+
+    size_t newIdentifierSize = strlen(newIdentifier)+1;
+
+    int32_t shift = 0;
+    uint32_t initialIDOffset = 0;
+    char *previousIdentifier = csd_code_directory_copy_identifier(codeDirBlob, &initialIDOffset);
+    if (previousIdentifier) {
+        uint32_t previousIdentifierSize = strlen(previousIdentifier)+1;
+        csd_blob_delete(codeDirBlob, initialIDOffset, previousIdentifierSize);
+        shift -= previousIdentifierSize;
+        free(previousIdentifier);
+    }
+
+    if (initialIDOffset) {
+        codeDir.identOffset = initialIDOffset;
+    }
+    else {
+        uint32_t teamOffset = 0;
+        char *team = csd_code_directory_copy_team_id(codeDirBlob, &teamOffset);
+        if (!team) {
+            // TODO: handle this properly
+            // Calculate size of initial cd struct and place teamID after that
+            return -1;
+        }
+        codeDir.identOffset = teamOffset - strlen(team) + 1;
+        free(team);
+    }
+
+    // Insert new team ID
+    csd_blob_insert(codeDirBlob, codeDir.identOffset, newIdentifierSize, newIdentifier);
+    shift += newIdentifierSize;
+
+    // Shift other offsets as needed (Since we inserted data in the middle)
+    if (codeDir.teamOffset != 0 && codeDir.teamOffset > initialIDOffset) {
+        codeDir.teamOffset += shift;
+    }
+    if (codeDir.hashOffset != 0 && codeDir.hashOffset > initialIDOffset) {
+        codeDir.hashOffset += shift;
+    }
+    if (codeDir.scatterOffset != 0 && codeDir.scatterOffset > initialIDOffset) {
         codeDir.scatterOffset += shift;
     }
 
@@ -478,4 +547,35 @@ void csd_code_directory_update(CS_DecodedBlob *codeDirBlob, MachO *macho)
         uint32_t offsetOfBlobToReplace = codeDir.hashOffset + (pageNumber * codeDir.hashSize);
         csd_blob_write(codeDirBlob, offsetOfBlobToReplace, codeDir.hashSize, pageHash);
     }
+}
+
+CS_DecodedBlob *csd_code_directory_init(MachO *macho, int hashType, bool alternate) {
+    CS_CodeDirectory newCodeDir = { 0 };
+    memset(&newCodeDir, 0, sizeof(CS_CodeDirectory));
+    newCodeDir.magic = CSMAGIC_CODEDIRECTORY;
+    newCodeDir.version = 0x20100;
+
+    // Default values
+    newCodeDir.nSpecialSlots = 7;
+    newCodeDir.hashType = hashType;
+    newCodeDir.hashSize = cs_hash_type_to_length(hashType);
+    newCodeDir.pageSize = 0xC;
+
+    newCodeDir.nCodeSlots = (int)(memory_stream_get_size(macho->stream) / pow(2, newCodeDir.pageSize));
+
+    // Code limit
+    // This is everything up to the FADE0CC0 magic
+
+    CS_DecodedBlob *blob = malloc(sizeof(CS_DecodedBlob));
+    blob->type = alternate ? CSSLOT_ALTERNATE_CODEDIRECTORIES : CSSLOT_CODEDIRECTORY;
+
+    int finalLength = sizeof(CS_CodeDirectory) + (newCodeDir.nSpecialSlots * newCodeDir.hashSize) + (newCodeDir.nCodeSlots * newCodeDir.hashSize);
+    newCodeDir.length = finalLength;
+    void *buffer = malloc(finalLength);
+    memset(buffer, 0, finalLength);
+    memcpy(buffer, &newCodeDir, sizeof(CS_CodeDirectory));
+    
+    blob->stream = buffered_stream_init_from_buffer(buffer, finalLength, 0);
+
+    return blob;
 }
