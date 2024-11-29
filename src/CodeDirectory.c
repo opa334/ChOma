@@ -36,7 +36,8 @@ bool csd_code_directory_calculate_page_hash(CS_DecodedBlob *codeDirBlob, MachO *
         uint32_t csOffset = 0, csSize = 0;
         macho_find_code_signature_bounds(macho, &csOffset, &csSize);
         if (pageToReadOffset > csOffset) return false;
-        pageToReadSize = csOffset - pageToReadOffset;
+        if (!csOffset || !csSize) pageToReadSize = memory_stream_get_size(macho->stream) - pageToReadOffset;
+        else pageToReadSize = csOffset - pageToReadOffset;
     }
 
     // Bail out when past EOF
@@ -427,7 +428,6 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
     }
 
     printf("\n");
-    int maxdigits = count_digits(codeDir.nCodeSlots);
     bool codeSlotsCorrect = true;
     bool needsNewline = false;
 
@@ -438,7 +438,7 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
         if (printSlots || verifySlots) {
             // Print the slot number
             needsNewline = true;
-            printf("%*s%lld: ", maxdigits-count_digits(i), "", i);
+            printf("%s%lld: ", i < 0 ? "" : " ",  i);
 
             print_hash(slotHash, codeDir.hashSize);
 
@@ -500,6 +500,51 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
     return 0;
 }
 
+void csd_code_directory_update_special_slots(CS_DecodedBlob *codeDirBlob, CS_DecodedBlob *xmlEntitlements, CS_DecodedBlob *derEntitlements, CS_DecodedBlob *requirements) {
+    CS_CodeDirectory codeDir;
+    csd_blob_read(codeDirBlob, 0, sizeof(CS_CodeDirectory), &codeDir);
+    CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDir, BIG_TO_HOST_APPLIER);
+
+    int hashLen = 0;
+    unsigned char *(*hashFunc)(const void *data, CC_LONG len, unsigned char *md) = NULL;
+
+    switch (codeDir.hashType) {
+        case CS_HASHTYPE_SHA160_160:
+            hashLen = CC_SHA1_DIGEST_LENGTH;
+            hashFunc = CC_SHA1;
+            break;
+        case CS_HASHTYPE_SHA256_160:
+        case CS_HASHTYPE_SHA256_256:
+            hashLen = CC_SHA256_DIGEST_LENGTH;
+            hashFunc = CC_SHA256;
+            break;
+        case CS_HASHTYPE_SHA384_384:
+            hashLen = CC_SHA384_DIGEST_LENGTH;
+            hashFunc = CC_SHA384;
+            break;
+        default:
+            break;
+    }
+    if (!hashLen) {
+        printf("Error: unknown hash type (%d)\n", codeDir.hashType);
+    }
+
+    for (int i = 1; i <= codeDir.nSpecialSlots; i++) {
+        uint8_t newHash[hashLen];
+        uint32_t hashOffset = codeDir.hashOffset - (i * codeDir.hashSize);
+        if (xmlEntitlements && i == CSSLOT_ENTITLEMENTS) {
+            hashFunc(memory_stream_get_raw_pointer(xmlEntitlements->stream), memory_stream_get_size(xmlEntitlements->stream), newHash);
+            csd_blob_write(codeDirBlob, hashOffset, codeDir.hashSize, newHash);
+        } else if (derEntitlements && i == CSSLOT_DER_ENTITLEMENTS) {
+            hashFunc(memory_stream_get_raw_pointer(derEntitlements->stream), memory_stream_get_size(derEntitlements->stream), newHash);
+            csd_blob_write(codeDirBlob, hashOffset, codeDir.hashSize, newHash);
+        } else if (requirements && i == CSSLOT_REQUIREMENTS) {
+            hashFunc(memory_stream_get_raw_pointer(requirements->stream), memory_stream_get_size(requirements->stream), newHash);
+            csd_blob_write(codeDirBlob, hashOffset, codeDir.hashSize, newHash);
+        }
+    }
+}
+
 void csd_code_directory_update(CS_DecodedBlob *codeDirBlob, MachO *macho)
 {
     CS_CodeDirectory codeDir;
@@ -509,8 +554,9 @@ void csd_code_directory_update(CS_DecodedBlob *codeDirBlob, MachO *macho)
     uint32_t codeSignatureOffset = 0;
     // There is an edge case where random hashes end up incorrect, so we rehash every page (except the final one) to be sure
     macho_find_code_signature_bounds(macho, &codeSignatureOffset, NULL);
-    uint64_t finalPageBoundary = align_to_size(codeSignatureOffset, 0x1000);
-    int numberOfPagesToHash = (finalPageBoundary / 0x1000) - 1;
+    uint64_t finalPageBoundary = codeSignatureOffset ? align_to_size(codeSignatureOffset, 0x1000) : align_to_size(memory_stream_get_size(macho->stream), 0x1000);
+    int numberOfPagesToHash = (finalPageBoundary / 0x1000);
+    if (codeSignatureOffset) numberOfPagesToHash -= 1;
 
     for (int pageNumber = 0; pageNumber < numberOfPagesToHash; pageNumber++) {
         uint64_t pageOffset = pageNumber * 0x1000;
@@ -567,13 +613,13 @@ CS_DecodedBlob *csd_code_directory_init(MachO *macho, int hashType, bool alterna
     newCodeDir.version = 0x20200;
 
     // Default values
-    newCodeDir.nSpecialSlots = 7;
+    newCodeDir.nSpecialSlots = 7; // Only go down to DER entitlements hash
     newCodeDir.hashType = hashType;
     newCodeDir.hashSize = cs_hash_type_to_length(hashType);
-    newCodeDir.pageSize = 0xC;
+    newCodeDir.pageSize = 0xC; // 0x4000
     newCodeDir.hashOffset = sizeof(CS_CodeDirectory) + (newCodeDir.nSpecialSlots * newCodeDir.hashSize);
 
-    newCodeDir.nCodeSlots = (int)(memory_stream_get_size(macho->stream) / pow(2, newCodeDir.pageSize));
+    newCodeDir.nCodeSlots = (int)(align_to_size(memory_stream_get_size(macho->stream), 0x1000) / 0x1000);
 
     // Code limit
     // This is everything up to the FADE0CC0 magic
