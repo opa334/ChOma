@@ -2,7 +2,7 @@
 #include "CSBlob.h"
 #include "Util.h"
 #include "BufferedStream.h"
-#include "choma/MemoryStream.h"
+#include "MemoryStream.h"
 #include <CommonCrypto/CommonDigest.h>
 #include <stddef.h>
 
