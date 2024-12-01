@@ -51,6 +51,8 @@
 		8C7A40E02CF1469400F634F7 /* libchoma.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C7A40582CF1441F00F634F7 /* libchoma.dylib */; };
 		8C7A40E12CF1469400F634F7 /* libchoma.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 8C7A40582CF1441F00F634F7 /* libchoma.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		8C7A40E52CF146D700F634F7 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C7A40C52CF144BB00F634F7 /* main.c */; };
+		8C7A40F52CF7728E00F634F7 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C7A40F32CF7728E00F634F7 /* main.c */; };
+		8C7A40F62CF772CF00F634F7 /* libchoma.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C7A40582CF1441F00F634F7 /* libchoma.dylib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,6 +64,13 @@
 			remoteInfo = choma;
 		};
 		8C7A40E22CF1469400F634F7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8C7A40502CF1441F00F634F7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8C7A40572CF1441F00F634F7;
+			remoteInfo = choma;
+		};
+		8C7A40F12CF7725D00F634F7 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 8C7A40502CF1441F00F634F7 /* Project object */;
 			proxyType = 1;
@@ -110,6 +119,15 @@
 			);
 			name = "Embed Libraries";
 			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C7A40E82CF7724D00F634F7 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -164,10 +182,9 @@
 		8C7A40C72CF144BB00F634F7 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		8C7A40C92CF144BB00F634F7 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		8C7A40CB2CF144BB00F634F7 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
-		8C7A40CD2CF144BB00F634F7 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
-		8C7A40CF2CF144BB00F634F7 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
-		8C7A40D12CF144BB00F634F7 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		8C7A40D92CF1468D00F634F7 /* dsc_extract */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = dsc_extract; sourceTree = BUILT_PRODUCTS_DIR; };
+		8C7A40EA2CF7724D00F634F7 /* dsc_tester */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = dsc_tester; sourceTree = BUILT_PRODUCTS_DIR; };
+		8C7A40F32CF7728E00F634F7 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -194,6 +211,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		8C7A40E72CF7724D00F634F7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8C7A40F62CF772CF00F634F7 /* libchoma.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -213,6 +238,7 @@
 				8C7A40582CF1441F00F634F7 /* libchoma.dylib */,
 				8C7A40632CF1444E00F634F7 /* choma_cli */,
 				8C7A40D92CF1468D00F634F7 /* dsc_extract */,
+				8C7A40EA2CF7724D00F634F7 /* dsc_tester */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -321,44 +347,26 @@
 			path = kpf;
 			sourceTree = "<group>";
 		};
-		8C7A40CE2CF144BB00F634F7 /* merge */ = {
-			isa = PBXGroup;
-			children = (
-				8C7A40CD2CF144BB00F634F7 /* main.c */,
-			);
-			path = merge;
-			sourceTree = "<group>";
-		};
-		8C7A40D02CF144BB00F634F7 /* securityd_pf */ = {
-			isa = PBXGroup;
-			children = (
-				8C7A40CF2CF144BB00F634F7 /* main.c */,
-			);
-			path = securityd_pf;
-			sourceTree = "<group>";
-		};
-		8C7A40D22CF144BB00F634F7 /* test */ = {
-			isa = PBXGroup;
-			children = (
-				8C7A40D12CF144BB00F634F7 /* main.c */,
-			);
-			path = test;
-			sourceTree = "<group>";
-		};
 		8C7A40D32CF144BB00F634F7 /* tests */ = {
 			isa = PBXGroup;
 			children = (
 				8C7A40BE2CF144BB00F634F7 /* choma_cli */,
 				8C7A40C42CF144BB00F634F7 /* ct_bypass */,
 				8C7A40C62CF144BB00F634F7 /* dsc_extract */,
+				8C7A40F42CF7728E00F634F7 /* dsc_tester */,
 				8C7A40C82CF144BB00F634F7 /* dyld_patch */,
 				8C7A40CA2CF144BB00F634F7 /* fat_create */,
 				8C7A40CC2CF144BB00F634F7 /* kpf */,
-				8C7A40CE2CF144BB00F634F7 /* merge */,
-				8C7A40D02CF144BB00F634F7 /* securityd_pf */,
-				8C7A40D22CF144BB00F634F7 /* test */,
 			);
 			path = tests;
+			sourceTree = "<group>";
+		};
+		8C7A40F42CF7728E00F634F7 /* dsc_tester */ = {
+			isa = PBXGroup;
+			children = (
+				8C7A40F32CF7728E00F634F7 /* main.c */,
+			);
+			path = dsc_tester;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -456,6 +464,26 @@
 			productReference = 8C7A40D92CF1468D00F634F7 /* dsc_extract */;
 			productType = "com.apple.product-type.tool";
 		};
+		8C7A40E92CF7724D00F634F7 /* dsc_tester */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8C7A40F02CF7724D00F634F7 /* Build configuration list for PBXNativeTarget "dsc_tester" */;
+			buildPhases = (
+				8C7A40E62CF7724D00F634F7 /* Sources */,
+				8C7A40E72CF7724D00F634F7 /* Frameworks */,
+				8C7A40E82CF7724D00F634F7 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				8C7A40F22CF7725D00F634F7 /* PBXTargetDependency */,
+			);
+			name = dsc_tester;
+			packageProductDependencies = (
+			);
+			productName = dsc_tester;
+			productReference = 8C7A40EA2CF7724D00F634F7 /* dsc_tester */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -472,6 +500,9 @@
 						CreatedOnToolsVersion = 16.1;
 					};
 					8C7A40D82CF1468D00F634F7 = {
+						CreatedOnToolsVersion = 16.1;
+					};
+					8C7A40E92CF7724D00F634F7 = {
 						CreatedOnToolsVersion = 16.1;
 					};
 				};
@@ -493,6 +524,7 @@
 				8C7A40572CF1441F00F634F7 /* choma */,
 				8C7A40622CF1444E00F634F7 /* choma_cli */,
 				8C7A40D82CF1468D00F634F7 /* dsc_extract */,
+				8C7A40E92CF7724D00F634F7 /* dsc_tester */,
 			);
 		};
 /* End PBXProject section */
@@ -538,6 +570,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		8C7A40E62CF7724D00F634F7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8C7A40F52CF7728E00F634F7 /* main.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -550,6 +590,11 @@
 			isa = PBXTargetDependency;
 			target = 8C7A40572CF1441F00F634F7 /* choma */;
 			targetProxy = 8C7A40E22CF1469400F634F7 /* PBXContainerItemProxy */;
+		};
+		8C7A40F22CF7725D00F634F7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8C7A40572CF1441F00F634F7 /* choma */;
+			targetProxy = 8C7A40F12CF7725D00F634F7 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -741,6 +786,26 @@
 			};
 			name = Release;
 		};
+		8C7A40EE2CF7724D00F634F7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3Z56NQJ65R;
+				ENABLE_HARDENED_RUNTIME = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8C7A40EF2CF7724D00F634F7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3Z56NQJ65R;
+				ENABLE_HARDENED_RUNTIME = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -776,6 +841,15 @@
 			buildConfigurations = (
 				8C7A40DE2CF1468E00F634F7 /* Debug */,
 				8C7A40DF2CF1468E00F634F7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		8C7A40F02CF7724D00F634F7 /* Build configuration list for PBXNativeTarget "dsc_tester" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8C7A40EE2CF7724D00F634F7 /* Debug */,
+				8C7A40EF2CF7724D00F634F7 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

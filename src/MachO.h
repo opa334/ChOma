@@ -62,6 +62,7 @@ int macho_read_string_at_vmaddr(MachO *macho, uint64_t vmaddr, char **outString)
 uint64_t macho_get_base_address(MachO *macho);
 
 int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop));
+int macho_enumerate_segments(MachO *macho, void (^enumeratorBlock)(struct segment_command_64 *segment, bool *stop));
 int macho_enumerate_sections(MachO *macho, void (^enumeratorBlock)(struct section_64 *section, struct segment_command_64 *segment, bool *stop));
 int macho_enumerate_symbols(MachO *macho, void (^enumeratorBlock)(const char *name, uint8_t type, uint64_t vmaddr, bool *stop));
 int macho_enumerate_dependencies(MachO *macho, void (^enumeratorBlock)(const char *dylibPath, uint32_t cmd, struct dylib* dylib, bool *stop));

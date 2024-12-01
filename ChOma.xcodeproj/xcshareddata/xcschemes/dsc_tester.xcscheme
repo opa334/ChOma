@@ -15,9 +15,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "8C7A40D82CF1468D00F634F7"
-               BuildableName = "dsc_extract"
-               BlueprintName = "dsc_extract"
+               BlueprintIdentifier = "8C7A40E92CF7724D00F634F7"
+               BuildableName = "dsc_tester"
+               BlueprintName = "dsc_tester"
                ReferencedContainer = "container:ChOma.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -45,23 +45,15 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "8C7A40D82CF1468D00F634F7"
-            BuildableName = "dsc_extract"
-            BlueprintName = "dsc_extract"
+            BlueprintIdentifier = "8C7A40E92CF7724D00F634F7"
+            BuildableName = "dsc_tester"
+            BlueprintName = "dsc_tester"
             ReferencedContainer = "container:ChOma.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "-i /Users/opa334/Desktop/Reversing/DSC/Caches/arm64e/16.5/dyld_shared_cache_arm64e"
-            isEnabled = "YES">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "-e /System/Library/Frameworks/Foundation.framework/Foundation"
-            isEnabled = "YES">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "-d"
+            argument = "/Users/opa334/Desktop/Reversing/DSC/Caches/arm64/18.0/dyld_shared_cache_arm64"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
@@ -76,9 +68,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "8C7A40D82CF1468D00F634F7"
-            BuildableName = "dsc_extract"
-            BlueprintName = "dsc_extract"
+            BlueprintIdentifier = "8C7A40E92CF7724D00F634F7"
+            BuildableName = "dsc_tester"
+            BlueprintName = "dsc_tester"
             ReferencedContainer = "container:ChOma.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

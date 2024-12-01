@@ -1,6 +1,5 @@
 #include <mach-o/fat.h>
 #include <stdbool.h>
-#include <assert.h>
 
 #include "Fat.h"
 #include "MachO.h"
@@ -117,6 +116,14 @@ MachO *fat_find_slice(Fat *fat, cpu_type_t cputype, cpu_subtype_t cpusubtype)
                 return curMacho;
             }
         }
+    }
+    return NULL;
+}
+
+MachO *fat_get_single_slice(Fat *fat)
+{
+    if (fat->slicesCount == 1) {
+        return fat->slices[0];
     }
     return NULL;
 }

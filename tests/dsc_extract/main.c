@@ -72,26 +72,26 @@ int main(int argc, char *argv[]) {
         return -2;
     }
 
-    __block Fat *extractedFat = NULL;
-    dsc_enumerate_images(dsc, ^(const char *path, Fat *imageFAT, bool *stop){
+    __block MachO *machoToExtract = NULL;
+    dsc_enumerate_images(dsc, ^(const char *path, DyldSharedCacheImage *imageHandle, MachO *imageMachO, bool *stop){
         if (shouldListImages) printf("%s\n", path);
         if (imageToExtract && !strcmp(path, imageToExtract)) {
-            extractedFat = imageFAT;
+            machoToExtract = imageMachO;
         }
     });
     
-    if (extractedFat && shouldPrintDependencies) {
+    if (machoToExtract && shouldPrintDependencies) {
         printf("Dependencies of %s:\n", imageToExtract);
-        MachO *macho = extractedFat->slices[0];
-        macho_enumerate_dependencies(macho, ^(const char *dylibPath, uint32_t cmd, struct dylib *dylib, bool *stop) {
+        macho_enumerate_dependencies(machoToExtract, ^(const char *dylibPath, uint32_t cmd, struct dylib *dylib, bool *stop) {
             printf("| %s\n", dylibPath);
         });
-    } else if (!extractedFat && imageToExtract) {
+    } else if (!machoToExtract && imageToExtract) {
         printf("Error: failed to locate %s in shared cache\n", imageToExtract);
-    } else if (extractedFat) {
+    } else if (machoToExtract) {
         FILE *f = fopen(outputPath, "wb+");
         if (f) {
-            fwrite(memory_stream_get_raw_pointer(extractedFat->stream), memory_stream_get_size(extractedFat->stream), 1, f);
+            MemoryStream *memoryStream = macho_get_stream(machoToExtract);
+            fwrite(memory_stream_get_raw_pointer(memoryStream), memory_stream_get_size(memoryStream), 1, f);
             fclose(f);
         } else {
             printf("Error: failed to open %s for writing\n", outputPath);

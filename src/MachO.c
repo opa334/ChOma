@@ -3,7 +3,6 @@
 #include "MachO.h"
 #include "MachOByteOrder.h"
 #include "MachOLoadCommand.h"
-#include "CSBlob.h"
 #include "MemoryStream.h"
 
 #include <mach-o/loader.h>
@@ -18,7 +17,7 @@ int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBu
         // When this MachO is inside the DSC, it will have segments that point to "out of macho" memory
         // So, attempt to translate every offset we get
         // Problem: Translation doesn't work before the segments have been loaded and loading the segments requires this function
-        // Solution: Gracefully fall back to memory_stream_read in that case translation fails
+        // Solution: Gracefully fall back to memory_stream_read in the case where translation fails
         uint64_t vmaddr = 0;
         if (macho_translate_fileoff_to_vmaddr(macho, offset, &vmaddr, NULL) == 0) {
             return macho_read_at_vmaddr(macho, vmaddr, size, outBuf);
@@ -185,6 +184,16 @@ int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct l
     return 0;
 }
 
+int macho_enumerate_segments(MachO *macho, void (^enumeratorBlock)(struct segment_command_64 *segment, bool *stop))
+{
+    for (uint32_t i = 0; i < macho->segmentCount; i++) {
+        bool stop = false;
+        enumeratorBlock(&macho->segments[i]->command, &stop);
+        if (stop) return 0;
+    }
+    return 0;
+}
+
 int macho_enumerate_sections(MachO *macho, void (^enumeratorBlock)(struct section_64 *section, struct segment_command_64 *segment, bool *stop))
 {
     for (uint32_t i = 0; i < macho->segmentCount; i++) {
@@ -199,11 +208,12 @@ int macho_enumerate_sections(MachO *macho, void (^enumeratorBlock)(struct sectio
 
 int macho_enumerate_symbols(MachO *macho, void (^enumeratorBlock)(const char *name, uint8_t type, uint64_t vmaddr, bool *stop))
 {
+    bool didScanDSC = false;
+
     if (macho->containingCache && macho->cacheImage) {
         // For stuff inside the DSC we need to use the cache image to also be able to fetch private symbols
         // Private symbols are normally replaced with <redacted> in the LC_SYMTAB of the MachO
-        int r = dsc_image_enumerate_symbols(macho->containingCache, macho->cacheImage, enumeratorBlock);
-        if (r != 0) return r;
+        didScanDSC = (dsc_image_enumerate_symbols(macho->containingCache, macho->cacheImage, enumeratorBlock) == 0);
     }
 
     macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
@@ -214,28 +224,49 @@ int macho_enumerate_symbols(MachO *macho, void (^enumeratorBlock)(const char *na
             if (macho_read_at_offset(macho, symtabCommand->stroff, symtabCommand->strsize, strtbl) != 0) {
                 free(strtbl);
                 return;
-            };
+            }
 
             for (int i = 0; i < symtabCommand->nsyms; i++) {
-                struct nlist_64 entry;
-                if (macho_read_at_offset(macho, symtabCommand->symoff + (i * sizeof(entry)), sizeof(entry), &entry) != 0) continue;
-                NLIST_64_APPLY_BYTE_ORDER(&entry, LITTLE_TO_HOST_APPLIER);
+                uint64_t n_strx = 0;
+                uint64_t n_value = 0;
+                uint8_t n_type = 0;
+                int r = 0;
 
-                if (entry.n_un.n_strx >= symtabCommand->strsize || entry.n_un.n_strx == 0) continue;
+                #define _GENERIC_READ_NLIST(nlistType, APPLIER) do { \
+                    struct nlistType entry; \
+                    if ((r = macho_read_at_offset(macho, symtabCommand->symoff + (i * sizeof(entry)), sizeof(entry), &entry)) != 0) break; \
+                    APPLIER(&entry, LITTLE_TO_HOST_APPLIER); \
+                    n_strx = entry.n_un.n_strx; \
+                    n_value = entry.n_value; \
+                    n_type = entry.n_type; \
+                } while (0)
 
-                const char *symbolName = &strtbl[entry.n_un.n_strx];
+                if (macho->is32Bit) {
+                    _GENERIC_READ_NLIST(nlist, NLIST_APPLY_BYTE_ORDER);
+                }
+                else {
+                    _GENERIC_READ_NLIST(nlist_64, NLIST_64_APPLY_BYTE_ORDER);
+                }
+
+                if (r != 0) continue;
+    
+                #undef _GENERIC_READ_NLIST
+
+                if (n_strx >= symtabCommand->strsize || n_strx == 0) continue;
+
+                const char *symbolName = &strtbl[n_strx];
                 if (symbolName[0] == 0) continue;
 
-                if (macho->containingCache && macho->cacheImage) {
-                    // If we already got the real private symbols from the DSC, omit any censored ones
+                if (didScanDSC) {
+                    /* If we already got the real private symbols from the DSC, omit any censored ones */
                     if (!strcmp(symbolName, "<redacted>")) continue;
                 }
 
                 bool stopSym = false;
-                enumeratorBlock(symbolName, entry.n_type, entry.n_value, &stopSym);
+                enumeratorBlock(symbolName, n_type, n_value, &stopSym);
                 if (stopSym) {
                     *stop = true;
-                    break;   
+                    break;
                 }
             }
             free(strtbl);
@@ -381,7 +412,57 @@ int macho_enumerate_function_starts(MachO *macho, void (^enumeratorBlock)(uint64
 int macho_parse_segments(MachO *macho)
 {
     return macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
-        if (loadCommand.cmd == LC_SEGMENT_64) {
+        if (macho->is32Bit && loadCommand.cmd == LC_SEGMENT) {
+            macho->segmentCount++;
+            if (macho->segments == NULL) { macho->segments = malloc(macho->segmentCount * sizeof(MachOSegment*)); }
+            else { macho->segments = realloc(macho->segments, macho->segmentCount * sizeof(MachOSegment*)); }
+            
+            // For simplicity, we convert segment_command's to segment_command_64's
+            // This allowes all logic to unifily operate on segment_command_64
+
+            struct segment_command segmentCommand;
+            memcpy(&segmentCommand, cmd, sizeof(segmentCommand));
+            SEGMENT_COMMAND_APPLY_BYTE_ORDER(&segmentCommand, LITTLE_TO_HOST_APPLIER);
+            
+            MachOSegment **segment = &macho->segments[macho->segmentCount-1];
+            
+            *segment = malloc(sizeof(MachOSegment) + segmentCommand.nsects * sizeof(struct section_64));
+            (*segment)->command = (struct segment_command_64) {
+                .cmd = segmentCommand.cmd,
+                .cmdsize = segmentCommand.cmdsize,
+                .fileoff = segmentCommand.fileoff,
+                .filesize = segmentCommand.filesize,
+                .vmaddr = segmentCommand.vmaddr,
+                .vmsize = segmentCommand.vmsize,
+                .flags = segmentCommand.flags,
+                .initprot = segmentCommand.initprot,
+                .maxprot = segmentCommand.maxprot,
+                .nsects = segmentCommand.nsects,
+            };
+            memcpy((*segment)->command.segname, segmentCommand.segname, sizeof(segmentCommand.segname));
+            
+            for (uint32_t i = 0; i < macho->segments[macho->segmentCount-1]->command.nsects; i++) {
+                struct section section;
+                memcpy(&section, cmd + sizeof(struct segment_command) + (i * sizeof(struct section)), sizeof(section));
+                SECTION_APPLY_BYTE_ORDER(&section, LITTLE_TO_HOST_APPLIER);
+                
+                (*segment)->sections[i] = (struct section_64) {
+                    .addr = section.addr,
+                    .align = section.align,
+                    .flags = section.flags,
+                    .nreloc = section.nreloc,
+                    .offset = section.offset,
+                    .reserved1 = section.reserved1,
+                    .reserved2 = section.reserved2,
+                    .reserved3 = 0,
+                    .size = section.size,
+                };
+                
+                memcpy((*segment)->sections[i].sectname, section.sectname, sizeof(section.sectname));
+                memcpy((*segment)->sections[i].segname, section.segname, sizeof(section.segname));
+            }
+        }
+        else if (!macho->is32Bit && loadCommand.cmd == LC_SEGMENT_64) {
             macho->segmentCount++;
             if (macho->segments == NULL) { macho->segments = malloc(macho->segmentCount * sizeof(MachOSegment*)); }
             else { macho->segments = realloc(macho->segments, macho->segmentCount * sizeof(MachOSegment*)); }
