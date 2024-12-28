@@ -26,3 +26,4 @@ Payload/
 
 # Ignore some Xcode internal files
 xcuserdata
+.idea/
