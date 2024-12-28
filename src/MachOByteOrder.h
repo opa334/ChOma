@@ -137,6 +137,18 @@
     applier(cd, scatterOffset); \
     applier(cd, teamOffset);
 
+#define SEGMENT_COMMAND_APPLY_BYTE_ORDER(sc, applier) \
+    applier(sc, cmd); \
+    applier(sc, cmdsize); \
+    applier(sc, fileoff); \
+    applier(sc, filesize); \
+    applier(sc, vmaddr); \
+    applier(sc, vmsize); \
+    applier(sc, flags); \
+    applier(sc, initprot); \
+    applier(sc, maxprot); \
+    applier(sc, nsects);
+
 #define SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(sc64, applier) \
     applier(sc64, cmd); \
     applier(sc64, cmdsize); \
@@ -148,6 +160,16 @@
     applier(sc64, initprot); \
     applier(sc64, maxprot); \
     applier(sc64, nsects);
+
+#define SECTION_APPLY_BYTE_ORDER(sc, applier) \
+    applier(sc, addr); \
+    applier(sc, align); \
+    applier(sc, flags); \
+    applier(sc, nreloc); \
+    applier(sc, offset); \
+    applier(sc, reserved1); \
+    applier(sc, reserved2); \
+    applier(sc, size);
 
 #define SECTION_64_APPLY_BYTE_ORDER(sc64, applier) \
     applier(sc64, addr); \
@@ -175,6 +197,13 @@
     applier(symt, stroff); \
     applier(symt, strsize); \
     applier(symt, symoff);
+
+#define NLIST_APPLY_BYTE_ORDER(nl, applier) \
+    applier(nl, n_un.n_strx); \
+    applier(nl, n_type); \
+    applier(nl, n_sect); \
+    applier(nl, n_desc); \
+    applier(nl, n_value);
 
 #define NLIST_64_APPLY_BYTE_ORDER(nl, applier) \
     applier(nl, n_un.n_strx); \

@@ -1,5 +1,6 @@
 #include "Util.h"
 #include <stdio.h>
+#include <unistd.h>
 #include <string.h>
 
 int64_t sxt64(int64_t value, uint8_t bits)
@@ -34,23 +35,6 @@ uint64_t align_to_size(int size, int alignment)
     return (size + alignment - 1) & ~(alignment - 1);
 }
 
-int count_digits(int64_t num)
-{
-    if (num == 0) {
-        return 1;
-    }
-    int digits = 0;
-    if (num < 0) {
-        num = -num;
-        digits++;
-    }
-    while (num != 0) {
-        num = num / 10;
-        digits++;
-    }
-    return digits;
-}
-
 void print_hash(uint8_t *hash, size_t size)
 {
     for (int j = 0; j < size; j++) {
@@ -83,6 +67,22 @@ void enumerate_range(uint64_t start, uint64_t end, uint16_t alignment, size_t nb
         // Extra condition to prevent underflow when we hit 0 and the direction is backwards
         if (dir == -1 && cur == 0) break;
     }
+}
+
+int read_string(int fd, char **strOut)
+{
+    uint32_t sz = 0;
+    off_t pos = lseek(fd, 0, SEEK_CUR);
+    char c = 0;
+    do {
+        if (read(fd, &c, sizeof(c)) != sizeof(c)) return -1;
+        sz++;
+    } while(c != 0);
+    
+    lseek(fd, pos, SEEK_SET);
+    *strOut = malloc(sz);
+    read(fd, *strOut, sz);
+    return 0;
 }
 
 bool string_has_prefix(const char *str, const char *prefix)

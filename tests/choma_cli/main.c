@@ -1,4 +1,4 @@
-#include "choma/FileStream.h"
+#include <choma/FileStream.h>
 #include <choma/CSBlob.h>
 #include <choma/CodeDirectory.h>
 #include <choma/MachOLoadCommand.h>
@@ -101,6 +101,10 @@ int main(int argc, char *argv[]) {
         printf("Slice %d (arch %x/%x, macho %x/%x):\n", i, slice->archDescriptor.cputype, slice->archDescriptor.cpusubtype, slice->machHeader.cputype, slice->machHeader.cpusubtype);
         if (argument_exists(argc, argv, "-c")) {
             CS_SuperBlob *superblob = macho_read_code_signature(slice);
+            if (!superblob) {
+                printf("Slice %d is not signed at all.\n", i);
+                continue;
+            }
             CS_DecodedSuperBlob *decodedSuperBlob = csd_superblob_decode(superblob);
             csd_superblob_print_content(decodedSuperBlob, slice, argument_exists(argc, argv, "-s"), argument_exists(argc, argv, "-v"));
             if (argument_exists(argc, argv, "-e")) {

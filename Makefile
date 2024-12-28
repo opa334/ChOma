@@ -6,7 +6,7 @@ DYLIB_LDFLAGS ?=
 
 DEBUG ?= 0
 ifeq ($(DEBUG), 1)
-	CFLAGS += -fsanitize=address -static-libsan
+	CFLAGS += -fsanitize=address
 endif
 DISABLE_SIGNING ?= 0
 DISABLE_TESTS ?= 0

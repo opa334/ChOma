@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include <choma/Fat.h>
+#include <choma/MachO.h>
 #include <choma/MemoryStream.h>
 #include <choma/DyldSharedCache.h>
 
@@ -35,6 +36,7 @@ void print_usage(char *executablePath) {
     printf("\t-o: Path output file if required\n");
     printf("\t-e: Path of image to extract\n");
     printf("\t-l: List images contained in shared cache\n");
+    printf("\t-d: Print dependencies of image\n");
     printf("\t-h: Print this message\n");
     printf("Examples:\n");
     printf("\t%s -i <path to DSC file> -l\n", executablePath);
@@ -51,6 +53,7 @@ int main(int argc, char *argv[]) {
     char *outputPath = get_argument_value(argc, argv, "-o");
     char *imageToExtract = get_argument_value(argc, argv, "-e");
     bool shouldListImages = argument_exists(argc, argv, "-l");
+    bool shouldPrintDependencies = argument_exists(argc, argv, "-d");
 
 
     if (!inputPath) {
@@ -58,7 +61,7 @@ int main(int argc, char *argv[]) {
         print_usage(argv[0]);
     }
 
-    if (!shouldListImages && !outputPath) {
+    if (!shouldListImages && !outputPath && !shouldPrintDependencies) {
         printf("Error: output file required\n");
         print_usage(argv[0]);
     }
@@ -69,20 +72,26 @@ int main(int argc, char *argv[]) {
         return -2;
     }
 
-    __block Fat *extractedFat = NULL;
-    dsc_enumerate_images(dsc, ^(const char *path, Fat *imageFAT, bool *stop){
+    __block MachO *machoToExtract = NULL;
+    dsc_enumerate_images(dsc, ^(const char *path, DyldSharedCacheImage *imageHandle, MachO *imageMachO, bool *stop){
         if (shouldListImages) printf("%s\n", path);
         if (imageToExtract && !strcmp(path, imageToExtract)) {
-            extractedFat = imageFAT;
+            machoToExtract = imageMachO;
         }
     });
-
-    if (!extractedFat && imageToExtract) {
+    
+    if (machoToExtract && shouldPrintDependencies) {
+        printf("Dependencies of %s:\n", imageToExtract);
+        macho_enumerate_dependencies(machoToExtract, ^(const char *dylibPath, uint32_t cmd, struct dylib *dylib, bool *stop) {
+            printf("| %s\n", dylibPath);
+        });
+    } else if (!machoToExtract && imageToExtract) {
         printf("Error: failed to locate %s in shared cache\n", imageToExtract);
-    } else if (extractedFat) {
+    } else if (machoToExtract) {
         FILE *f = fopen(outputPath, "wb+");
         if (f) {
-            fwrite(memory_stream_get_raw_pointer(extractedFat->stream), memory_stream_get_size(extractedFat->stream), 1, f);
+            MemoryStream *memoryStream = macho_get_stream(machoToExtract);
+            fwrite(memory_stream_get_raw_pointer(memoryStream), memory_stream_get_size(memoryStream), 1, f);
             fclose(f);
         } else {
             printf("Error: failed to open %s for writing\n", outputPath);
