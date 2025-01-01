@@ -467,11 +467,11 @@ CS_DecodedBlob *csd_superblob_find_best_code_directory(CS_DecodedSuperBlob *deco
     return bestCDBlob;
 }
 
-int csd_superblob_calculate_best_cdhash(CS_DecodedSuperBlob *decodedSuperblob, void *cdhashOut, int *cdhashType)
+int csd_superblob_calculate_best_cdhash(CS_DecodedSuperBlob *decodedSuperblob, void *cdhashOut, int *cdhashTypeOut)
 {
     if (!cdhashOut) return -1;
     CS_DecodedBlob *bestCDBlob = csd_superblob_find_best_code_directory(decodedSuperblob);
-    if (cdhashType) *cdhashType = csd_code_directory_get_hash_type(bestCDBlob);
+    if (cdhashTypeOut) *cdhashTypeOut = csd_code_directory_get_hash_type(bestCDBlob);
     return csd_code_directory_calculate_hash(bestCDBlob, cdhashOut);
 }
 
