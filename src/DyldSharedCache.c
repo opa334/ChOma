@@ -296,7 +296,7 @@ DyldSharedCache *dsc_init_from_path_premapped(const char *path, uint32_t premapS
                 thisMapping->ptr = (void *)(thisMapping->vmaddr + sharedCache->premapSlide);
             }
             else {
-                thisMapping->ptr = mmap(NULL, thisMapping->size, PROT_READ, MAP_FILE | MAP_PRIVATE, file->fd, thisMapping->fileoff);
+                thisMapping->ptr = mmap(NULL, thisMapping->size, PROT_READ, MAP_FILE | MAP_SHARED, file->fd, thisMapping->fileoff);
             }
 
             // Find base address on shared caches that don't have sharedRegionStart
