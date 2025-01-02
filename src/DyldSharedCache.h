@@ -46,6 +46,7 @@ typedef struct DyldSharedCache {
 	DyldSharedCacheFile **files;
 
 	struct {
+		bool loaded;
 		unsigned index;
 		void *nlist;
 		uint32_t nlistCount;

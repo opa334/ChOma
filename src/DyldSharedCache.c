@@ -109,7 +109,7 @@ DyldSharedCacheFile *_dsc_load_file(const char *dscPath, const char suffix[32])
     strncat(filepath, suffix, 32);
 
     fd = open(filepath, O_RDONLY);
-    if (fd <= 0) goto fail;
+    if (fd < 0) goto fail;
 
     struct stat sb;
     if (fstat(fd, &sb) != 0) goto fail;
@@ -407,66 +407,75 @@ DyldSharedCache *dsc_init_from_path_premapped(const char *path, uint32_t premapS
         }
     }
 
-    if (sharedCache->symbolFile.index != -1) {
-        DyldSharedCacheFile *symbolCacheFile = sharedCache->files[sharedCache->symbolFile.index];
-        struct dyld_cache_header *symbolCacheHeader = &symbolCacheFile->header;
-        if (symbolCacheHeader->localSymbolsOffset) {
-            struct dyld_cache_local_symbols_info symbolsInfo;
-            dsc_file_read_at_offset(symbolCacheFile, symbolCacheHeader->localSymbolsOffset, sizeof(symbolsInfo), &symbolsInfo);
+    return sharedCache;
+}
 
-            for (uint64_t i = 0; i < symbolsInfo.entriesCount; i++) {
-                uint64_t dylibOffset = 0;
-                uint32_t nlistStartIndex = 0;
-                uint32_t nlistCount = 0;
-                int r = 0;
+int _dsc_load_symbols(DyldSharedCache *sharedCache)
+{
+    if (!sharedCache->symbolFile.loaded) {
+        if (sharedCache->symbolFile.index != -1) {
+            DyldSharedCacheFile *symbolCacheFile = sharedCache->files[sharedCache->symbolFile.index];
+            struct dyld_cache_header *symbolCacheHeader = &symbolCacheFile->header;
+            if (symbolCacheHeader->localSymbolsOffset) {
+                struct dyld_cache_local_symbols_info symbolsInfo;
+                dsc_file_read_at_offset(symbolCacheFile, symbolCacheHeader->localSymbolsOffset, sizeof(symbolsInfo), &symbolsInfo);
 
-                #define _GENERIC_READ_SYMBOL_ENTRY(entryType) do { \
-                    struct entryType symbolEntry; \
-                    if ((r = dsc_file_read_at_offset(symbolCacheFile, symbolCacheHeader->localSymbolsOffset + symbolsInfo.entriesOffset + i * sizeof(symbolEntry), sizeof(symbolEntry), &symbolEntry)) != 0) break; \
-                    dylibOffset = symbolEntry.dylibOffset; \
-                    nlistStartIndex = symbolEntry.nlistStartIndex; \
-                    nlistCount = symbolEntry.nlistCount; \
-                } while (0)
+                for (uint64_t i = 0; i < symbolsInfo.entriesCount; i++) {
+                    uint64_t dylibOffset = 0;
+                    uint32_t nlistStartIndex = 0;
+                    uint32_t nlistCount = 0;
+                    int r = 0;
 
-                if (symbolCacheHeader->mappingOffset >= offsetof(struct dyld_cache_header, symbolFileUUID)) {
-                    _GENERIC_READ_SYMBOL_ENTRY(dyld_cache_local_symbols_entry_64);
+                    #define _GENERIC_READ_SYMBOL_ENTRY(entryType) do { \
+                        struct entryType symbolEntry; \
+                        if ((r = dsc_file_read_at_offset(symbolCacheFile, symbolCacheHeader->localSymbolsOffset + symbolsInfo.entriesOffset + i * sizeof(symbolEntry), sizeof(symbolEntry), &symbolEntry)) != 0) break; \
+                        dylibOffset = symbolEntry.dylibOffset; \
+                        nlistStartIndex = symbolEntry.nlistStartIndex; \
+                        nlistCount = symbolEntry.nlistCount; \
+                    } while (0)
+
+                    if (symbolCacheHeader->mappingOffset >= offsetof(struct dyld_cache_header, symbolFileUUID)) {
+                        _GENERIC_READ_SYMBOL_ENTRY(dyld_cache_local_symbols_entry_64);
+                    }
+                    else {
+                        _GENERIC_READ_SYMBOL_ENTRY(dyld_cache_local_symbols_entry);
+                    }
+
+                    if (r != 0) continue;
+
+                    #undef _GENERIC_READ_SYMBOL_ENTRY
+
+                    DyldSharedCacheImage *image = dsc_lookup_image_by_address(sharedCache, sharedCache->baseAddress + dylibOffset);
+                    if (image) {
+                        image->nlistCount = nlistCount;
+                        image->nlistStartIndex = nlistStartIndex;
+                    }
+                }
+
+                sharedCache->symbolFile.nlistCount = symbolsInfo.nlistCount;
+                uint64_t nlistSize = (sharedCache->is32Bit ? sizeof(struct nlist) : sizeof(struct nlist_64)) * sharedCache->symbolFile.nlistCount;
+                sharedCache->symbolFile.nlist = malloc(nlistSize);
+                dsc_file_read_at_offset(symbolCacheFile, symbolCacheHeader->localSymbolsOffset + symbolsInfo.nlistOffset, nlistSize, sharedCache->symbolFile.nlist);
+
+                uint64_t stringsOffsetPage = (symbolCacheHeader->localSymbolsOffset + symbolsInfo.stringsOffset) & ~PAGE_MASK;
+                uint64_t stringsOffsetPageOff = (symbolCacheHeader->localSymbolsOffset + symbolsInfo.stringsOffset) & PAGE_MASK;
+
+                sharedCache->symbolFile.stringsSize = symbolsInfo.stringsSize;
+                
+                char *mappedStrings = mmap(NULL, sharedCache->symbolFile.stringsSize + stringsOffsetPageOff, PROT_READ, MAP_FILE | MAP_PRIVATE, symbolCacheFile->fd, stringsOffsetPage);
+                if (mappedStrings != MAP_FAILED) {
+                    sharedCache->symbolFile.strings = mappedStrings + stringsOffsetPageOff;
                 }
                 else {
-                    _GENERIC_READ_SYMBOL_ENTRY(dyld_cache_local_symbols_entry);
+                    perror("mmap");
                 }
-
-                if (r != 0) continue;
-
-                #undef _GENERIC_READ_SYMBOL_ENTRY
-
-                DyldSharedCacheImage *image = dsc_lookup_image_by_address(sharedCache, sharedCache->baseAddress + dylibOffset);
-                if (image) {
-                    image->nlistCount = nlistCount;
-                    image->nlistStartIndex = nlistStartIndex;
-                }
-            }
-
-            sharedCache->symbolFile.nlistCount = symbolsInfo.nlistCount;
-            uint64_t nlistSize = (sharedCache->is32Bit ? sizeof(struct nlist) : sizeof(struct nlist_64)) * sharedCache->symbolFile.nlistCount;
-            sharedCache->symbolFile.nlist = malloc(nlistSize);
-            dsc_file_read_at_offset(symbolCacheFile, symbolCacheHeader->localSymbolsOffset + symbolsInfo.nlistOffset, nlistSize, sharedCache->symbolFile.nlist);
-
-            uint64_t stringsOffsetPage = (symbolCacheHeader->localSymbolsOffset + symbolsInfo.stringsOffset) & ~PAGE_MASK;
-            uint64_t stringsOffsetPageOff = (symbolCacheHeader->localSymbolsOffset + symbolsInfo.stringsOffset) & PAGE_MASK;
-
-            sharedCache->symbolFile.stringsSize = symbolsInfo.stringsSize;
-            
-            char *mappedStrings = mmap(NULL, sharedCache->symbolFile.stringsSize + stringsOffsetPageOff, PROT_READ, MAP_FILE | MAP_PRIVATE, symbolCacheFile->fd, stringsOffsetPage);
-            if (mappedStrings != MAP_FAILED) {
-                sharedCache->symbolFile.strings = mappedStrings + stringsOffsetPageOff;
-            }
-            else {
-                perror("mmap");
             }
         }
+
+        sharedCache->symbolFile.loaded = true;
     }
 
-    return sharedCache;
+    return sharedCache->symbolFile.nlist ? 0 : -1;
 }
 
 DyldSharedCache *dsc_init_from_path(const char *path)
@@ -546,6 +555,8 @@ DyldSharedCacheImage *dsc_lookup_image_by_address(DyldSharedCache *sharedCache, 
 
 int dsc_image_enumerate_symbols(DyldSharedCache *sharedCache, DyldSharedCacheImage *image, void (^enumeratorBlock)(const char *name, uint8_t type, uint64_t vmaddr, bool *stop))
 {
+    if (_dsc_load_symbols(sharedCache) != 0) return -1;
+
     struct dyld_cache_header *symbolCacheHeader = &sharedCache->files[sharedCache->symbolFile.index]->header;
     if (!symbolCacheHeader->localSymbolsOffset) return -1;
     
