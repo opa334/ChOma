@@ -22,12 +22,13 @@ typedef struct DyldSharedCacheMapping {
 	uint64_t fileoff;
 	void *ptr;
 	uint64_t size;
-	struct DyldSharedCacheFile *file;
 	uint32_t maxProt;
 	uint32_t initProt;
+	uint64_t flags;
+	// ABI stable until here
 	void *slideInfoPtr;
 	uint64_t slideInfoSize;
-	uint64_t flags;
+	struct DyldSharedCacheFile *file;
 } DyldSharedCacheMapping;
 
 typedef struct DyldSharedCacheImage {
@@ -85,6 +86,7 @@ DyldSharedCache *dsc_init_from_path_premapped(const char *path, uint32_t premapS
 DyldSharedCache *dsc_init_from_path(const char *path);
 void dsc_enumerate_files(DyldSharedCache *sharedCache, void (^enumeratorBlock)(const char *filepath, size_t filesize, struct dyld_cache_header *header));
 
+void dsc_enumerate_mappings(DyldSharedCache *sharedCache, void (^enumeratorBlock)(DyldSharedCacheMapping *mapping, DyldSharedCacheFile *sourceFile, bool *stop));
 DyldSharedCacheMapping *dsc_lookup_mapping(DyldSharedCache *sharedCache, uint64_t vmaddr, uint64_t size);
 void *dsc_find_buffer(DyldSharedCache *sharedCache, uint64_t vmaddr, uint64_t size);
 

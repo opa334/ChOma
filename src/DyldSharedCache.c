@@ -18,18 +18,31 @@ int string_comparator(void const *a, void const *b) {
     return r;
 }
 
-DyldSharedCacheMapping *dsc_lookup_mapping(DyldSharedCache *sharedCache, uint64_t vmaddr, uint64_t size)
+void dsc_enumerate_mappings(DyldSharedCache *sharedCache, void (^enumeratorBlock)(DyldSharedCacheMapping *mapping, DyldSharedCacheFile *sourceFile, bool *stop))
 {
     for (unsigned i = 0; i < sharedCache->mappingCount; i++) {
         DyldSharedCacheMapping *mapping = &sharedCache->mappings[i];
+        bool stop = false;
+        enumeratorBlock(mapping, mapping->file, &stop);
+        if (stop) break;
+    }
+}
+
+DyldSharedCacheMapping *dsc_lookup_mapping(DyldSharedCache *sharedCache, uint64_t vmaddr, uint64_t size)
+{
+    __block DyldSharedCacheMapping *mappingOut = NULL;
+
+    dsc_enumerate_mappings(sharedCache, ^(DyldSharedCacheMapping *mapping, DyldSharedCacheFile *sourceFile, bool *stop) {
         uint64_t mappingEndAddr = mapping->vmaddr + mapping->size;
         uint64_t searchEndAddr = vmaddr + size;
         if (size != 0) searchEndAddr--;
         if (vmaddr >= mapping->vmaddr && (searchEndAddr < mappingEndAddr)) {
-            return mapping;
+            mappingOut = mapping;
+            *stop = true;
         }
-    }
-    return NULL;
+    });
+
+    return mappingOut;
 }
 
 void *dsc_find_buffer(DyldSharedCache *sharedCache, uint64_t vmaddr, uint64_t size)
@@ -252,6 +265,12 @@ DyldSharedCache *dsc_init_from_path_premapped(const char *path, uint32_t premapS
     for (unsigned i = 0; i < sharedCache->fileCount; i++) {
         DyldSharedCacheFile *file = sharedCache->files[i];
         if (!file) continue;
+
+        if (i != 0 && i == sharedCache->symbolFile.index) {
+            // If there is a separate .symbols file (and we don't use the main shared cache for symbols)
+            // then skip any mappings inside it, since this usually only contains a bogus mapping
+            continue;
+        }
 
         struct dyld_cache_header *header = &file->header;
 
