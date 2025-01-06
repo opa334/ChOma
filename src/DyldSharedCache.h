@@ -97,7 +97,9 @@ uint64_t dsc_vmaddr_to_fileoff(DyldSharedCache *sharedCache, uint64_t vmaddr, Dy
 
 void dsc_enumerate_images(DyldSharedCache *sharedCache, void (^enumeratorBlock)(const char *path, DyldSharedCacheImage *imageHandle, MachO *imageMachO, bool *stop));
 DyldSharedCacheImage *dsc_find_image_for_section_address(DyldSharedCache *sharedCache, uint64_t address);
+MachO *dsc_image_get_macho(DyldSharedCacheImage *image);
 DyldSharedCacheImage *dsc_lookup_image_by_address(DyldSharedCache *sharedCache, uint64_t address);
+MachO *dsc_lookup_macho_by_address(DyldSharedCache *sharedCache, uint64_t address, DyldSharedCacheImage **imageHandleOut);
 DyldSharedCacheImage *dsc_lookup_image_by_path(DyldSharedCache *sharedCache, const char *path);
 MachO *dsc_lookup_macho_by_path(DyldSharedCache *sharedCache, const char *path, DyldSharedCacheImage **imageHandleOut);
 int dsc_enumerate_chained_fixups(DyldSharedCache *sharedCache, void (^enumeratorBlock)(DyldSharedCachePointer *pointer, bool *stop));

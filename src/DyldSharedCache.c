@@ -509,27 +509,6 @@ void dsc_enumerate_files(DyldSharedCache *sharedCache, void (^enumeratorBlock)(c
     }
 }
 
-DyldSharedCacheImage *dsc_lookup_image_by_path(DyldSharedCache *sharedCache, const char *path)
-{
-    for (unsigned i = 0; i < sharedCache->containedImageCount; i++) {
-        if (!strcmp(sharedCache->containedImages[i].path, path)) {
-            return &sharedCache->containedImages[i];
-        }
-    }
-    return NULL;
-}
-
-MachO *dsc_lookup_macho_by_path(DyldSharedCache *sharedCache, const char *path, DyldSharedCacheImage **imageHandleOut)
-{
-    DyldSharedCacheImage *image = dsc_lookup_image_by_path(sharedCache, path);
-    if (image) {
-        if (imageHandleOut) *imageHandleOut = image;
-        MachO *macho = fat_get_single_slice(image->fat);
-        return macho;
-    }
-    return NULL;
-}
-
 void dsc_enumerate_images(DyldSharedCache *sharedCache, void (^enumeratorBlock)(const char *path, DyldSharedCacheImage *imageHandle, MachO *imageMachO, bool *stop))
 {
     for (unsigned i = 0; i < sharedCache->containedImageCount; i++) {
@@ -561,6 +540,11 @@ DyldSharedCacheImage *dsc_find_image_for_section_address(DyldSharedCache *shared
     return image;
 }
 
+MachO *dsc_image_get_macho(DyldSharedCacheImage *image)
+{
+    return fat_get_single_slice(image->fat);
+}
+
 DyldSharedCacheImage *dsc_lookup_image_by_address(DyldSharedCache *sharedCache, uint64_t address)
 {
     DyldSharedCacheImage *image = NULL;
@@ -570,6 +554,36 @@ DyldSharedCacheImage *dsc_lookup_image_by_address(DyldSharedCache *sharedCache, 
         }
     }
     return image;
+}
+
+MachO *dsc_lookup_macho_by_address(DyldSharedCache *sharedCache, uint64_t address, DyldSharedCacheImage **imageHandleOut)
+{
+    DyldSharedCacheImage *image = dsc_lookup_image_by_address(sharedCache, address);
+    if (image) {
+        if (imageHandleOut) *imageHandleOut = image;
+        return dsc_image_get_macho(image);
+    }
+    return NULL;
+}
+
+DyldSharedCacheImage *dsc_lookup_image_by_path(DyldSharedCache *sharedCache, const char *path)
+{
+    for (unsigned i = 0; i < sharedCache->containedImageCount; i++) {
+        if (!strcmp(sharedCache->containedImages[i].path, path)) {
+            return &sharedCache->containedImages[i];
+        }
+    }
+    return NULL;
+}
+
+MachO *dsc_lookup_macho_by_path(DyldSharedCache *sharedCache, const char *path, DyldSharedCacheImage **imageHandleOut)
+{
+    DyldSharedCacheImage *image = dsc_lookup_image_by_path(sharedCache, path);
+    if (image) {
+        if (imageHandleOut) *imageHandleOut = image;
+        return dsc_image_get_macho(image);
+    }
+    return NULL;
 }
 
 int dsc_image_enumerate_symbols(DyldSharedCache *sharedCache, DyldSharedCacheImage *image, void (^enumeratorBlock)(const char *name, uint8_t type, uint64_t vmaddr, bool *stop))
