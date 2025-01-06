@@ -34,6 +34,13 @@ typedef enum {
 	LDR_STR_TYPE_UNSIGNED,
 } arm64_ldr_str_type;
 
+typedef enum {
+	ARM64_LDP_STP_TYPE_ANY,
+	ARM64_LDP_STP_TYPE_POST_INDEX,
+	ARM64_LDP_STP_TYPE_PRE_INDEX,
+	ARM64_LDP_STP_TYPE_SIGNED,
+} arm64_ldp_stp_type;
+
 typedef struct s_arm64_register {
 	uint8_t mask;
 	arm64_register_type type;
@@ -95,6 +102,7 @@ int arm64_gen_str_imm(char type, arm64_ldr_str_type instType, arm64_register sou
 int arm64_dec_str_imm(uint32_t inst, arm64_register *sourceRegOut, arm64_register *addrRegOut, uint64_t *immOut, char *typeOut, arm64_ldr_str_type *instTypeOut);
 int arm64_gen_ldr_lit(arm64_register destinationReg, optional_uint64_t optOrigin, optional_uint64_t optTarget, uint32_t *bytesOut, uint32_t *maskOut);
 int arm64_dec_ldr_lit(uint32_t inst, uint64_t origin, uint64_t *targetOut, arm64_register *destinationReg);
+int arm64_gen_ldp(arm64_ldp_stp_type instType, arm64_register destinationReg1, arm64_register destinationReg2, arm64_register addrReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut);
 int arm64_gen_cb_n_z(optional_bool isCbnz, arm64_register reg, optional_uint64_t optTarget, uint32_t *bytesOut, uint32_t *maskOut);
 int arm64_dec_cb_n_z(uint32_t inst, uint64_t origin, bool *isCbnzOut, arm64_register *regOut, uint64_t *targetOut);
 int arm64_gen_tb_n_z(optional_bool isTbnz, arm64_register reg, optional_uint64_t optTarget, optional_uint64_t optBit, uint32_t *bytesOut, uint32_t *maskOut);
