@@ -195,6 +195,7 @@ char *csd_code_directory_copy_team_id(CS_DecodedBlob *codeDirBlob, uint32_t *off
     csd_blob_read(codeDirBlob, 0, sizeof(codeDir), &codeDir);
     CODE_DIRECTORY_APPLY_BYTE_ORDER(&codeDir, BIG_TO_HOST_APPLIER);
 
+    if (codeDir.version < 0x20200) return NULL;
     if (codeDir.teamOffset == 0) return NULL;
 
     char *teamId = NULL;
