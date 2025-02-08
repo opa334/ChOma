@@ -54,6 +54,11 @@ uint32_t macho_get_filetype(MachO *macho)
     return macho->machHeader.filetype;
 }
 
+struct mach_header *macho_get_mach_header(MachO *macho)
+{
+    return &macho->machHeader;
+}
+
 size_t macho_get_mach_header_size(MachO *macho)
 {
     return macho->is32Bit ? sizeof(struct mach_header) : sizeof(struct mach_header_64);
