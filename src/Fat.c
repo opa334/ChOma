@@ -107,6 +107,16 @@ int fat_parse_slices(Fat *fat)
     return 0;
 }
 
+void fat_enumerate_slices(Fat *fat, void (^enumBlock)(MachO *macho, bool *stop))
+{
+    for (uint32_t i = 0; i < fat->slicesCount; i++) {
+        MachO *curMacho = fat->slices[i];
+        bool stop = false;
+        enumBlock(curMacho, &stop);
+        if (stop) break;
+    }
+}
+
 MachO *fat_find_slice(Fat *fat, cpu_type_t cputype, cpu_subtype_t cpusubtype)
 {
     for (uint32_t i = 0; i < fat->slicesCount; i++) {
@@ -177,7 +187,7 @@ Fat *fat_init_from_path(const char *filePath)
 {
     MemoryStream *stream = file_stream_init_from_path(filePath, 0, FILE_STREAM_SIZE_AUTO, 0);
     if (stream) {
-        return fat_init_from_memory_stream(stream);;
+        return fat_init_from_memory_stream(stream);
     }
     return NULL;
 }
