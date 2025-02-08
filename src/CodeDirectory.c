@@ -498,6 +498,13 @@ int csd_code_directory_print_content(CS_DecodedBlob *codeDirBlob, MachO *macho, 
         }
     }
 
+    char cdhash[CS_CDHASH_LEN];
+    if (csd_code_directory_calculate_hash(codeDirBlob, cdhash) == 0) {
+        printf(" CDHash: ");
+        print_hash((uint8_t *)cdhash, sizeof(cdhash));
+        printf("\n");
+    }
+
     return 0;
 }
 
