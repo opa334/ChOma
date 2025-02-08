@@ -48,7 +48,7 @@ int macho_read_string_at_offset(MachO *macho, uint64_t offset, char **string);
 
 MemoryStream *macho_get_stream(MachO *macho);
 uint32_t macho_get_filetype(MachO *macho);
-struct mach_header *mach_get_header(MachO *macho);
+struct mach_header *macho_get_mach_header(MachO *macho);
 size_t macho_get_mach_header_size(MachO *macho);
 DyldSharedCache *macho_get_containing_cache(MachO *macho);
 
