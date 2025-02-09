@@ -148,7 +148,7 @@ void fat_free(Fat *fat)
         }
         free(fat->slices);
     }
-    memory_stream_free(fat->stream);
+    if (fat->stream) memory_stream_free(fat->stream);
     free(fat);
 }
 
@@ -167,6 +167,7 @@ Fat *fat_init_from_memory_stream(MemoryStream *stream)
     return fat;
 
 fail:
+    fat->stream = NULL; // The Fat only "owns" the stream when this function does not fail
     fat_free(fat);
     return NULL;
 }
@@ -187,7 +188,11 @@ Fat *fat_init_from_path(const char *filePath)
 {
     MemoryStream *stream = file_stream_init_from_path(filePath, 0, FILE_STREAM_SIZE_AUTO, 0);
     if (stream) {
-        return fat_init_from_memory_stream(stream);
+        Fat *fat = fat_init_from_memory_stream(stream);
+        if (!fat) {
+            memory_stream_free(stream);
+        }
+        return fat;
     }
     return NULL;
 }
