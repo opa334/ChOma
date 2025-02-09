@@ -114,14 +114,16 @@ static int file_stream_expand(MemoryStream *stream, size_t expandAtStart, size_t
 static void file_stream_free(MemoryStream *stream)
 {
     FileStreamContext *context = stream->context;
-    if (context->fd > 0) {
-        if (stream->flags & MEMORY_STREAM_FLAG_OWNS_DATA) {
-            if (close(context->fd) != 0) {
-                perror("close");
+    if (context) {
+        if (context->fd > 0) {
+            if (stream->flags & MEMORY_STREAM_FLAG_OWNS_DATA) {
+                if (close(context->fd) != 0) {
+                    perror("close");
+                }
             }
         }
+        free(context);
     }
-    free(context);
 }
 
 MemoryStream *file_stream_init_from_file_descriptor_nodup(int fd, uint32_t bufferStart, size_t bufferSize, uint32_t flags)
