@@ -257,11 +257,14 @@ CS_DecodedSuperBlob *csd_superblob_init(void)
 
 CS_DecodedSuperBlob *csd_superblob_decode(CS_SuperBlob *superblob)
 {
+    uint32_t magic = BIG_TO_HOST(superblob->magic);
+    if (magic != CSMAGIC_EMBEDDED_SIGNATURE && magic != CSMAGIC_DETACHED_SIGNATURE) return NULL;
+
     CS_DecodedSuperBlob *decodedSuperblob = csd_superblob_init();
     if (!decodedSuperblob) return NULL;
 
     CS_DecodedBlob **nextBlob = &decodedSuperblob->firstBlob;
-    decodedSuperblob->magic = BIG_TO_HOST(superblob->magic);
+    decodedSuperblob->magic = magic;
 
     for (uint32_t i = 0; i < BIG_TO_HOST(superblob->count); i++) {
         CS_BlobIndex curIndex = superblob->index[i];
