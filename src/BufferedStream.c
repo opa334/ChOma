@@ -184,6 +184,7 @@ fail:
 MemoryStream *buffered_stream_init_from_buffer(void *buffer, size_t bufferSize, uint32_t flags)
 {
     void *copy = malloc(bufferSize);
+    if (!copy) return NULL;
     memcpy(copy, buffer, bufferSize);
     MemoryStream *stream = buffered_stream_init_from_buffer_nocopy(copy, bufferSize, flags);
     if (stream) {
