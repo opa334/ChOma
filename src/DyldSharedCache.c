@@ -194,7 +194,23 @@ DyldSharedCache *dsc_init_from_path_premapped(const char *path, uint32_t premapS
     }
 
     struct dyld_cache_header *mainHeader = &mainFile->header;
-    if (!strncmp(mainHeader->magic, "dyld_v1  armv7", 14)) sharedCache->is32Bit = true;
+    if (!strncmp(mainHeader->magic, "dyld_v1  armv7", 14)) {
+        sharedCache->cputype = CPU_TYPE_ARM;
+        sharedCache->cpusubtype = CPU_SUBTYPE_ARM_V7;
+    }
+    else if (!strncmp(mainHeader->magic, "dyld_v1  arm64", 14)) {
+        sharedCache->cputype = CPU_TYPE_ARM64;
+        sharedCache->cpusubtype = CPU_SUBTYPE_ARM64_ALL;
+    }
+    else if (!strncmp(mainHeader->magic, "dyld_v1  arm64e", 15)) {
+        sharedCache->cputype = CPU_TYPE_ARM64;
+        sharedCache->cpusubtype = CPU_SUBTYPE_ARM64E;
+    }
+    else {
+        // Only arm supported for now
+        printf("Error: DSC has unsupported architecture\n");
+        return NULL;
+    }
 
     bool symbolFileExists = !!memcmp(mainHeader->symbolFileUUID, UUID_NULL, sizeof(UUID_NULL));
     uint32_t subCacheArrayCount = mainHeader->subCacheArrayCount;
@@ -311,6 +327,7 @@ DyldSharedCache *dsc_init_from_path_premapped(const char *path, uint32_t premapS
             thisMapping->size = fullInfo.size;
             thisMapping->fileoff = fullInfo.fileOffset;
             thisMapping->vmaddr = fullInfo.address;
+            thisMapping->flags = fullInfo.flags;
             if (sharedCache->premapSlide) {
                 thisMapping->ptr = (void *)(thisMapping->vmaddr + sharedCache->premapSlide);
             }
@@ -332,12 +349,10 @@ DyldSharedCache *dsc_init_from_path_premapped(const char *path, uint32_t premapS
                 thisMapping->slideInfoSize = fullInfo.slideInfoFileSize;
                 thisMapping->slideInfoPtr = malloc(thisMapping->slideInfoSize);
                 dsc_file_read_at_offset(file, fullInfo.slideInfoFileOffset, thisMapping->slideInfoSize, thisMapping->slideInfoPtr);
-                thisMapping->flags = fullInfo.flags;
             }
             else {
                 thisMapping->slideInfoPtr = NULL;
                 thisMapping->slideInfoSize = 0;
-                thisMapping->flags = 0;
             }
         }
     }
@@ -472,7 +487,7 @@ int _dsc_load_symbols(DyldSharedCache *sharedCache)
                 }
 
                 sharedCache->symbolFile.nlistCount = symbolsInfo.nlistCount;
-                uint64_t nlistSize = (sharedCache->is32Bit ? sizeof(struct nlist) : sizeof(struct nlist_64)) * sharedCache->symbolFile.nlistCount;
+                uint64_t nlistSize = (dsc_is32bit(sharedCache) ? sizeof(struct nlist) : sizeof(struct nlist_64)) * sharedCache->symbolFile.nlistCount;
                 sharedCache->symbolFile.nlist = malloc(nlistSize);
                 dsc_file_read_at_offset(symbolCacheFile, symbolCacheHeader->localSymbolsOffset + symbolsInfo.nlistOffset, nlistSize, sharedCache->symbolFile.nlist);
 
@@ -500,6 +515,16 @@ int _dsc_load_symbols(DyldSharedCache *sharedCache)
 DyldSharedCache *dsc_init_from_path(const char *path)
 {
     return dsc_init_from_path_premapped(path, 0);
+}
+
+bool dsc_is32bit(DyldSharedCache *sharedCache)
+{
+    if (sharedCache->cputype == CPU_TYPE_ARM) {
+        return true;
+    }
+    else {
+        return false;
+    }
 }
 
 void dsc_enumerate_files(DyldSharedCache *sharedCache, void (^enumeratorBlock)(const char *filepath, size_t filesize, struct dyld_cache_header *header))
@@ -611,7 +636,7 @@ int dsc_image_enumerate_symbols(DyldSharedCache *sharedCache, DyldSharedCacheIma
             n_type = entry->n_type; \
         } while (0)
 
-        if (sharedCache->is32Bit) {
+        if (dsc_is32bit(sharedCache)) {
             _GENERIC_READ_NLIST(nlist);
         }
         else {
@@ -812,7 +837,7 @@ int dsc_mapping_enumerate_chained_fixups_on_range(DyldSharedCache *sharedCache, 
                     while (delta != 0) {
                         uint64_t locAddr = pageAddr + pageOffset;
                         uint64_t rawValue = 0;
-                        dsc_read_from_vmaddr(sharedCache, locAddr, sharedCache->is32Bit ? sizeof(uint32_t) : sizeof(uint64_t), &rawValue);
+                        dsc_read_from_vmaddr(sharedCache, locAddr, dsc_is32bit(sharedCache) ? sizeof(uint32_t) : sizeof(uint64_t), &rawValue);
                         delta = (uint32_t)((rawValue & deltaMask) >> deltaShift);
                         uint64_t target = (rawValue & valueMask);
                         if (target != 0) {

@@ -5,6 +5,67 @@
 #include "PatchFinder_arm64.h"
 #include <mach/machine.h>
 
+void pfsec_info_populate_section(PFSectionInfo *sectionInfo, struct section_64 *section, MachOSegment *segment)
+{
+    sectionInfo->fileoff  = section->offset;
+    sectionInfo->vmaddr   = section->addr;
+    sectionInfo->size     = section->size;
+    sectionInfo->initprot = segment->command.initprot;
+    sectionInfo->maxprot  = segment->command.maxprot;
+
+    strncpy(sectionInfo->segname, segment->command.segname, sizeof(segment->command.segname));
+    sectionInfo->segname[sizeof(sectionInfo->segname)-1] = '\0';
+
+    strncpy(sectionInfo->sectname, section->sectname, sizeof(section->sectname));
+    sectionInfo->sectname[sizeof(sectionInfo->sectname)-1] = '\0';
+}
+
+void pfsec_info_populate_segment(PFSectionInfo *sectionInfo, MachOSegment *segment)
+{
+    sectionInfo->fileoff  = segment->command.fileoff;
+    sectionInfo->vmaddr   = segment->command.vmaddr;
+    sectionInfo->size     = segment->command.vmsize;
+    sectionInfo->initprot = segment->command.initprot;
+    sectionInfo->maxprot  = segment->command.maxprot;
+
+    strncpy(sectionInfo->segname, segment->command.segname, sizeof(segment->command.segname));
+    sectionInfo->segname[sizeof(sectionInfo->segname)-1] = '\0';
+
+    sectionInfo->sectname[0] = '\0';
+}
+
+void pfsec_info_populate_dsc_mapping(PFSectionInfo *sectionInfo, DyldSharedCacheMapping *dscMapping)
+{
+    sectionInfo->fileoff  = dscMapping->fileoff;
+    sectionInfo->vmaddr   = dscMapping->vmaddr;
+    sectionInfo->size     = dscMapping->size;
+    sectionInfo->initprot = dscMapping->initProt;
+    sectionInfo->maxprot  = dscMapping->maxProt;
+
+    char dscIdxStr[3];
+    size_t filepathLen = strlen(dscMapping->file->filepath);
+    if (dscMapping->file->filepath[filepathLen-3] == '.') {
+        strncpy(dscIdxStr, &dscMapping->file->filepath[filepathLen-2], sizeof(dscIdxStr));
+    }
+    else {
+        strncpy(dscIdxStr, "00", sizeof(dscIdxStr));
+    }
+
+    snprintf(sectionInfo->segname, sizeof(sectionInfo->segname), "__DSC_%s", dscIdxStr);
+
+    if (dscMapping->flags & DYLD_CACHE_MAPPING_AUTH_DATA) {
+        strlcpy(sectionInfo->sectname, "__auth_data", sizeof(sectionInfo->sectname));
+    } else if (dscMapping->flags & DYLD_CACHE_MAPPING_DIRTY_DATA) {
+        strlcpy(sectionInfo->sectname, "__data", sizeof(sectionInfo->sectname));
+    } else if (dscMapping->flags & DYLD_CACHE_MAPPING_CONST_DATA) {
+        strlcpy(sectionInfo->sectname, "__const_data", sizeof(sectionInfo->sectname));
+    } else if (dscMapping->flags & DYLD_CACHE_MAPPING_TEXT_STUBS) {
+        strlcpy(sectionInfo->sectname, "__text_stubs", sizeof(sectionInfo->sectname));
+    } else if (dscMapping->flags & DYLD_CACHE_DYNAMIC_CONFIG_DATA) {
+        strlcpy(sectionInfo->sectname, "__config_data", sizeof(sectionInfo->sectname));
+    }
+}
+
 int raw_buffer_find_memory(uint8_t *buf, uint64_t searchStartOffset, uint64_t searchEndOffset, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundOffsetOut)
 {
     __block int r = -1;
@@ -59,31 +120,39 @@ PFSection *pfsec_init_from_macho(MachO *macho, const char *filesetEntryId, const
                 }
                 if (section) {
                     pfSection = malloc(sizeof(PFSection));
-                    pfSection->fileoff = section->offset;
-                    pfSection->vmaddr = section->addr;
-                    pfSection->size = section->size;
-                    pfSection->initprot = segment->command.initprot;
-                    pfSection->maxprot = segment->command.maxprot;
-                    strncpy(pfSection->segname, segment->command.segname, sizeof(pfSection->segname) / sizeof(char));
-                    strncpy(pfSection->sectname, section->sectname, sizeof(section->sectname) / sizeof(char));
+                    pfsec_info_populate_section(&pfSection->info, section, segment);
                 }
             }
             else {
                 pfSection = malloc(sizeof(PFSection));
-                pfSection->fileoff = segment->command.fileoff;
-                pfSection->vmaddr = segment->command.vmaddr;
-                pfSection->size = segment->command.vmsize;
-                pfSection->initprot = segment->command.initprot;
-                pfSection->maxprot = segment->command.maxprot;
-                strncpy(pfSection->segname, segment->command.segname, sizeof(pfSection->segname) / sizeof(char));
+                pfsec_info_populate_segment(&pfSection->info, segment);
             }
         }
     }
 
     if (pfSection) {
         pfSection->cache = NULL;
+
+        MemoryStream *stream = memory_stream_softclone(macho->stream);
+        memory_stream_trim(stream, pfSection->info.fileoff, memory_stream_get_size(stream) - (pfSection->info.fileoff + pfSection->info.size));
+
+        pfSection->stream = stream;
         pfSection->macho = macho;
     }
+
+    return pfSection;
+}
+
+PFSection *pfsec_init_from_dsc_mapping(DyldSharedCache *sharedCache, DyldSharedCacheMapping *mapping)
+{
+    if (!sharedCache || !mapping) return NULL;
+
+    PFSection *pfSection = malloc(sizeof(PFSection));
+    if (!pfSection) return NULL;
+
+    pfsec_info_populate_dsc_mapping(&pfSection->info, mapping);
+
+    pfSection->sharedCache = sharedCache;
 
     return pfSection;
 }
@@ -93,6 +162,11 @@ MachO *pfsec_get_macho(PFSection *section)
     return section->macho;
 }
 
+DyldSharedCache *pfsec_get_dsc(PFSection *section)
+{
+    return section->sharedCache;
+}
+
 void pfsec_set_pointer_decoder(PFSection *section, uint64_t (*pointerDecoder)(struct s_PFSection *section, uint64_t vmaddr, uint64_t value))
 {
     section->pointerDecoder = pointerDecoder;
@@ -100,15 +174,20 @@ void pfsec_set_pointer_decoder(PFSection *section, uint64_t (*pointerDecoder)(st
 
 int pfsec_read_reloff(PFSection *section, uint64_t rel, size_t size, void *outBuf)
 {
-    if (rel > section->size) return -1;
+    if (rel > section->info.size) return -1;
 
-    if (section->cache) {
-        memcpy(outBuf, &section->cache[rel], size);
+    void *rawPtr = pfsec_get_raw_pointer(section);
+    if (rawPtr) {
+        memcpy(outBuf, &rawPtr[rel], size);
         return 0;
     }
     else {
-        return macho_read_at_offset(section->macho, section->fileoff + rel, size, outBuf);
+        // XXX: This does not work for MachOs that are inside the DSC
+        // This code path will never be used for that however, since all DSC MachOs have a raw pointer
+        return memory_stream_read(section->stream, rel, size, outBuf);
     }
+
+    return -1;
 }
 
 uint32_t pfsec_read32_reloff(PFSection *section, uint64_t rel)
@@ -120,37 +199,41 @@ uint32_t pfsec_read32_reloff(PFSection *section, uint64_t rel)
 
 int pfsec_read_string_reloff(PFSection *section, uint64_t rel, char **outString)
 {
-    if (rel > section->size) return -1;
+    if (rel > section->info.size) return -1;
 
-    if (section->cache) {
-        const char *curString = (const char *)&section->cache[rel];
+    uint8_t *rawPtr = pfsec_get_raw_pointer(section);
+    if (rawPtr) {
+        const char *curString = (const char *)&rawPtr[rel];
 
         // make sure we don't end up reading OOB memory
-        if ((uint8_t *)&curString[strnlen(curString, section->size - rel)] >= &section->cache[section->size]) {
+        if ((uint8_t *)&curString[strnlen(curString, section->info.size - rel)] >= &rawPtr[section->info.size]) {
             return -1;
         }
 
         *outString = strdup(curString);
         return 0;
     }
-    else {
-        // XXX: doesn't work on DSCs :/
-        return memory_stream_read_string(macho_get_stream(section->macho), section->fileoff + rel, outString);
+    else if (section->stream) {
+        // XXX: This does not work for MachOs that are inside the DSC
+        // This code path will never be used for that however, since all DSC MachOs have a raw pointer
+        return memory_stream_read_string(section->stream, section->info.fileoff + rel, outString);
     }
+
+    return -1;
 }
 
 int pfsec_read_string(PFSection *section, uint64_t vmaddr, char **outString)
 {
-    if (vmaddr < section->vmaddr) return -1;
-    return pfsec_read_string_reloff(section, vmaddr - section->vmaddr, outString);
+    if (vmaddr < section->info.vmaddr) return -1;
+    return pfsec_read_string_reloff(section, vmaddr - section->info.vmaddr, outString);
 }
 
 int pfsec_read_at_address(PFSection *section, uint64_t vmaddr, void *outBuf, size_t size)
 {
-    if (vmaddr < section->vmaddr) return -1;
-    if (vmaddr + size > section->vmaddr + section->size) return -1;
+    if (vmaddr < section->info.vmaddr) return -1;
+    if (vmaddr + size > section->info.vmaddr + section->info.size) return -1;
 
-    uint64_t rel = vmaddr - section->vmaddr;
+    uint64_t rel = vmaddr - section->info.vmaddr;
     return pfsec_read_reloff(section, rel, size, outBuf);
 }
 
@@ -180,13 +263,13 @@ uint64_t pfsec_read_pointer(PFSection *section, uint64_t vmaddr)
 int pfsec_set_cached(PFSection *section, bool cached)
 {
     bool isCachedAlready = (bool)section->cache;
-    if (cached != isCachedAlready) {
+    if (cached != isCachedAlready && section->stream) {
         if (cached) {
-            // If this stream is backed by a pointer, caching it is obsolete
-            if (memory_stream_get_raw_pointer(macho_get_stream(section->macho))) return 0;
+            // If we already have a raw pointer, caching is obsolete
+            if (pfsec_get_raw_pointer(section)) return 0;
 
-            void *cache = malloc(section->size);
-            int r = pfsec_read_reloff(section, 0, section->size, cache);
+            void *cache = malloc(section->info.size);
+            int r = pfsec_read_reloff(section, 0, section->info.size, cache);
             if (r != 0) {
                 free(cache);
                 return r;
@@ -201,14 +284,26 @@ int pfsec_set_cached(PFSection *section, bool cached)
     return 0;
 }
 
-void *pfsec_get_raw_buffer(PFSection *section)
+void *pfsec_get_raw_pointer(PFSection *section)
 {
-    if (section->macho->containingCache) {
-        return dsc_find_buffer(section->macho->containingCache, section->vmaddr, section->size);
+    DyldSharedCache *sharedCache = pfsec_get_dsc(section);
+    if (!sharedCache) {
+        MachO *macho = pfsec_get_macho(section);
+        if (macho) {
+            sharedCache = macho->containingCache;
+        }
     }
-    uint8_t *rawPtr = memory_stream_get_raw_pointer(macho_get_stream(section->macho));
+    if (sharedCache) {
+        return dsc_find_buffer(sharedCache, section->info.vmaddr, section->info.size);
+    }
+
+    uint8_t *rawPtr = NULL;
+    if (section->stream) {
+        rawPtr = memory_stream_get_raw_pointer(section->stream);
+    }
+
     if (rawPtr) {
-        return &rawPtr[section->fileoff];
+        return rawPtr;
     }
     else if(section->cache) {
         return section->cache;
@@ -218,32 +313,36 @@ void *pfsec_get_raw_buffer(PFSection *section)
 
 int pfsec_find_memory_rel(PFSection *section, uint64_t searchStartOffset, uint64_t searchEndOffset, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundRelOffsetOut)
 {
-    void *rawBuffer = pfsec_get_raw_buffer(section);
-    if (rawBuffer) {
-        return raw_buffer_find_memory(rawBuffer, searchStartOffset, searchEndOffset, bytes, mask, nbytes, alignment, foundRelOffsetOut);
+    void *rawPtr = pfsec_get_raw_pointer(section);
+    if (rawPtr) {
+        return raw_buffer_find_memory(rawPtr, searchStartOffset, searchEndOffset, bytes, mask, nbytes, alignment, foundRelOffsetOut);
     }
-    else {
+    else if (section->stream) {
         uint64_t foundFileoff = 0;
-        int r = memory_stream_find_memory(macho_get_stream(section->macho), section->fileoff + searchStartOffset, section->fileoff + searchEndOffset, bytes, mask, nbytes, alignment, &foundFileoff);
+        // XXX: This does not work for MachOs that are inside the DSC
+        // This code path will never be used for that however, since all DSC MachOs have a raw pointer
+        int r = memory_stream_find_memory(section->stream, section->info.fileoff + searchStartOffset, section->info.fileoff + searchEndOffset, bytes, mask, nbytes, alignment, &foundFileoff);
         if (r == 0) {
-            *foundRelOffsetOut = foundFileoff - section->fileoff;
+            *foundRelOffsetOut = foundFileoff - section->info.fileoff;
         }
         return r;
     }
+
+    return -1;
 }
 
 int pfsec_find_memory(PFSection *section, uint64_t searchStartAddr, uint64_t searchEndAddr, void *bytes, void *mask, size_t nbytes, uint16_t alignment, uint64_t *foundAddrOut)
 {
     // Ensure searchStartAddr and searchEndAddr stay within section bounds
-    if (searchStartAddr < section->vmaddr) searchStartAddr = section->vmaddr;
-    if (searchEndAddr < section->vmaddr) searchEndAddr = section->vmaddr;
-    if (searchStartAddr > (section->vmaddr + section->size)) searchStartAddr = section->vmaddr + section->size;
-    if (searchEndAddr > (section->vmaddr + section->size)) searchEndAddr = section->vmaddr + section->size;
+    if (searchStartAddr < section->info.vmaddr) searchStartAddr = section->info.vmaddr;
+    if (searchEndAddr < section->info.vmaddr) searchEndAddr = section->info.vmaddr;
+    if (searchStartAddr > (section->info.vmaddr + section->info.size)) searchStartAddr = section->info.vmaddr + section->info.size;
+    if (searchEndAddr > (section->info.vmaddr + section->info.size)) searchEndAddr = section->info.vmaddr + section->info.size;
 
     uint64_t foundRelOff = 0;
-    int r = pfsec_find_memory_rel(section, searchStartAddr - section->vmaddr, searchEndAddr - section->vmaddr, bytes, mask, nbytes, alignment, &foundRelOff);
+    int r = pfsec_find_memory_rel(section, searchStartAddr - section->info.vmaddr, searchEndAddr - section->info.vmaddr, bytes, mask, nbytes, alignment, &foundRelOff);
     if (r == 0) {
-        *foundAddrOut = section->vmaddr + foundRelOff;
+        *foundAddrOut = section->info.vmaddr + foundRelOff;
     }
 
     return r;
@@ -252,7 +351,7 @@ int pfsec_find_memory(PFSection *section, uint64_t searchStartAddr, uint64_t sea
 uint64_t pfsec_find_prev_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask)
 {
     uint64_t out = 0;
-    uint64_t endAddr = searchCount ? (startAddr - (sizeof(uint32_t) * searchCount)) : section->vmaddr;
+    uint64_t endAddr = searchCount ? (startAddr - (sizeof(uint32_t) * searchCount)) : section->info.vmaddr;
     pfsec_find_memory(section, startAddr, endAddr, &inst, &mask, sizeof(inst), sizeof(uint32_t), &out);
     if (!out) return 0;
     return out;
@@ -261,7 +360,7 @@ uint64_t pfsec_find_prev_inst(PFSection *section, uint64_t startAddr, uint32_t s
 uint64_t pfsec_find_next_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask)
 {
     uint64_t out = 0;
-    uint64_t endAddr = searchCount ? (startAddr + (sizeof(uint32_t) * searchCount)) : (section->vmaddr + section->size);
+    uint64_t endAddr = searchCount ? (startAddr + (sizeof(uint32_t) * searchCount)) : (section->info.vmaddr + section->info.size);
     pfsec_find_memory(section, startAddr, endAddr, &inst, &mask, sizeof(inst), sizeof(uint32_t), &out);
     if (!out) return 0;
     return out;
@@ -269,33 +368,47 @@ uint64_t pfsec_find_next_inst(PFSection *section, uint64_t startAddr, uint32_t s
 
 uint64_t pfsec_find_function_start(PFSection *section, uint64_t midAddr)
 {
-    // If the MachO contains function starts, use those to determine the function start
-    __block uint64_t start = 0;
-    if (macho_enumerate_function_starts(section->macho, ^(uint64_t funcAddr, bool *stop){
-        if (funcAddr <= midAddr) {
-            start = funcAddr;
-        }
-        else {
-            *stop = true;
-        }
-    }) == 0) {
-        if (start >= section->vmaddr && start < (section->vmaddr + section->size)) {
-            return start;
+    uint32_t cputype = 0;
+    uint32_t cpusubtype = 0;
+
+    MachO *macho = pfsec_get_macho(section);
+    DyldSharedCache *sharedCache = pfsec_get_dsc(section);
+    if (macho) {
+        cputype = macho->machHeader.cputype;
+        cpusubtype = macho->machHeader.cpusubtype;
+
+        // If the MachO contains function starts, use those to determine the function start
+        __block uint64_t start = 0;
+        if (macho_enumerate_function_starts(macho, ^(uint64_t funcAddr, bool *stop){
+            if (funcAddr <= midAddr) {
+                start = funcAddr;
+            }
+            else {
+                *stop = true;
+            }
+        }) == 0) {
+            if (start >= section->info.vmaddr && start < (section->info.vmaddr + section->info.size)) {
+                return start;
+            }
         }
     }
+    else if (sharedCache) {
+        cputype = sharedCache->cputype;
+        cpusubtype = sharedCache->cpusubtype;
+    }
 
-    // If it doesn't contain the function starts, try to find it based on a heuristic approach
-    if (section->macho->machHeader.cputype == CPU_TYPE_ARM64) {
-        if ((section->macho->machHeader.cpusubtype & ~CPU_SUBTYPE_MASK) == CPU_SUBTYPE_ARM64E) {
+    // If there are no function starts, try to find them based on a heuristic approach
+    if (cputype == CPU_TYPE_ARM64) {
+        if ((cpusubtype & ~CPU_SUBTYPE_MASK) == CPU_SUBTYPE_ARM64E) {
             // Find start of function by going back until we find a PACIBSP
             uint64_t addr = midAddr;
-            while (addr > section->vmaddr && addr < (section->vmaddr + section->size)) {
+            while (addr > section->info.vmaddr && addr < (section->info.vmaddr + section->info.size)) {
                 uint32_t curInst = pfsec_read32(section, addr);
                 if (curInst == 0xd503237f) return addr;
                 addr -= 4;
             }
         }
-        else if ((section->macho->machHeader.cpusubtype & ~CPU_SUBTYPE_MASK) == CPU_SUBTYPE_ARM64_ALL) {
+        else if ((cpusubtype & ~CPU_SUBTYPE_MASK) == CPU_SUBTYPE_ARM64_ALL) {
             // Find start of function by going back until we find a stack frame push
             // Technique adapted from pongoOS
             uint64_t frameAddr = pfsec_find_prev_inst(section, midAddr, 0, 0x910003fd, 0xff8003ff); // add x29, sp, ?
@@ -313,11 +426,14 @@ uint64_t pfsec_find_function_start(PFSection *section, uint64_t midAddr)
 
 bool pfsec_contains_vmaddr(PFSection *section, uint64_t addr)
 {
-    return (addr >= section->vmaddr && addr < (section->vmaddr + section->size));
+    return (addr >= section->info.vmaddr && addr < (section->info.vmaddr + section->info.size));
 }
 
 void pfsec_free(PFSection *section)
-{
+{   
+    if (section->stream) {
+        memory_stream_free(section->stream);
+    }
     pfsec_set_cached(section, false);
     free(section);
 }
@@ -338,7 +454,7 @@ PFPatternMetric *pfmetric_pattern_init(void *bytes, void *mask, size_t nbytes, u
 {
     PFPatternMetric *metric = malloc(sizeof(PFPatternMetric));
 
-    metric->shared.type = PF_METRIC_TYPE_PATTERN;
+    metric->shared.type = PFMETRIC_TYPE_PATTERN;
     metric->bytes = bytes;
     metric->mask = mask;
     metric->nbytes = nbytes;
@@ -354,7 +470,7 @@ void _pfsec_run_string_metric(PFSection *section, uint64_t startAddr, uint64_t e
     while (pfsec_read_string_reloff(section, searchOffset, &str) == 0) {
         if (!strcmp(str, stringMetric->string)) {
             bool stop = false;
-            matchBlock(section->vmaddr + searchOffset, &stop);
+            matchBlock(section->info.vmaddr + searchOffset, &stop);
             if (stop) break;
         }
         searchOffset += strlen(str)+1;
@@ -366,7 +482,7 @@ PFStringMetric *pfmetric_string_init(const char *string)
 {
     PFStringMetric *metric = malloc(sizeof(PFStringMetric));
 
-    metric->shared.type = PF_METRIC_TYPE_STRING;
+    metric->shared.type = PFMETRIC_TYPE_STRING;
     metric->string = strdup(string);
 
     return metric;
@@ -398,7 +514,19 @@ void _pfsec_run_arm64_xref_metric(PFSection *section, uint64_t startAddr, uint64
 
 void _pfsec_run_xref_metric(PFSection *section, uint64_t startAddr, uint64_t endAddr, PFXrefMetric *xrefMetric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
 {
-    switch(section->macho->machHeader.cputype) {
+    uint32_t cputype = 0;
+    MachO *macho = pfsec_get_macho(section);
+    if (macho) {
+        cputype = macho->machHeader.cputype;
+    }
+    else {
+        DyldSharedCache *sharedCache = pfsec_get_dsc(section);
+        if (sharedCache) {
+            cputype = sharedCache->cputype;
+        }
+    }
+
+    switch(cputype) {
         case CPU_TYPE_ARM64:
         _pfsec_run_arm64_xref_metric(section, startAddr, endAddr, xrefMetric, matchBlock);
         break;
@@ -409,7 +537,7 @@ PFXrefMetric *pfmetric_xref_init(uint64_t address, PFXrefTypeMask types)
 {
     PFXrefMetric *metric = malloc(sizeof(PFXrefMetric));
 
-    metric->shared.type = PF_METRIC_TYPE_XREF;
+    metric->shared.type = PFMETRIC_TYPE_XREF;
     metric->address = address;
     metric->typeMask = types;
 
@@ -419,7 +547,7 @@ PFXrefMetric *pfmetric_xref_init(uint64_t address, PFXrefTypeMask types)
 void pfmetric_free(void *metric)
 {
     uint32_t type = ((PFPatternMetric *)metric)->shared.type;
-    if (type == PF_METRIC_TYPE_STRING) {
+    if (type == PFMETRIC_TYPE_STRING) {
         free(((PFStringMetric *)metric)->string);
     }
     free(metric);
@@ -427,20 +555,20 @@ void pfmetric_free(void *metric)
 
 void pfmetric_run_in_range(PFSection *section, uint64_t startAddr, uint64_t endAddr, void *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop))
 {
-    if (startAddr == -1ULL) startAddr = section->vmaddr;
-    if (endAddr == -1ULL) endAddr = section->vmaddr + section->size;
+    if (startAddr == -1ULL) startAddr = section->info.vmaddr;
+    if (endAddr == -1ULL) endAddr = section->info.vmaddr + section->info.size;
 
     MetricShared *shared = metric;
     switch (shared->type) {
-        case PF_METRIC_TYPE_PATTERN: {
+        case PFMETRIC_TYPE_PATTERN: {
             _pfsec_run_pattern_metric(section, startAddr, endAddr, metric, matchBlock);
             break;
         }
-        case PF_METRIC_TYPE_STRING: {
+        case PFMETRIC_TYPE_STRING: {
             _pfsec_run_string_metric(section, startAddr, endAddr, metric, matchBlock);
             break;
         }
-        case PF_METRIC_TYPE_XREF: {
+        case PFMETRIC_TYPE_XREF: {
             _pfsec_run_xref_metric(section, startAddr, endAddr, metric, matchBlock);
             break;
         }

@@ -124,7 +124,18 @@ uint64_t pfsec_arm64_resolve_stub(PFSection *section, uint64_t stubAddr)
 		uint64_t ptrAddr = pfsec_arm64_resolve_adrp_ldr_str_add_reference(section, stubAddr, stubAddr + 4);
 		if (ptrAddr) {
 			uint64_t targetAddr = 0;
-			macho_read_at_vmaddr(section->macho, ptrAddr, sizeof(ptrAddr), &targetAddr);
+
+			MachO *macho = pfsec_get_macho(section);
+			if (macho) {
+				macho_read_at_vmaddr(macho, ptrAddr, sizeof(targetAddr), &targetAddr);
+			}
+			else {
+				DyldSharedCache *sharedCache = pfsec_get_dsc(section);
+				if (sharedCache) {
+					dsc_read_from_vmaddr(sharedCache, ptrAddr, sizeof(targetAddr), &targetAddr);
+				}
+			}
+
 			return targetAddr;
 		}
 	}
@@ -136,8 +147,8 @@ uint64_t pfsec_arm64_resolve_stub(PFSection *section, uint64_t stubAddr)
 void pfsec_arm64_enumerate_xrefs(PFSection *section, Arm64XrefTypeMask types, void (^xrefBlock)(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop))
 {
 	bool stop = false;
-	if (section->initprot & PROT_EXEC) {
-		for (uint64_t addr = section->vmaddr; addr < (section->vmaddr + section->size) && !stop; addr += sizeof(uint32_t)) {
+	if (section->info.initprot & PROT_EXEC) {
+		for (uint64_t addr = section->info.vmaddr; addr < (section->info.vmaddr + section->info.size) && !stop; addr += sizeof(uint32_t)) {
 			uint32_t inst = pfsec_read32(section, addr);
 			if ((types & ARM64_XREF_TYPE_MASK_B) || (types & ARM64_XREF_TYPE_MASK_BL)) {
 				uint64_t target = 0;
@@ -265,16 +276,19 @@ void pfsec_arm64_enumerate_xrefs(PFSection *section, Arm64XrefTypeMask types, vo
 	}
 
 	if ((types & ARM64_XREF_TYPE_MASK_POINTER)) {
-		if (!strncmp(section->sectname, "__cfstring", sizeof(section->sectname) / sizeof(char))) {
-			for (uint64_t addr = section->vmaddr; addr < (section->vmaddr + section->size) && !stop; addr += 0x20) {
+		if (!strncmp(section->info.sectname, "__cfstring", sizeof(section->info.sectname))) {
+			for (uint64_t addr = section->info.vmaddr; addr < (section->info.vmaddr + section->info.size) && !stop; addr += 0x20) {
 				uint32_t fileoff = pfsec_read32(section, addr + 0x10);
 				uint64_t vmaddr = 0;
-				macho_translate_fileoff_to_vmaddr(section->macho, fileoff, &vmaddr, NULL);
-				xrefBlock(ARM64_XREF_TYPE_POINTER, addr, vmaddr, &stop);
+				MachO *macho = pfsec_get_macho(section);
+				if (macho) {
+					macho_translate_fileoff_to_vmaddr(macho, fileoff, &vmaddr, NULL);
+					xrefBlock(ARM64_XREF_TYPE_POINTER, addr, vmaddr, &stop);
+				}
 			}
 		}
 		else {
-			for (uint64_t addr = section->vmaddr; addr < (section->vmaddr + section->size) && !stop; addr += sizeof(uint64_t)) {
+			for (uint64_t addr = section->info.vmaddr; addr < (section->info.vmaddr + section->info.size) && !stop; addr += sizeof(uint64_t)) {
 				uint64_t ptr = pfsec_read_pointer(section, addr);
 				xrefBlock(ARM64_XREF_TYPE_POINTER, addr, ptr, &stop);
 			}

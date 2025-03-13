@@ -59,7 +59,8 @@ typedef struct DyldSharedCache {
 	DyldSharedCacheMapping *mappings;
 	uint64_t baseAddress;
 	uint32_t premapSlide;
-    bool is32Bit;
+	uint32_t cputype;
+	uint32_t cpusubtype;
 
 	uint64_t containedImageCount;
 	DyldSharedCacheImage *containedImages;
@@ -84,6 +85,7 @@ enum PAC_KEY {
 
 DyldSharedCache *dsc_init_from_path_premapped(const char *path, uint32_t premapSlide);
 DyldSharedCache *dsc_init_from_path(const char *path);
+bool dsc_is32bit(DyldSharedCache *sharedCache);
 void dsc_enumerate_files(DyldSharedCache *sharedCache, void (^enumeratorBlock)(const char *filepath, size_t filesize, struct dyld_cache_header *header));
 
 void dsc_enumerate_mappings(DyldSharedCache *sharedCache, void (^enumeratorBlock)(DyldSharedCacheMapping *mapping, DyldSharedCacheFile *sourceFile, bool *stop));
