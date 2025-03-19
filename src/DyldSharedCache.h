@@ -2,13 +2,12 @@
 #define DYLD_SHARED_CACHE_H
 
 #include "dyld_cache_format.h"
+#include <uuid/uuid.h>
 #include "CachePatching.h"
 #include <stddef.h>
 #include <stdbool.h>
 typedef struct MachO MachO;
 typedef struct Fat Fat;
-
-#define UUID_NULL (uuid_t){0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
 
 typedef struct DyldSharedCacheFile {
 	char *filepath;

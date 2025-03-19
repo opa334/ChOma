@@ -25,7 +25,6 @@
 #define __DYLD_CACHE_FORMAT__
 
 #include <stdint.h>
-#include <uuid/uuid.h>
 
 #include "fixup-chains.h"
 
@@ -107,6 +106,8 @@ struct dyld_cache_header
     uint64_t    cacheAtlasSize;         // size of embedded cache atlas
     uint64_t    dynamicDataOffset;      // VM offset from cache_header* to the location of dyld_cache_dynamic_data_header
     uint64_t    dynamicDataMaxSize;     // maximum size of space reserved from dynamic data
+    uint32_t    tproMappingsOffset;     // file offset to first dyld_cache_tpro_mapping_info
+    uint32_t    tproMappingsCount;      // number of dyld_cache_tpro_mapping_info entries
 };
 
 // Uncomment this and check the build errors for the current mapping offset to check against when adding new fields.
@@ -128,6 +129,8 @@ enum {
     DYLD_CACHE_MAPPING_CONST_DATA           = 1 << 2U,
     DYLD_CACHE_MAPPING_TEXT_STUBS           = 1 << 3U,
     DYLD_CACHE_DYNAMIC_CONFIG_DATA          = 1 << 4U,
+    DYLD_CACHE_READ_ONLY_DATA               = 1 << 5U,
+    DYLD_CACHE_MAPPING_CONST_TPRO_DATA      = 1 << 6U,
 };
 
 struct dyld_cache_mapping_and_slide_info {
@@ -139,6 +142,11 @@ struct dyld_cache_mapping_and_slide_info {
     uint64_t    flags;
     uint32_t    maxProt;
     uint32_t    initProt;
+};
+
+struct dyld_cache_tpro_mapping_info {
+    uint64_t    unslidAddress;
+    uint64_t    size;
 };
 
 struct dyld_cache_image_info
@@ -204,7 +212,7 @@ struct dyld_cache_accelerator_dof
 
 struct dyld_cache_image_text_info
 {
-    uuid_t      uuid;
+    uint8_t     uuid[16];
     uint64_t    loadAddress;            // unslid address of start of __TEXT
     uint32_t    textSegmentSize;
     uint32_t    pathOffset;             // offset from start of cache file
@@ -530,11 +538,10 @@ struct dyld_cache_slide_info5
 
 union dyld_cache_slide_pointer5
 {
-    uint64_t  raw;
+    uint64_t                                                raw;
     struct dyld_chained_ptr_arm64e_shared_cache_rebase      regular;
     struct dyld_chained_ptr_arm64e_shared_cache_auth_rebase auth;
 };
-
 
 struct dyld_cache_local_symbols_info
 {
