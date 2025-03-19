@@ -84,13 +84,20 @@ typedef enum {
 typedef struct s_PFXrefMetric {
 	MetricShared shared;
 
+	// Normal xref
 	uint64_t address;
+	
+	// Dynamic xref
+	bool (*dynamicHandler)(PFSection *section, struct s_PFXrefMetric *metric, uint64_t location, uint64_t target);
+	void *ctx;
+
 	PFXrefTypeMask typeMask;
 } PFXrefMetric;
 
 PFPatternMetric *pfmetric_pattern_init(void *bytes, void *mask, size_t nbytes, uint16_t alignment);
 PFStringMetric *pfmetric_string_init(const char *string);
 PFXrefMetric *pfmetric_xref_init(uint64_t address, PFXrefTypeMask types);
+PFXrefMetric *pfmetric_dynamic_xref_init(bool (*dynamicHandler)(PFSection *section, PFXrefMetric *metric, uint64_t location, uint64_t target), void *ctx, PFXrefTypeMask types);
 void pfmetric_free(void *metric);
 
 void pfmetric_run_in_range(PFSection *section, uint64_t startAddr, uint64_t endAddr, void *metric, void (^matchBlock)(uint64_t vmaddr, bool *stop));

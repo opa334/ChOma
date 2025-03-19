@@ -506,7 +506,15 @@ void _pfsec_run_arm64_xref_metric(PFSection *section, uint64_t startAddr, uint64
     }
 
     pfsec_arm64_enumerate_xrefs(section, arm64Types, ^(Arm64XrefType type, uint64_t source, uint64_t target, bool *stop) {
-        if (target == metric->address) {
+        bool match = false;
+        if (metric->dynamicHandler) {
+            match = metric->dynamicHandler(section, metric, source, target);
+        }
+        else {
+            match = (target == metric->address);
+        }
+
+        if (match) {
             matchBlock(source, stop);
         }
     });
@@ -539,6 +547,18 @@ PFXrefMetric *pfmetric_xref_init(uint64_t address, PFXrefTypeMask types)
 
     metric->shared.type = PFMETRIC_TYPE_XREF;
     metric->address = address;
+    metric->typeMask = types;
+
+    return metric;
+}
+
+PFXrefMetric *pfmetric_dynamic_xref_init(bool (*dynamicHandler)(PFSection *section, PFXrefMetric *metric, uint64_t location, uint64_t target), void *ctx, PFXrefTypeMask types)
+{
+    PFXrefMetric *metric = malloc(sizeof(PFXrefMetric));
+
+    metric->shared.type = PFMETRIC_TYPE_XREF;
+    metric->dynamicHandler = dynamicHandler;
+    metric->ctx = ctx;
     metric->typeMask = types;
 
     return metric;
