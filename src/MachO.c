@@ -39,6 +39,44 @@ int macho_read_string_at_offset(MachO *macho, uint64_t offset, char **outString)
     return memory_stream_read_string(macho->stream, offset, outString);
 }
 
+int macho_read_uleb128_at_offset(MachO *macho, uint64_t offset, uint64_t maxOffset, uint64_t *endOffsetOut, uint64_t *valueOut)
+{
+    uint64_t result = 0;
+    int         bit = 0;
+    
+    uint64_t curOffset = offset;
+    int r = 0;
+
+    uint8_t v = 0;
+    do {
+        macho_read_at_offset(macho, curOffset, sizeof(v), &v);
+        if (curOffset == maxOffset) {
+            r = -1;
+            break;
+        }
+        uint64_t slice = v & 0x7f;
+
+        if (bit > 63) {
+            r = -1;
+            break;
+        }
+        else {
+            result |= (slice << bit);
+            bit += 7;
+        }
+
+        curOffset++;
+    }
+    while (v & 0x80);
+
+    if (r == 0) {
+        if (endOffsetOut) *endOffsetOut = curOffset;
+        if (valueOut) *valueOut = result;
+    }   
+
+    return r;
+}
+
 int macho_write_at_offset(MachO *macho, uint64_t offset, size_t size, const void *inBuf)
 {
     return memory_stream_write(macho->stream, offset, size, inBuf);
@@ -211,6 +249,44 @@ int macho_enumerate_sections(MachO *macho, void (^enumeratorBlock)(struct sectio
     return 0;
 }
 
+struct trie_node {
+    char *string;
+    uint64_t value;
+};
+
+int macho_read_trie_node_at_offset(MachO *macho, uint64_t offset, uint64_t maxOffset, uint64_t *endOffsetOut, struct trie_node **trieNodesOut, unsigned *trieNodesCountOut)
+{
+    if (!trieNodesOut || !trieNodesCountOut) return -1;
+
+    uint8_t trieValue = 0;
+    macho_read_at_offset(macho, offset, sizeof(trieValue), &trieValue);
+    offset += sizeof(trieValue);
+
+    if (trieValue != 0) {
+        *trieNodesOut = NULL;
+        *trieNodesCountOut = 0;
+        goto done;
+    }
+
+    uint8_t numberOfBranches = 0;
+    macho_read_at_offset(macho, offset, sizeof(numberOfBranches), &numberOfBranches);
+    offset += sizeof(numberOfBranches);
+
+    *trieNodesCountOut = numberOfBranches;
+    *trieNodesOut = malloc(sizeof(struct trie_node) * *trieNodesCountOut);
+
+    for (uint8_t i = 0; i < numberOfBranches; i++) {
+        struct trie_node *node = &(*trieNodesOut)[i];
+        macho_read_string_at_offset(macho, offset, &node->string);
+        offset += strlen(node->string)+1;
+        macho_read_uleb128_at_offset(macho, offset, maxOffset, &offset, &node->value);
+    }
+
+done:
+    if (endOffsetOut) *endOffsetOut = offset;
+    return 0;
+}
+
 int macho_enumerate_symbols(MachO *macho, void (^enumeratorBlock)(const char *name, uint8_t type, uint64_t vmaddr, bool *stop))
 {
     bool didScanDSC = false;
@@ -221,62 +297,136 @@ int macho_enumerate_symbols(MachO *macho, void (^enumeratorBlock)(const char *na
         didScanDSC = (dsc_image_enumerate_symbols(macho->containingCache, macho->cacheImage, enumeratorBlock) == 0);
     }
 
+    __block bool hasSymtab = false;
+    __block struct symtab_command symtabCommand;
+    __block bool hasExportsTrie = false;
+    __block struct linkedit_data_command trieCommand;
     macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
         if (loadCommand.cmd == LC_SYMTAB) {
-            struct symtab_command *symtabCommand = (struct symtab_command *)cmd;
-            SYMTAB_COMMAND_APPLY_BYTE_ORDER(symtabCommand, LITTLE_TO_HOST_APPLIER);
-            char *strtbl = malloc(symtabCommand->strsize);
-            if (macho_read_at_offset(macho, symtabCommand->stroff, symtabCommand->strsize, strtbl) != 0) {
-                free(strtbl);
-                return;
-            }
-
-            for (int i = 0; i < symtabCommand->nsyms; i++) {
-                uint64_t n_strx = 0;
-                uint64_t n_value = 0;
-                uint8_t n_type = 0;
-                int r = 0;
-
-                #define _GENERIC_READ_NLIST(nlistType, APPLIER) do { \
-                    struct nlistType entry; \
-                    if ((r = macho_read_at_offset(macho, symtabCommand->symoff + (i * sizeof(entry)), sizeof(entry), &entry)) != 0) break; \
-                    APPLIER(&entry, LITTLE_TO_HOST_APPLIER); \
-                    n_strx = entry.n_un.n_strx; \
-                    n_value = entry.n_value; \
-                    n_type = entry.n_type; \
-                } while (0)
-
-                if (macho->is32Bit) {
-                    _GENERIC_READ_NLIST(nlist, NLIST_APPLY_BYTE_ORDER);
-                }
-                else {
-                    _GENERIC_READ_NLIST(nlist_64, NLIST_64_APPLY_BYTE_ORDER);
-                }
-
-                if (r != 0) continue;
-    
-                #undef _GENERIC_READ_NLIST
-
-                if (n_strx >= symtabCommand->strsize || n_strx == 0) continue;
-
-                const char *symbolName = &strtbl[n_strx];
-                if (symbolName[0] == 0) continue;
-
-                if (didScanDSC) {
-                    /* If we already got the real private symbols from the DSC, omit any censored ones */
-                    if (!strcmp(symbolName, "<redacted>")) continue;
-                }
-
-                bool stopSym = false;
-                enumeratorBlock(symbolName, n_type, n_value, &stopSym);
-                if (stopSym) {
-                    *stop = true;
-                    break;
-                }
-            }
-            free(strtbl);
+            hasSymtab = true;
+            memcpy(&symtabCommand, cmd, sizeof(symtabCommand));
+            SYMTAB_COMMAND_APPLY_BYTE_ORDER(&symtabCommand, LITTLE_TO_HOST_APPLIER);
         }
+        else if (loadCommand.cmd == LC_DYLD_EXPORTS_TRIE) {
+            hasExportsTrie = true;
+            memcpy(&trieCommand, cmd, sizeof(trieCommand));
+            LINKEDIT_DATA_COMMAND_APPLY_BYTE_ORDER(&trieCommand, LITTLE_TO_HOST_APPLIER);
+        }
+
+        if (hasSymtab && hasExportsTrie) *stop = true;
     });
+
+    if (hasExportsTrie) {
+        uint64_t trieBegin = trieCommand.dataoff;
+        uint64_t trieSize = trieCommand.datasize;
+        uint64_t trieEnd = trieBegin + trieSize;
+
+        uint64_t trieBeginVm = 0;
+        uint64_t trieEndVm = 0;
+        macho_translate_fileoff_to_vmaddr(macho, trieBegin, &trieBeginVm, NULL);
+        macho_translate_fileoff_to_vmaddr(macho, trieEnd, &trieEndVm, NULL);
+
+        uint64_t trieCur = trieBegin;
+
+        struct trie_node *frontier = NULL;
+        unsigned frontierCount = 0;
+        macho_read_trie_node_at_offset(macho, trieCur, trieEnd, &trieCur, &frontier, &frontierCount);
+        for (unsigned i = 0; i < frontierCount; i++) {
+            struct trie_node *node = &frontier[i];
+            
+            uint64_t offset = trieBegin + node->value;
+            struct trie_node *children = NULL;
+            unsigned childrenCount = 0;
+            macho_read_trie_node_at_offset(macho, offset, trieEnd, &offset, &children, &childrenCount);
+            if (!childrenCount) {
+                uint64_t ulebOffset = offset - sizeof(uint8_t);
+                uint64_t flags = 0;
+                macho_read_uleb128_at_offset(macho, ulebOffset, trieEnd, &ulebOffset, &flags);
+                ulebOffset += sizeof(uint8_t);
+
+                uint64_t addrOff = 0;
+                macho_read_uleb128_at_offset(macho, ulebOffset, trieEnd, &ulebOffset, &addrOff);
+                
+                bool stop = false;
+                enumeratorBlock(node->string, 0, macho_get_base_address(macho) + addrOff, &stop);
+                if (stop) break;
+            }
+            else {
+                unsigned prevEnd = frontierCount;
+                frontierCount += childrenCount;
+                frontier = realloc(frontier, sizeof(struct trie_node) * frontierCount);
+                node = &frontier[i];
+
+                for (unsigned k = 0; k < childrenCount; k++) {
+                    frontier[prevEnd + k].string = malloc(strlen(node->string) + strlen(children[k].string) + 1);
+                    strcpy(frontier[prevEnd + k].string, node->string);
+                    strcat(frontier[prevEnd + k].string, children[k].string);
+                    frontier[prevEnd + k].value = children[k].value;
+                }
+
+                for (unsigned k = 0; k < childrenCount; k++) {
+                    free(children[k].string);
+                }
+                free(children);
+            }
+        }
+
+        for (unsigned i = 0; i < frontierCount; i++) {
+            free(frontier[i].string);
+        }
+        free(frontier);
+    }
+    else if (hasSymtab) {
+        char *strtbl = malloc(symtabCommand.strsize);
+        if (macho_read_at_offset(macho, symtabCommand.stroff, symtabCommand.strsize, strtbl) != 0) {
+            free(strtbl);
+            return -1;
+        }
+
+        for (int i = 0; i < symtabCommand.nsyms; i++) {
+            uint64_t n_strx = 0;
+            uint64_t n_value = 0;
+            uint8_t n_type = 0;
+            int r = 0;
+
+            #define _GENERIC_READ_NLIST(nlistType, APPLIER) do { \
+                struct nlistType entry; \
+                if ((r = macho_read_at_offset(macho, symtabCommand.symoff + (i * sizeof(entry)), sizeof(entry), &entry)) != 0) break; \
+                APPLIER(&entry, LITTLE_TO_HOST_APPLIER); \
+                n_strx = entry.n_un.n_strx; \
+                n_value = entry.n_value; \
+                n_type = entry.n_type; \
+            } while (0)
+
+            if (macho->is32Bit) {
+                _GENERIC_READ_NLIST(nlist, NLIST_APPLY_BYTE_ORDER);
+            }
+            else {
+                _GENERIC_READ_NLIST(nlist_64, NLIST_64_APPLY_BYTE_ORDER);
+            }
+
+            if (r != 0) continue;
+
+            #undef _GENERIC_READ_NLIST
+
+            if (n_strx >= symtabCommand.strsize || n_strx == 0) continue;
+
+            const char *symbolName = &strtbl[n_strx];
+            if (symbolName[0] == 0) continue;
+
+            if (didScanDSC) {
+                /* If we already got the real private symbols from the DSC, omit any censored ones */
+                if (!strcmp(symbolName, "<redacted>")) continue;
+            }
+
+            bool stopSym = false;
+            enumeratorBlock(symbolName, n_type, n_value, &stopSym);
+            if (stopSym) {
+                break;
+            }
+        }
+        free(strtbl);
+    }
 
     return 0;
 }

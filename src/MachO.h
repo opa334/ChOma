@@ -45,6 +45,7 @@ int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBu
 int macho_write_at_offset(MachO *macho, uint64_t offset, size_t size, const void *inBuf);
 
 int macho_read_string_at_offset(MachO *macho, uint64_t offset, char **string);
+int macho_read_uleb128_at_offset(MachO *macho, uint64_t offset, uint64_t maxOffset, uint64_t *endOffsetOut, uint64_t *valueOut);
 
 MemoryStream *macho_get_stream(MachO *macho);
 uint32_t macho_get_filetype(MachO *macho);
