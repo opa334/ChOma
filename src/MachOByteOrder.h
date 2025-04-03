@@ -71,7 +71,7 @@
     applier(arch, cpusubtype); \
     applier(arch, offset); \
     applier(arch, size); \
-    applier(arch, align); \
+    applier(arch, align);
 
 #define FAT_ARCH_64_APPLY_BYTE_ORDER(arch, applier) \
     applier(arch, cputype); \
@@ -79,7 +79,7 @@
     applier(arch, offset); \
     applier(arch, size); \
     applier(arch, align); \
-    applier(arch, reserved); \
+    applier(arch, reserved);
 
 #define MACH_HEADER_APPLY_BYTE_ORDER(mh, applier) \
     applier(mh, magic); \
@@ -188,7 +188,7 @@
     applier(fse, vmaddr); \
     applier(fse, fileoff); \
     applier(fse, entry_id.offset); \
-    applier(fse, reserved); \
+    applier(fse, reserved);
 
 #define SYMTAB_COMMAND_APPLY_BYTE_ORDER(symt, applier) \
     applier(symt, cmd); \

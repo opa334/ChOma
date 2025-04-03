@@ -71,6 +71,9 @@ int macho_enumerate_dependencies(MachO *macho, void (^enumeratorBlock)(const cha
 int macho_enumerate_rpaths(MachO *macho, void (^enumeratorBlock)(const char *rpath, bool *stop));
 int macho_enumerate_function_starts(MachO *macho, void (^enumeratorBlock)(uint64_t funcAddr, bool *stop));
 
+int macho_lookup_segment_by_addr(MachO *macho, uint64_t vmaddr, struct segment_command_64 *segmentOut);
+int macho_lookup_section_by_addr(MachO *macho, uint64_t vmaddr, struct section_64 *sectionOut);
+
 // Initialise a MachO object from a MemoryStream and it's corresponding Fat arch descriptor
 MachO *macho_init(MemoryStream *stream, struct fat_arch_64 archDescriptor);
 

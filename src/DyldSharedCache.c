@@ -572,11 +572,14 @@ MachO *dsc_image_get_macho(DyldSharedCacheImage *image)
 
 DyldSharedCacheImage *dsc_lookup_image_by_address(DyldSharedCache *sharedCache, uint64_t address)
 {
-    DyldSharedCacheImage *image = NULL;
+    __block DyldSharedCacheImage *image = NULL;
     for (unsigned i = 0; i < sharedCache->containedImageCount; i++) {
-        if (address >= sharedCache->containedImages[i].address && address <= (sharedCache->containedImages[i].address + sharedCache->containedImages[i].size)) {
+        MachO *macho = dsc_image_get_macho(&sharedCache->containedImages[i]);
+        struct segment_command_64 segment;
+        if (macho_lookup_segment_by_addr(macho, address, &segment) == 0) {
             image = &sharedCache->containedImages[i];
         }
+        if (image) break;
     }
     return image;
 }

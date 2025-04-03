@@ -564,6 +564,32 @@ int macho_enumerate_function_starts(MachO *macho, void (^enumeratorBlock)(uint64
     return 0;
 }
 
+int macho_lookup_segment_by_addr(MachO *macho, uint64_t vmaddr, struct segment_command_64 *segmentOut)
+{
+    __block int r = -1;
+    macho_enumerate_segments(macho, ^(struct segment_command_64 *segment, bool *stop){
+        if (vmaddr >= segment->vmaddr && vmaddr < (segment->vmaddr + segment->vmsize)) {
+            r = 0;
+            memcpy(segmentOut, segment, sizeof(struct segment_command_64));
+            *stop = true;
+        }
+    });
+    return r;
+}
+
+int macho_lookup_section_by_addr(MachO *macho, uint64_t vmaddr, struct section_64 *sectionOut)
+{
+    __block int r = -1;
+    macho_enumerate_sections(macho, ^(struct section_64 *section, struct segment_command_64 *segment, bool *stop) {
+        if (vmaddr >= section->addr && vmaddr < (section->addr + section->size)) {
+            r = 0;
+            memcpy(sectionOut, section, sizeof(struct section_64));
+            *stop = true;
+        }
+    });
+    return r;
+}
+
 int macho_parse_segments(MachO *macho)
 {
     return macho_enumerate_load_commands(macho, ^(struct load_command loadCommand, uint64_t offset, void *cmd, bool *stop) {
