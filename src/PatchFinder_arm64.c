@@ -94,8 +94,8 @@ uint64_t pfsec_arm64_resolve_adrp_ldr_str_add_reference_auto(PFSection *section,
 	uint32_t adrpInst = 0, adrpInstMask = 0;
 	arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, reg, &adrpInst, &adrpInstMask);
 	uint64_t adrpAddr = pfsec_find_prev_inst(section, ldrStrAddAddr, 100, adrpInst, adrpInstMask);
-	if (!adrpAddr) return -1;
-	if (pfsec_arm64_scan_register_write(section, reg, ldrStrAddAddr, adrpAddr)) { return -1; }
+	if (!adrpAddr) return 0;
+	if (pfsec_arm64_scan_register_write(section, reg, ldrStrAddAddr, adrpAddr)) return 0;
 
 	return pfsec_arm64_resolve_adrp_ldr_str_add_reference(section, adrpAddr, ldrStrAddAddr);
 }
