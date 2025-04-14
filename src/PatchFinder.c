@@ -120,11 +120,13 @@ PFSection *pfsec_init_from_macho(MachO *macho, const char *filesetEntryId, const
                 }
                 if (section) {
                     pfSection = malloc(sizeof(PFSection));
+                    memset(pfSection, 0, sizeof(PFSection));
                     pfsec_info_populate_section(&pfSection->info, section, segment);
                 }
             }
             else {
                 pfSection = malloc(sizeof(PFSection));
+                memset(pfSection, 0, sizeof(PFSection));
                 pfsec_info_populate_segment(&pfSection->info, segment);
             }
         }
@@ -149,6 +151,7 @@ PFSection *pfsec_init_from_dsc_mapping(DyldSharedCache *sharedCache, DyldSharedC
 
     PFSection *pfSection = malloc(sizeof(PFSection));
     if (!pfSection) return NULL;
+    memset(pfSection, 0, sizeof(PFSection));
 
     pfsec_info_populate_dsc_mapping(&pfSection->info, mapping);
 
