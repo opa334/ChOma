@@ -547,6 +547,8 @@ void _pfsec_run_xref_metric(PFSection *section, uint64_t startAddr, uint64_t end
 PFXrefMetric *pfmetric_xref_init(uint64_t address, PFXrefTypeMask types)
 {
     PFXrefMetric *metric = malloc(sizeof(PFXrefMetric));
+    if (!metric) return NULL;
+    memset(metric, 0, sizeof(PFXrefMetric));
 
     metric->shared.type = PFMETRIC_TYPE_XREF;
     metric->address = address;
@@ -558,6 +560,8 @@ PFXrefMetric *pfmetric_xref_init(uint64_t address, PFXrefTypeMask types)
 PFXrefMetric *pfmetric_dynamic_xref_init(bool (*dynamicHandler)(PFSection *section, PFXrefMetric *metric, uint64_t location, uint64_t target), void *ctx, PFXrefTypeMask types)
 {
     PFXrefMetric *metric = malloc(sizeof(PFXrefMetric));
+    if (!metric) return NULL;
+    memset(metric, 0, sizeof(PFXrefMetric));
 
     metric->shared.type = PFMETRIC_TYPE_XREF;
     metric->dynamicHandler = dynamicHandler;
