@@ -20,6 +20,12 @@ int apply_dyld_patch(const char *dyldPath)
         0xd2801be0, // mov x0, 0xdf
         0xd65f03c0  // ret
     };
+
+    if (getAMFIAddr == 0) {
+        printf("Error: Failed patchfinding getAMFI\n");
+        return -1;
+    }
+
     macho_write_at_vmaddr(dyldMacho, getAMFIAddr, sizeof(getAMFIPatch), getAMFIPatch);
 
     // iOS 16+: Change LC_UUID to prevent the kernel from using the in-cache dyld
