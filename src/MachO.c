@@ -316,7 +316,58 @@ int macho_enumerate_symbols(MachO *macho, void (^enumeratorBlock)(const char *na
         if (hasSymtab && hasExportsTrie) *stop = true;
     });
 
-    if (hasExportsTrie) {
+    if (hasSymtab) {
+        char *strtbl = malloc(symtabCommand.strsize);
+        if (macho_read_at_offset(macho, symtabCommand.stroff, symtabCommand.strsize, strtbl) != 0) {
+            free(strtbl);
+            return -1;
+        }
+
+        for (int i = 0; i < symtabCommand.nsyms; i++) {
+            uint64_t n_strx = 0;
+            uint64_t n_value = 0;
+            uint8_t n_type = 0;
+            int r = 0;
+
+            #define _GENERIC_READ_NLIST(nlistType, APPLIER) do { \
+                struct nlistType entry; \
+                if ((r = macho_read_at_offset(macho, symtabCommand.symoff + (i * sizeof(entry)), sizeof(entry), &entry)) != 0) break; \
+                APPLIER(&entry, LITTLE_TO_HOST_APPLIER); \
+                n_strx = entry.n_un.n_strx; \
+                n_value = entry.n_value; \
+                n_type = entry.n_type; \
+            } while (0)
+
+            if (macho->is32Bit) {
+                _GENERIC_READ_NLIST(nlist, NLIST_APPLY_BYTE_ORDER);
+            }
+            else {
+                _GENERIC_READ_NLIST(nlist_64, NLIST_64_APPLY_BYTE_ORDER);
+            }
+
+            if (r != 0) continue;
+
+            #undef _GENERIC_READ_NLIST
+
+            if (n_strx >= symtabCommand.strsize || n_strx == 0) continue;
+
+            const char *symbolName = &strtbl[n_strx];
+            if (symbolName[0] == 0) continue;
+
+            if (didScanDSC) {
+                /* If we already got the real private symbols from the DSC, omit any censored ones */
+                if (!strcmp(symbolName, "<redacted>")) continue;
+            }
+
+            bool stopSym = false;
+            enumeratorBlock(symbolName, n_type, n_value, &stopSym);
+            if (stopSym) {
+                break;
+            }
+        }
+        free(strtbl);
+    }
+    else if (hasExportsTrie) {
         uint64_t trieBegin = trieCommand.dataoff;
         uint64_t trieSize = trieCommand.datasize;
         uint64_t trieEnd = trieBegin + trieSize;
@@ -375,57 +426,6 @@ int macho_enumerate_symbols(MachO *macho, void (^enumeratorBlock)(const char *na
             free(frontier[i].string);
         }
         free(frontier);
-    }
-    else if (hasSymtab) {
-        char *strtbl = malloc(symtabCommand.strsize);
-        if (macho_read_at_offset(macho, symtabCommand.stroff, symtabCommand.strsize, strtbl) != 0) {
-            free(strtbl);
-            return -1;
-        }
-
-        for (int i = 0; i < symtabCommand.nsyms; i++) {
-            uint64_t n_strx = 0;
-            uint64_t n_value = 0;
-            uint8_t n_type = 0;
-            int r = 0;
-
-            #define _GENERIC_READ_NLIST(nlistType, APPLIER) do { \
-                struct nlistType entry; \
-                if ((r = macho_read_at_offset(macho, symtabCommand.symoff + (i * sizeof(entry)), sizeof(entry), &entry)) != 0) break; \
-                APPLIER(&entry, LITTLE_TO_HOST_APPLIER); \
-                n_strx = entry.n_un.n_strx; \
-                n_value = entry.n_value; \
-                n_type = entry.n_type; \
-            } while (0)
-
-            if (macho->is32Bit) {
-                _GENERIC_READ_NLIST(nlist, NLIST_APPLY_BYTE_ORDER);
-            }
-            else {
-                _GENERIC_READ_NLIST(nlist_64, NLIST_64_APPLY_BYTE_ORDER);
-            }
-
-            if (r != 0) continue;
-
-            #undef _GENERIC_READ_NLIST
-
-            if (n_strx >= symtabCommand.strsize || n_strx == 0) continue;
-
-            const char *symbolName = &strtbl[n_strx];
-            if (symbolName[0] == 0) continue;
-
-            if (didScanDSC) {
-                /* If we already got the real private symbols from the DSC, omit any censored ones */
-                if (!strcmp(symbolName, "<redacted>")) continue;
-            }
-
-            bool stopSym = false;
-            enumeratorBlock(symbolName, n_type, n_value, &stopSym);
-            if (stopSym) {
-                break;
-            }
-        }
-        free(strtbl);
     }
 
     return 0;
