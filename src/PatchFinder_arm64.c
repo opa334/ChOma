@@ -121,12 +121,13 @@ uint64_t pfsec_arm64_resolve_adrp_ldr_str_add_reference_auto(PFSection *section,
 				uint64_t baseAddr = pfsec_arm64_resolve_adrp_ldr_str_add_reference(section, adrpAddr, specialCaseAddAddr);
 				if (!baseAddr) return 0;
 
+				uint32_t ldrStrAddInst = pfsec_read32(section, ldrStrAddAddr);
 				uint64_t imm64 = 0;
 				uint16_t imm16 = 0;
-				if (arm64_dec_add_imm(ldrStrAddAddr, NULL, NULL, &imm16) != 0) {
-					if (arm64_dec_ldr_imm(ldrStrAddAddr, NULL, NULL, &imm64, NULL, NULL) != 0) {
-						if (arm64_dec_str_imm(ldrStrAddAddr, NULL, NULL, &imm64, NULL, NULL) != 0) {
-							fprintf(stderr, "Warning: failed decoding ldrStrAddAddr (%#llx)\n", ldrStrAddAddr);
+				if (arm64_dec_add_imm(ldrStrAddInst, NULL, NULL, &imm16) != 0) {
+					if (arm64_dec_ldr_imm(ldrStrAddInst, NULL, NULL, &imm64, NULL, NULL) != 0) {
+						if (arm64_dec_str_imm(ldrStrAddInst, NULL, NULL, &imm64, NULL, NULL) != 0) {
+							fprintf(stderr, "Warning: failed decoding ldrStrAddInst (%#x @ %#llx)\n", ldrStrAddInst, ldrStrAddAddr);
 						}
 					}
 				}
