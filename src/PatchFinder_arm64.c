@@ -99,11 +99,11 @@ uint64_t pfsec_arm64_resolve_adrp_ldr_str_add_reference_auto(PFSection *section,
 	if (!isAdd) {
 		// For str and ldr, there can be the following sequence:
 
-		// adrp xA, <page>
+		// adrp xA, <page>         (adrpAddr)
 		// (0..n) instructions
-		// add xA, xA, <page_off>
+		// add xA, xA, <page_off>  (specialCaseAddAddr)
 		// (0..n) instructions
-		// ldr/str xB, [xA]
+		// ldr/str xB, [xA]        (ldrStrAddAddr)
 
 		// We search for the middle add instruction and if we find it, we need to handle this case
 
@@ -118,12 +118,23 @@ uint64_t pfsec_arm64_resolve_adrp_ldr_str_add_reference_auto(PFSection *section,
 				if (pfsec_arm64_scan_register_write(section, reg, ldrStrAddAddr, specialCaseAddAddr)) return 0;
 				if (pfsec_arm64_scan_register_write(section, reg, specialCaseAddAddr, adrpAddr)) return 0;
 
-				uint64_t baseAddr = pfsec_arm64_resolve_adrp_ldr_str_add_reference(section, adrpAddr, ldrStrAddAddr);
+				uint64_t baseAddr = pfsec_arm64_resolve_adrp_ldr_str_add_reference(section, adrpAddr, specialCaseAddAddr);
 				if (!baseAddr) return 0;
 
-				uint16_t addImm = 0;
-				arm64_dec_add_imm(specialCaseAddAddr, NULL, NULL, &addImm);
-				return baseAddr + addImm;
+				uint64_t imm64 = 0;
+				uint16_t imm16 = 0;
+				if (arm64_dec_add_imm(ldrStrAddAddr, NULL, NULL, &imm16) != 0) {
+					if (arm64_dec_ldr_imm(ldrStrAddAddr, NULL, NULL, &imm64, NULL, NULL) != 0) {
+						if (arm64_dec_str_imm(ldrStrAddAddr, NULL, NULL, &imm64, NULL, NULL) != 0) {
+							fprintf(stderr, "Warning: failed decoding ldrStrAddAddr (%#llx)\n", ldrStrAddAddr);
+						}
+					}
+				}
+				else {
+					imm64 = imm16;
+				}
+
+				return baseAddr + imm64;
 			}
 		}
 	}
