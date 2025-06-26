@@ -219,7 +219,7 @@ int pfsec_read_string_reloff(PFSection *section, uint64_t rel, char **outString)
     else if (section->stream) {
         // XXX: This does not work for MachOs that are inside the DSC
         // This code path will never be used for that however, since all DSC MachOs have a raw pointer
-        return memory_stream_read_string(section->stream, section->info.fileoff + rel, outString);
+        return memory_stream_read_string(section->stream, rel, outString);
     }
 
     return -1;
@@ -321,14 +321,9 @@ int pfsec_find_memory_rel(PFSection *section, uint64_t searchStartOffset, uint64
         return raw_buffer_find_memory(rawPtr, searchStartOffset, searchEndOffset, bytes, mask, nbytes, alignment, foundRelOffsetOut);
     }
     else if (section->stream) {
-        uint64_t foundFileoff = 0;
         // XXX: This does not work for MachOs that are inside the DSC
         // This code path will never be used for that however, since all DSC MachOs have a raw pointer
-        int r = memory_stream_find_memory(section->stream, section->info.fileoff + searchStartOffset, section->info.fileoff + searchEndOffset, bytes, mask, nbytes, alignment, &foundFileoff);
-        if (r == 0) {
-            *foundRelOffsetOut = foundFileoff - section->info.fileoff;
-        }
-        return r;
+        return memory_stream_find_memory(section->stream, searchStartOffset, searchEndOffset, bytes, mask, nbytes, alignment, foundRelOffsetOut);
     }
 
     return -1;
