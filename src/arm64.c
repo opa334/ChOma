@@ -531,6 +531,14 @@ int arm64_dec_sub_imm(uint32_t inst, arm64_register *destinationRegOut, arm64_re
   return 0;
 }
 
+uint8_t arm64_str_ldr_type_width(arm64_register_type registerType, char ldrStrType)
+{
+    switch (ldrStrType) {
+        case 'b': return 1;
+        case 'h': return 2;
+        default: return arm64_reg_type_get_width(registerType);
+    }
+}
 
 static int _arm64_gen_str_ldr_imm(uint32_t inst, uint32_t mask, char type, arm64_ldr_str_type instType, arm64_register sourceDestinationReg, arm64_register addrReg, optional_uint64_t optImm, uint32_t *bytesOut, uint32_t *maskOut)
 {
@@ -618,7 +626,7 @@ static int _arm64_gen_str_ldr_imm(uint32_t inst, uint32_t mask, char type, arm64
     }
 
     if (OPT_UINT64_IS_SET(optImm)) {
-        uint64_t imm = OPT_UINT64_GET_VAL(optImm) / arm64_reg_type_get_width(ARM64_REG_GET_TYPE(sourceDestinationReg));
+        uint64_t imm = OPT_UINT64_GET_VAL(optImm) / arm64_str_ldr_type_width(ARM64_REG_GET_TYPE(sourceDestinationReg), type);
         if (imm & ~0xfff) return -1;
         inst |= (imm << 10);
         mask |= (0xfff << 10);
@@ -695,7 +703,7 @@ static int _arm64_dec_str_ldr_imm(uint32_t inst, arm64_register *sourceDestinati
 
     if (immOut) {
         if (isUnsigned) {
-            uint64_t imm = ((inst >> 10) & 0xfff) * arm64_reg_type_get_width(registerType);
+            uint64_t imm = ((inst >> 10) & 0xfff) * arm64_str_ldr_type_width(registerType, instructionType);
             *immOut = imm;
         }
         else {
