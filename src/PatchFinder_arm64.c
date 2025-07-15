@@ -92,14 +92,14 @@ uint64_t pfsec_arm64_resolve_adrp_ldr_str_add_reference_auto(PFSection *section,
 	}
 
 	uint32_t adrpInst = 0, adrpInstMask = 0;
-	arm64_gen_adr_p(OPT_BOOL(true), OPT_UINT64_NONE, OPT_UINT64_NONE, reg, &adrpInst, &adrpInstMask);
+	arm64_gen_adr_p(OPT_BOOL_NONE, OPT_UINT64_NONE, OPT_UINT64_NONE, reg, &adrpInst, &adrpInstMask);
 	uint64_t adrpAddr = pfsec_find_prev_inst(section, ldrStrAddAddr, 100, adrpInst, adrpInstMask);
 	if (!adrpAddr) return 0;
 
 	if (!isAdd) {
 		// For str and ldr, there can be the following sequence:
 
-		// adrp xA, <page>         (adrpAddr)
+		// adr(p) xA, <page>       (adrpAddr)
 		// (0..n) instructions
 		// add xA, xA, <page_off>  (specialCaseAddAddr)
 		// (0..n) instructions
