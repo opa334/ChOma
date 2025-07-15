@@ -178,13 +178,15 @@ int arm64_gen_adr_p(optional_bool optIsAdrp, optional_uint64_t optOrigin, option
             offset = (offset >> 12);
         }
 
-        if ((offset & ~0x7ffff)) {
+        // +- 1MB
+        if (offset > 0x100000 || offset < -0x100000) {
             // Offset too big
             return -1;
         }
 
-        inst |= ((offset & 0x3) << 29);
-        inst |= ((offset & 0x7fffc) << 3);
+        uint64_t unsignedOffset = offset & 0x1FFFFF;
+        inst |= ((unsignedOffset &  0x3) << 29);
+        inst |= ((unsignedOffset & ~0x3) << 3);
     }
 
     if (!ARM64_REG_IS_ANY(reg)) {
@@ -213,11 +215,15 @@ int arm64_dec_adr_p(uint32_t inst, uint64_t origin, uint64_t *targetOut, arm64_r
 
     if (targetOut) {
         uint64_t offset = ((inst >> 29) & 0x3) | ((inst >> 3) & 0x1ffffc);
+        int64_t signedOffset = 0;
         if (isAdrp) {
             offset = (offset << 12);
             origin &= ~ADRP_PAGE_MASK;
+            signedOffset = sxt64(offset, 33);
         }
-        int64_t signedOffset = sxt64(offset, 33);
+        else {
+            signedOffset = sxt64(offset, 21);
+        }
         *targetOut = origin + signedOffset;
     }
 
