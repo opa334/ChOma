@@ -509,8 +509,9 @@ uint64_t macho_get_base_address(MachO *macho)
             struct segment_command_64 *segmentCommand = (struct segment_command_64 *)cmd;
             SEGMENT_COMMAND_64_APPLY_BYTE_ORDER(segmentCommand, LITTLE_TO_HOST_APPLIER);
             if (strncmp(segmentCommand->segname, "__PRELINK", 9) != 0 
-                && strncmp(segmentCommand->segname, "__PLK", 5) != 0) {
-                // PRELINK is before the actual base, so we ignore it
+                && strncmp(segmentCommand->segname, "__PLK", 5) != 0
+                && strncmp(segmentCommand->segname, "__PAGEZERO", 10) != 0) {
+                // PRELINK and PAGEZERO are before the actual base, so we ignore them
                 if (segmentCommand->vmaddr < base) {
                     base = segmentCommand->vmaddr;
                 }
