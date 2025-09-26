@@ -48,24 +48,19 @@ void enumerate_range(uint64_t start, uint64_t end, uint16_t alignment, size_t nb
     if (alignment == 0) return;
     if (nbytes == 0) return;
     if (nbytes % alignment) return;
-    if (nbytes > (end - start)) return;
 
     int dir = start < end ? 1 : -1;
 
-    if (dir == 1) {
-        end -= nbytes;
-        if (start >= end) return;
-    }
-    else {
-        start -= nbytes;
-        if (start <= end) return;
-    }
+    uint64_t absStart = dir == 1 ? start : end;
+    uint64_t absEnd   = dir == 1 ? end : start;
+    uint64_t absSpace = absEnd - absStart;
+    if (alignment > absSpace) return;
+    if (absSpace % alignment) return;
 
-    for (uint64_t cur = start; dir == 1 ? (cur + (alignment * dir)) <= end : (cur + (alignment * dir)) >= end; cur += (dir * alignment)) {
+    uint64_t absSteps = absSpace / alignment;
+    for (uint64_t i = 0; i < absSteps; i++) {
+        uint64_t cur = start + (i * alignment * dir) - (dir == -1 ? alignment : 0);
         if (!enumerator(cur)) break;
-
-        // Extra condition to prevent underflow when we hit 0 and the direction is backwards
-        if (dir == -1 && cur == 0) break;
     }
 }
 

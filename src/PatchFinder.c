@@ -346,6 +346,10 @@ int pfsec_find_memory(PFSection *section, uint64_t searchStartAddr, uint64_t sea
     return r;
 }
 
+// pfsec_find_prev_inst will start searching at the instruction *before* the instruction at startAddr
+// + 0x1000: [first search comparison]
+// + 0x1004: [startAddr]
+
 uint64_t pfsec_find_prev_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask)
 {
     uint64_t out = 0;
@@ -354,6 +358,9 @@ uint64_t pfsec_find_prev_inst(PFSection *section, uint64_t startAddr, uint32_t s
     if (!out) return 0;
     return out;
 }
+
+// pfsec_find_next_inst will start searching at the instruction at startAddr
+// + 0x1000: [startAddr, first search comparison]
 
 uint64_t pfsec_find_next_inst(PFSection *section, uint64_t startAddr, uint32_t searchCount, uint32_t inst, uint32_t mask)
 {

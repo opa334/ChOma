@@ -112,7 +112,7 @@ uint64_t pfsec_arm64_resolve_adrp_ldr_str_add_reference_auto(PFSection *section,
 			uint32_t specialCaseAddInst = 0, specialCaseAddMask = 0;
 			arm64_gen_add_imm(reg, reg, OPT_UINT64_NONE, &specialCaseAddInst, &specialCaseAddMask);
 
-			uint64_t specialCaseAddAddr = pfsec_find_prev_inst(section, ldrStrAddAddr - sizeof(uint32_t), searchCount, specialCaseAddInst, specialCaseAddMask);
+			uint64_t specialCaseAddAddr = pfsec_find_prev_inst(section, ldrStrAddAddr, searchCount, specialCaseAddInst, specialCaseAddMask);
 			if (specialCaseAddAddr) {
 				// In this case, we need to make sure there are no writes in the two "(0..n) instructions" sections
 				if (pfsec_arm64_scan_register_write(section, reg, ldrStrAddAddr, specialCaseAddAddr)) return 0;
