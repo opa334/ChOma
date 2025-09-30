@@ -594,12 +594,13 @@ static int _arm64_gen_str_ldr_imm(uint32_t inst, uint32_t mask, char type, arm64
                 }
                 else if (regType == ARM64_REG_TYPE_W) {
                     size = 0b10;
-                }
-                else if (type == 'h') {
+
+                    if (type == 'h') {
                     size = 0b01;
-                }
-                else if (type == 'b') {
-                    size = 0b00;
+                    }
+                    else if (type == 'b') {
+                        size = 0b00;
+                    }
                 }
             }
             inst |= (size << 30);
