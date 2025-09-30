@@ -70,6 +70,7 @@ const char *arm64_reg_type_get_string(arm64_register_type type);
 const char *arm64_reg_get_type_string(arm64_register reg);
 
 #define ARM64_REG_NUM_SP 31
+#define ARM64_REG_NUM_ZR 31
 
 typedef struct s_arm64_cond {
 	bool isSet;
