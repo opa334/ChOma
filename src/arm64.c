@@ -549,11 +549,10 @@ static int _arm64_gen_str_ldr_imm(uint32_t inst, uint32_t mask, char type, arm64
             mask |= (1 << 26);
             inst |= (1 << 26);
         }
-        else if (ARM64_REG_IS_ANY(sourceDestinationReg)) {
+        else {
             mask |= (1 << 23) | (1 << 26);
             //inst |= (0 << 23) | (0 << 26);
-        }
-        else {
+
             inst |= ARM64_REG_GET_NUM(sourceDestinationReg);
             mask |= 0x1f;
 
@@ -594,17 +593,28 @@ static int _arm64_gen_str_ldr_imm(uint32_t inst, uint32_t mask, char type, arm64
                 }
                 else if (regType == ARM64_REG_TYPE_W) {
                     size = 0b10;
-
-                    if (type == 'h') {
-                    size = 0b01;
-                    }
-                    else if (type == 'b') {
-                        size = 0b00;
-                    }
                 }
             }
             inst |= (size << 30);
+            mask |= (0b11 << 30);
         }
+    }
+
+    if (type != 0) {
+        mask |= (1 << 23) | (1 << 26);
+        //inst |= (0 << 23) | (0 << 26);
+
+        uint8_t size = 0b00;
+        if (type == 'h') {
+            size = 0b01;
+        }
+        else if (type == 'b') {
+            size = 0b00;
+        }
+
+        inst &= ~(0b11 << 30);
+        inst |= (size << 30);
+        mask |= (0b11 << 30);
     }
 
     if (instType != LDR_STR_TYPE_ANY) {
