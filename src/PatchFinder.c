@@ -451,7 +451,14 @@ void _pfsec_run_pattern_metric(PFSection *section, uint64_t startAddr, uint64_t 
         bool stop = false;
         matchBlock(startAddr, &stop);
         if (stop) break;
-        startAddr += alignment;
+
+        if (endAddr >= startAddr) {
+            startAddr += alignment;
+        }
+        else {
+            // When searching backwards, the search will automatically start one instruction before startAddr
+            // Due to that, we do not need to decrement it by anything
+        }
     }
 }
 
