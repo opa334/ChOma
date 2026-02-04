@@ -16,11 +16,12 @@ int macho_read_at_offset(MachO *macho, uint64_t offset, size_t size, void *outBu
     if (macho->containingCache) {
         // When this MachO is inside the DSC, it will have segments that point to "out of macho" memory
         // So, attempt to translate every offset we get
-        // Problem: Translation doesn't work before the segments have been loaded and loading the segments requires this function
-        // Solution: Gracefully fall back to memory_stream_read in the case where translation fails
-        uint64_t vmaddr = 0;
-        if (macho_translate_fileoff_to_vmaddr(macho, offset, &vmaddr, NULL) == 0) {
-            return macho_read_at_vmaddr(macho, vmaddr, size, outBuf);
+        // Except for ones inside the mach header or load commands
+        if (offset > macho_get_mach_header_and_commands_size(macho)) {
+            uint64_t vmaddr = 0;
+            if (macho_translate_fileoff_to_vmaddr(macho, offset, &vmaddr, NULL) == 0) {
+                return macho_read_at_vmaddr(macho, vmaddr, size, outBuf);
+            }
         }
     }
 
@@ -100,6 +101,12 @@ struct mach_header *macho_get_mach_header(MachO *macho)
 size_t macho_get_mach_header_size(MachO *macho)
 {
     return macho->is32Bit ? sizeof(struct mach_header) : sizeof(struct mach_header_64);
+}
+
+size_t macho_get_mach_header_and_commands_size(MachO *macho)
+{
+    size_t machoHeaderSize = macho_get_mach_header_size(macho);
+    return machoHeaderSize + macho->machHeader.sizeofcmds;
 }
 
 DyldSharedCache *macho_get_containing_cache(MachO *macho)
@@ -203,12 +210,19 @@ int macho_enumerate_load_commands(MachO *macho, void (^enumeratorBlock)(struct l
     }
 
     // First load command starts after mach header
-    uint64_t offset = macho_get_mach_header_size(macho);
+    uint64_t headerSize = macho_get_mach_header_size(macho);
+    uint64_t offset = headerSize;
 
     for (int j = 0; j < macho->machHeader.ncmds; j++) {
         struct load_command loadCommand;
         if (macho_read_at_offset(macho, offset, sizeof(loadCommand), &loadCommand) != 0) continue;
         LOAD_COMMAND_APPLY_BYTE_ORDER(&loadCommand, LITTLE_TO_HOST_APPLIER);
+        
+        if ((offset + loadCommand.cmdsize) > (headerSize + macho->machHeader.sizeofcmds)) {
+            printf("Warning: Stopped reading load commands of %p at %#llx, because offset (%#llx) exceeded sizeofcmds (%#x), only read %d load commands instead of %d\n", macho, offset, offset + loadCommand.cmdsize, macho->machHeader.sizeofcmds, j, macho->machHeader.ncmds);
+            if (macho_read_at_offset(macho, offset, sizeof(loadCommand), &loadCommand) != 0) continue;
+            break;
+        }
 
         if (strcmp(load_command_to_string(loadCommand.cmd), "LC_UNKNOWN") == 0)
         {

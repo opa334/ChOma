@@ -51,6 +51,7 @@ MemoryStream *macho_get_stream(MachO *macho);
 uint32_t macho_get_filetype(MachO *macho);
 struct mach_header *macho_get_mach_header(MachO *macho);
 size_t macho_get_mach_header_size(MachO *macho);
+size_t macho_get_mach_header_and_commands_size(MachO *macho);
 DyldSharedCache *macho_get_containing_cache(MachO *macho);
 
 // Perform translation between file offsets and virtual addresses
