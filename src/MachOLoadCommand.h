@@ -19,6 +19,22 @@ struct fileset_entry_command {
 
 #endif
 
+#ifndef LC_ATOM_INFO
+#define LC_ATOM_INFO 0x36 /* used with linkedit_data_command */
+#endif
+
+#ifndef LC_FUNCTION_VARIANTS
+#define LC_FUNCTION_VARIANTS 0x37 /* used with linkedit_data_command */
+#endif
+
+#ifndef LC_FUNCTION_VARIANT_FIXUPS
+#define LC_FUNCTION_VARIANT_FIXUPS 0x38 /* used with linkedit_data_command */
+#endif
+
+#ifndef LC_TARGET_TRIPLE
+#define LC_TARGET_TRIPLE 0x39 /* target triple used to compile */
+#endif
+
 #include "MachO.h"
 #include "FileStream.h"
 #include "MachOByteOrder.h"

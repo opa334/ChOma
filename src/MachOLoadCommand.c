@@ -112,6 +112,14 @@ char *load_command_to_string(int loadCommand) {
             return "LC_DYLD_CHAINED_FIXUPS";
         case LC_FILESET_ENTRY:
             return "LC_FILESET_ENTRY";
+        case LC_ATOM_INFO:
+            return "LC_ATOM_INFO";
+        case LC_FUNCTION_VARIANTS:
+            return "LC_FUNCTION_VARIANTS";
+        case LC_FUNCTION_VARIANT_FIXUPS:
+            return "LC_FUNCTION_VARIANT_FIXUPS";
+        case LC_TARGET_TRIPLE:
+            return "LC_TARGET_TRIPLE";
         default:
             return "LC_UNKNOWN";
     }
