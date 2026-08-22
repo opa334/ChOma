@@ -1,4 +1,4 @@
-CC := clang
+CC ?= clang
 
 CFLAGS ?= -Wall -Werror $(shell pkg-config --cflags libcrypto) -fPIC -Wno-pointer-to-int-cast -Wno-unused-command-line-argument -Wno-deprecated-declarations -framework CoreFoundation
 LDFLAGS ?= 
